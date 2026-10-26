@@ -1,0 +1,53 @@
+# Dependencies and build output (keep package-lock.json tracked)
+node_modules/
+dist/
+out/
+coverage/
+
+# Local Riot UI copies, runtime profiles, probes and proprietary binaries
+.client-integration/
+*.asar
+*.asar.unpacked/
+*.exe
+*.dll
+*.msi
+*.dmp
+user-data/
+private-electron-profile/
+
+# Accounts, encrypted sessions, backups and local bridge credentials
+data.json
+data-*.json
+sessions/
+backups/
+riot-client-bridge.json
+RiotGamesPrivateSettings.yaml
+lockfile
+*.bin
+
+# Secrets and personal environment files
+.env
+.env.*
+!.env.example
+*.key
+*.p12
+*.pfx
+
+# Logs and temporary files
+*.log
+*.log.*
+*.tmp
+*.bak
+*.backup
+
+# Machine-specific assistant configuration and one-off data recovery tools
+.claude/
+.codex/
+scripts/merge-claude-*.js
+scripts/merge-claude-*.bat
+scripts/verify-decrypt/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

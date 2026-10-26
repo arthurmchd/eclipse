@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Demonstração local — seletor de contas</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 70% 20%,#304047,#182029 55%,#11151b);color:#eee;font:15px system-ui,sans-serif}.notice{position:fixed;inset:0 0 auto;background:#5c4316;color:#ffe1a1;padding:12px 24px;font-size:13px;z-index:10}.login{position:absolute;inset:44px auto 0 0;width:380px;padding:80px 40px;background:#f7f6f3;color:#252525}h1{font-size:26px;margin:0 0 32px}.login label{display:grid;gap:6px;font-size:12px;margin:16px 0}.login input{border:0;border-radius:4px;background:#e6e5e2;padding:16px;color:#555;width:100%}.login p{font-size:13px;color:#777;line-height:1.6}.demo-controls{position:absolute;left:420px;bottom:36px;max-width:300px}.demo-controls button{padding:10px;background:#273640;border:1px solid #5b6c77;border-radius:5px;color:#ddd;cursor:pointer}.demo-controls p{font-size:13px;color:#acb7bf}
+  </style>
+</head>
+<body>
+  <div class="notice">DEMONSTRAÇÃO LOCAL — dados fictícios, sem login e sem conexão com a Riot.</div>
+  <section class="login login-form" id="demo-login" data-testid="login-form">
+    <h1>Tela de login de exemplo</h1>
+    <label>Usuário<input name="username" placeholder="Sua conta Riot" readonly></label>
+    <label>Senha<input name="password" type="password" placeholder="••••••••" readonly></label>
+    <p>O painel à direita é o protótipo do seletor. Esta tela não reproduz o cliente oficial e não envia credenciais.</p>
+  </section>
+  <div class="demo-controls"><button id="toggle-login">Alternar login / autenticado</button><p>O seletor desaparece quando o formulário de login deixa de estar visível.</p></div>
+  <script>
+    (() => {
+      let operation = null;
+      const accounts = [
+        {id:'demo-one',gameName:'Conta de exemplo',tagLine:'BR1',hasPassword:true,hasSession:true},
+        {id:'demo-two',gameName:'Outra conta',tagLine:'BR2',hasPassword:true,hasSession:false},
+        {id:'demo-three',gameName:'Sem senha salva',tagLine:'BR3',hasPassword:false,hasSession:false}
+      ];
+      window.riotAccountManager = Object.freeze({
+        state:async()=>({ok:true,accounts,operation}),
+        signIn:async(accountId,game)=>{
+          const id='demo-'+Date.now();operation={id,accountId,game,status:'running',text:'Simulando login em segundo plano…'};
+          setTimeout(()=>{if(operation?.id===id&&operation.status==='running')operation={...operation,status:'succeeded',text:'Simulação concluída'};},3500);
+          return {ok:true,operationId:id};
+        },
+        cancel:async()=>{if(operation)operation={...operation,status:'cancelled',text:'Simulação cancelada'};return{ok:true};},
+        openManager:async()=>{window.alert('Demonstração: aqui o gerenciador abriria.');return{ok:true};}
+      });
+      document.getElementById('toggle-login').addEventListener('click',()=>{const form=document.getElementById('demo-login');form.hidden=!form.hidden;});
+    })();
+  </script>
+  <script src="addon-renderer.js"></script>
+</body>
+</html>

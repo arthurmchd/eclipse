@@ -1,0 +1,24 @@
+{
+  "name": "riot-account-manager",
+  "version": "1.0.0",
+  "description": "Account switcher for League of Legends, TFT and VALORANT",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "preview": "node scripts/preview-server.js",
+    "preview:riot-login": "electron scripts/preview-riot-integration.js",
+    "integration:prepare": "node scripts/prepare-riot-integration.js",
+    "integration:prepare-private": "node scripts/prepare-private-riot-host.js",
+    "integration:probe-private": "electron scripts/probe-private-riot-host.js"
+  },
+  "devDependencies": {
+    "electron": "44.9.3"
+  },
+  "dependencies": {
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/teko": "^5.3.0"
+  }
+}
