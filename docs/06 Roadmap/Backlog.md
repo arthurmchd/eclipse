@@ -26,6 +26,11 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 12. **`hostEntry` sem `return` após `app.exit(1)`.** Sem o argumento do pipe, a linha seguinte ainda roda com `flag` indefinido ([[hostEntry]]).
 13. **Validação central das mensagens IPC.** Validar formato de conta, tipos de configuração e campos de `account:patch` no main ([[preload]], [[main]]).
 
+## Investigar
+
+- **Validar o [[riotInterface]] numa instalação real** e registrar qual caminho funciona (`show` ou reinício com interface).
+- **"The background window guard did not respond".** Apareceu no `sign-in.log` real em duas tentativas de 26/10 (11:33 e 18:40, horário local), logo depois de digitar as credenciais. Investigar o prazo de comandos do [[windowController]] durante o preenchimento nativo.
+
 ## Estrutura
 
 14. **Dividir `src/main/index.js`** (≈390 linhas) em `window`, `tray`, `ipc`, `rankScheduler` e `riotLogin`. Exige reescrever o harness de `test/main/mainStartup.test.js`, que hoje executa um arquivo só dentro de um `vm` e falha com qualquer `require` novo.

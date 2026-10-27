@@ -17,6 +17,17 @@ Primeiro passo sempre: botão **Data folder** e abra `sign-in.log` (login) ou `d
 
 2FA, CAPTCHA, termos ou atualização. Clique em **Show Riot Client**: ele abre a janela que contém o desafio. O app não repete a senha sozinho ([[ADR-003 Sem contornar CAPTCHA ou 2FA]]).
 
+## "The Riot Client window did not open"
+
+O login direto pela API pediu o formulário nativo (normalmente por CAPTCHA antes da senha), e a interface oficial do Riot não apareceu. Até 2026-10-26 isso acontecia sempre que os serviços estavam em `--headless`; o [[riotInterface]] corrige. Se voltar a acontecer, procure no `sign-in.log` a linha logo antes do erro:
+
+- "opened the Riot interface through the background service": a interface abriu, mas o formulário não foi encontrado; veja [[login.ps1]].
+- "restarting it with the interface" seguido de erro: os serviços não reiniciaram com interface; anote o horário e veja os logs do Riot em `%LOCALAPPDATA%\Riot Games\Riot Client\Logs`.
+
+## O `sign-in.log` parece parado
+
+Ferramentas rodando dentro de um app empacotado do Windows (como o Claude Desktop) podem ver uma **cópia antiga** de `%APPDATA%\riot-account-manager\`. O Windows redireciona essa pasta para `%LOCALAPPDATA%\Packages\<app>\LocalCache\Roaming\`. O app de contas, aberto pelo `.bat`, grava no arquivo real. Para ler o arquivo real de dentro dessas ferramentas, use `\\localhost\C$\Users\<usuário>\AppData\Roaming\riot-account-manager\sign-in.log`. No Explorer comum, o botão **Data folder** já mostra o arquivo certo.
+
 ## "The game did not open"
 
 O login funcionou, mas nenhuma janela visível do jogo apareceu. Normalmente o jogo precisa de atualização: abra o Riot Client e confira.

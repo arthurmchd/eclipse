@@ -169,7 +169,7 @@ function createSignInFlow(io) {
           const lines = await typeCredentials({
             action: 'type', username: account.username, password: account.password,
             hide, remember: true, submit: !dryRun,
-          }, signal);
+          }, signal, log);
           log(`credentials entered (${lines.filter((line) => line.startsWith('remember:')).join(', ') || 'remember state unavailable'})`);
         } else {
           log('sign-in requested through the Riot background service');

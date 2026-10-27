@@ -27,6 +27,12 @@ App Electron para Windows que gerencia várias contas Riot, faz login pelo servi
 - `npm test` antes de declarar qualquer mudança pronta.
 - `npm run preview` para ver a interface no navegador com dados fictícios (porta 5178).
 
+## Diagnóstico
+
+- O primeiro lugar para entender uma falha de login é o `sign-in.log` real do usuário.
+- Se você roda dentro do Claude Desktop (app empacotado), `%APPDATA%\riot-account-manager\` pode mostrar uma cópia antiga redirecionada para `LocalCache`. Leia o arquivo real por `\\localhost\C$\Users\<usuário>\AppData\Roaming\riot-account-manager\sign-in.log`. Só leitura.
+- Logs da interface privada: `.client-integration/private-v1/logs/`.
+
 ## Limites
 
 - Nunca escreva na instalação do Riot (`C:\Riot Games\`) nem em `%APPDATA%\riot-account-manager\` (dados reais do usuário).

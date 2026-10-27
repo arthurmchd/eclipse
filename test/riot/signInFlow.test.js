@@ -344,6 +344,22 @@ test('a CAPTCHA required before any credential submission uses the native hidden
   assert.ok(f.statuses.some((status) => status.nativeClient === true && !status.needsAttention));
 });
 
+test('the native hidden form reports how the Riot interface was opened to the sign-in log', async () => {
+  const f = directFixture();
+  const logs = [];
+  f.options.log = (line) => logs.push(line);
+  f.io.authenticate = async () => ({ supported: true, requiresNativeForm: true, reason: 'captcha' });
+  f.io.typeCredentials = async (request, signal, log) => {
+    assert.equal(signal, f.options.signal);
+    log('started the Riot Client with its interface');
+    f.state.authorized = true;
+    return ['remember:on'];
+  };
+  const result = await f.run();
+  assert.equal(result.gameStarted, true);
+  assert.ok(logs.includes('started the Riot Client with its interface'));
+});
+
 test('manual verification after native credential entry identifies the original challenge window', async () => {
   const f = directFixture();
   let typed = false;

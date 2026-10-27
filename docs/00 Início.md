@@ -26,7 +26,7 @@ Este vault é o cérebro do projeto. O código não tem comentários: o **porqu�
 | Camada | Notas |
 |---|---|
 | Aplicação | [[main]] · [[preload]] · [[paths]] · [[store]] · [[signInService]] · [[rankApi]] |
-| Riot | [[riotClient]] · [[signInFlow]] · [[riotAuthentication]] · [[riotTransport]] · [[riotProcess]] |
+| Riot | [[riotClient]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotTransport]] · [[riotProcess]] |
 | Windows | [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[windowsDpapi]] |
 | Integração | [[privateClient]] · [[hostEntry]] · [[privateHost]] · [[privateHostCore]] · [[privateRendererCore]] · [[addons]] · [[bridgeServer]] · [[bootstrapChannel]] · [[backend]] · [[asar]] · [[status]] · [[Scripts de integração]] |
 | Interface | [[renderer]] |

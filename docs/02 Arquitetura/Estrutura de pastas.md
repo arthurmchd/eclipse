@@ -26,6 +26,7 @@ riot-account-manager/
 │   │   ├── riotClient.js
 │   │   ├── signInFlow.js
 │   │   ├── riotAuthentication.js
+│   │   ├── riotInterface.js
 │   │   ├── riotTransport.js
 │   │   └── riotProcess.js
 │   ├── platform/windows/               específico do Windows

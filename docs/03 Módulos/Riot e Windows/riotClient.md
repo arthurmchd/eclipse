@@ -72,11 +72,11 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 - Sucesso exige código 0 e última linha `ok`. Resolve com todas as linhas.
 - Traduz `error:window-not-found`, `error:form-not-ready` e `error:focus`. O resto vira "Riot Client window script failed: <última linha>".
 
-### `typeCredentials(request, signal)` (entregue ao signInFlow)
+### `typeCredentials(request, signal, log)` (entregue ao signInFlow)
 
-- Checa cancelamento antes de cada passo.
-- Sem janela do cliente, chama `launchClient` com `visible: !request.hide` e `interfaceRequired: true`.
-- Depois roda `runWindowScript(request, () => {}, signal)`.
+- Garante a janela da interface com `openInterface` ([[riotInterface]]): reaproveita a janela existente, pede `show` aos serviços headless ou os reinicia com interface, oculta se `request.hide`.
+- Checa cancelamento e roda `runWindowScript(request, () => {}, signal)`.
+- O caminho usado vai para o `sign-in.log` pelo `log`.
 
 ### `requestLaunch(game, log)`
 
@@ -95,6 +95,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 - **`/rso-auth/v1/authorization` indica a conexão.** Responde 404 com o cliente desconectado e 200 com uma conta Riot conectada.
 - **Fechar com pedido de saída primeiro.** Um cliente conectado recebe `quit` antes do `taskkill`, para gravar no disco a sessão mais recente. O YAML é lido só depois.
 - **Rota de digitação é só compatibilidade.** `typeCredentials` só roda quando a API de login direto não está disponível (ou exige o formulário nativo). O monitor já está armado. Se uma janela do cliente já existe, não abre outra.
+- **Serviços headless não abrem interface sozinhos.** Até 2026-10-26, `typeCredentials` chamava `RiotClientServices.exe` de novo para abrir a interface. Com os serviços já em `--headless`, isso não abria janela nenhuma e o login falhava com "The Riot Client window did not open". A abertura agora é responsabilidade do [[riotInterface]].
 - **`requestLaunch` registra o motivo de recusa.** Por exemplo, quando o jogo ainda precisa de atualização. Quem decide o sucesso é o [[signInFlow]], pela janela do jogo.
 - **`launchProduct` nunca inclui um jogo.** O argumento `game` é ignorado. O jogo só é pedido depois da verificação, por `requestLaunch`.
 - **`login.ps1` fora do `app.asar`.** O caminho vem de `windowsHelper` ([[paths]]), que troca `app.asar` por `app.asar.unpacked`. O PowerShell não lê arquivos de dentro do asar.

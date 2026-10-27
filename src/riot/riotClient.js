@@ -6,6 +6,7 @@ const { createSignInFlow } = require('./signInFlow');
 const { localAppDataForRiot } = require('../platform/windows/windowsEnvironment');
 const { createRiotTransport } = require('./riotTransport');
 const { launchClient } = require('./riotProcess');
+const { createInterfaceOpener } = require('./riotInterface');
 const { createRiotAuthentication } = require('./riotAuthentication');
 const { windowsHelper } = require('../paths');
 const windows = createWindowController();
@@ -255,6 +256,11 @@ async function requestLaunch(game, log) {
   log(`launch request: HTTP ${r.status} ${JSON.stringify(r.json).slice(0, 300)}`);
 }
 
+const openInterface = createInterfaceOpener({
+  runningGames, localApi, launchClient, waitFor,
+  stopClient: () => taskkill(CLIENT_PROCESSES),
+});
+
 const signIn = createSignInFlow({
   detectClientPath: (override) => {
     const exe = detectClientPath(override);
@@ -265,12 +271,8 @@ const signIn = createSignInFlow({
   readAuthenticationState: authentication.sessionState,
   isAuthorized, activeRiotId, localApi, launchProduct, requestLaunch,
   authenticate: authentication.authenticate,
-  typeCredentials: async (request, signal) => {
-    if (signal?.aborted) throw new Error('Sign-in cancelled');
-    if (!(await runningGames()).clientWindow) {
-      if (signal?.aborted) throw new Error('Sign-in cancelled');
-      await launchClient(selectedClientPath || detectClientPath(), { visible: !request.hide, interfaceRequired: true });
-    }
+  typeCredentials: async (request, signal, log) => {
+    await openInterface({ exe: selectedClientPath || detectClientPath(), visible: !request.hide, signal, log });
     if (signal?.aborted) throw new Error('Sign-in cancelled');
     return runWindowScript(request, () => {}, signal).promise;
   },

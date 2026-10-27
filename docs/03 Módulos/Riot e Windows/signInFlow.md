@@ -73,7 +73,7 @@ flowchart TD
 6. **Reinício `--headless`.** `launchProduct(exe)` sem jogo. Espera até 45 s por um estado de sessão. Senão: "The Riot Client did not start".
 7. **Confere a sessão restaurada.** Espera `isAuthorized` por 15 s. Com 2FA ou CAPTCHA pendente, espera o usuário por até 180 s; o tempo esgotado é erro, sem digitar a senha. Riot ID diferente: `DELETE /rso-auth/v1/session`, espera desconectar (15 s) e marca `sessionRejected`. Sem autorização: `sessionRejected`. Nos dois casos segue para a etapa 8. Riot ID igual: `usedSavedSession` e pula para a etapa 11.
 8. **Login direto pela API.** `authenticate(account, signal)`. `supported` precisa ser booleano; senão, erro "invalid response". Com `needsAttention`, avisa 2FA ou verificação de segurança.
-9. **Fallback para a interface nativa escondida.** Se `supported` é `false` ou `requiresNativeForm` é `true`. Com `hide` e `authenticate`, troca para `windows.hide()` e chama `typeCredentials` com `remember: true` e `submit: !dryRun`. Registra o estado `remember:` devolvido.
+9. **Fallback para a interface nativa escondida.** Se `supported` é `false` ou `requiresNativeForm` é `true`. Com `hide` e `authenticate`, troca para `windows.hide()` e chama `typeCredentials(request, signal, log)` com `remember: true` e `submit: !dryRun`. O `log` permite registrar como a interface foi aberta ([[riotInterface]]). Registra o estado `remember:` devolvido.
 10. **Espera autorização.** Até 180 s. Senão: "Sign-in timed out".
 11. **2FA/CAPTCHA pós-autorização.** Se `authState()` ainda mostra etapa humana, espera mais 180 s.
 12. **Verifica a conta.** Com `hide`, `windows.conceal()` de novo. Lê o Riot ID (8 s). Ausente ou diferente da conta: erro.
