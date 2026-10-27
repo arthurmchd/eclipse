@@ -41,7 +41,8 @@ lockfile
 *.backup
 
 # Machine-specific assistant configuration and one-off data recovery tools
-.claude/
+.claude/*
+!.claude/agents/
 .codex/
 scripts/merge-claude-*.js
 scripts/merge-claude-*.bat
@@ -51,3 +52,9 @@ scripts/verify-decrypt/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Obsidian workspace state (the vault itself is versioned)
+docs/.obsidian/workspace*.json
+docs/.obsidian/cache
+docs/.obsidian/plugins/
+docs/.trash/
