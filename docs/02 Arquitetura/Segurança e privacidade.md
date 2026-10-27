@@ -50,7 +50,8 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 ### Autenticação honesta
 - Não há tentativa de contornar CAPTCHA ou 2FA ([[ADR-003 Sem contornar CAPTCHA ou 2FA]]).
 - Uma tela de verificação desconhecida nunca recebe senha automática.
-- Nada de reenvio de senha após falha de senha, rede, limite ou CAPTCHA pós-submissão.
+- Nada de reenvio de senha após falha de senha, rede, limite, rota indisponível ou CAPTCHA pós-submissão ([[riotAuthentication]]).
+- Estado desconhecido da sessão do jogador conta como verificação pendente, nunca como autenticado ([[riotAuthentication]]).
 - O jogo só é pedido depois de confirmar o Riot ID ([[signInFlow]]).
 
 ### Área de transferência

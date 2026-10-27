@@ -82,15 +82,26 @@ test('cancelling immediately after reset prevents creating a context or submitti
   assert.deepEqual(f.calls.map((call) => call.slice(0, 2)), [['GET', AUTH], ['DELETE', AUTH]]);
 });
 
-test('unavailable routes permit the UI fallback without retrying authentication', async () => {
+test('unavailable routes before submission permit the UI fallback without retrying authentication', async () => {
   for (const status of [404, 405, 501]) {
     const before = status === 404 ? [response(null, status), response(null, status), response(null, status)] : [response(null, status)];
     const f = fixture(before);
     assert.deepEqual(await f.authenticate(account), { supported: false });
     assert.equal(f.calls.some((call) => call[1] === COMPLETE), false);
-    const after = fixture([response(auth), response(null, status)]);
-    assert.deepEqual(await after.authenticate(account), { supported: false });
-    assert.equal(after.calls.filter((call) => call[1] === COMPLETE).length, 1);
+  }
+});
+
+test('an unavailable route after the password was submitted fails instead of allowing a second submission', async () => {
+  for (const status of [404, 405, 501]) {
+    for (const body of [null, { error: 'unexpected_server_detail' }]) {
+      const after = fixture([response(auth), response(body, status)]);
+      await assert.rejects(after.authenticate(account), (error) => {
+        assert.match(error.message, /Riot could not complete sign-in\. Open Riot Client to continue/);
+        assert.equal(error.message.includes(account.password), false);
+        return true;
+      });
+      assert.equal(after.calls.filter((call) => call[1] === COMPLETE).length, 1);
+    }
   }
 });
 
@@ -208,6 +219,27 @@ test('initializing and pending product context remain eligible for the later ver
   for (const loginState of ['Initializing', 'PendingProductContext']) {
     const f = fixture([response({ type: 'success' }), response({ loginState })]);
     assert.deepEqual(await f.sessionState(), { type: 'authenticated' });
+  }
+});
+
+test('authorized and automatic Riot player-session steps do not ask for attention', async () => {
+  for (const loginState of ['Authorized', 'PendingProductContextInitialization', 'PendingInitialization', 'RestoreAuthorization', 'RefreshAuthorization', 'LoginTokenExchange', 'PendingEulaData', 'PendingUserInfoData', 'PendingLoginQueue', 'PendingGameSession']) {
+    const f = fixture([response({ type: 'success' }), response({ loginState })]);
+    assert.deepEqual(await f.sessionState(), { type: 'authenticated' }, loginState);
+  }
+});
+
+test('restriction, consent and account choice player-session states block the launch', async () => {
+  for (const loginState of ['SignupAgeRestricted', 'ConfirmedAgeTooYoung', 'PlatformAgeRestricted', 'ProductAgeRestricted', 'GamePlayRestricted', 'PendingParentalEmail', 'MultifactorChallengeDenied', 'PendingUsernameChangedConfirmation', 'PendingRecoverableAccount', 'ReauthenticationRequired', 'PendingCreateAccountStrategy', 'PendingSignup', 'PendingPlatformAuthorizationConsent', 'PendingProviderCredentials', 'PendingPlatformUser', 'PendingAuthIntent', 'PendingLoginStrategy', 'PendingSignInStrategy', 'KeyPairError']) {
+    const f = fixture([response({ type: 'success' }), response({ loginState })]);
+    assert.deepEqual(await f.sessionState(), { type: 'challenge' }, loginState);
+  }
+});
+
+test('an unknown player-session state fails closed as a verification step', async () => {
+  for (const loginState of ['PendingFutureVerification', 'SomethingNew', account.password]) {
+    const f = fixture([response({ type: 'success' }), response({ loginState })]);
+    assert.deepEqual(await f.sessionState(), { type: 'challenge' });
   }
 });
 

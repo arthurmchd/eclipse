@@ -15,8 +15,9 @@ Leia antes: `docs/05 Guias/Atualização do Riot Client.md`, `docs/03 Módulos/I
    - `ORIGINAL_PROTOCOL_BOOTSTRAP`, `ORIGINAL_PROTOCOL_BOOTSTRAP_142` e `UNSAFE_STARTUP_LOG` em `privateHostCore.js`
    - `HOOK_START`, `HOOK_END`, `AUTH_SUBSCRIPTION`, `ORIGINAL_INITIALIZE`, `ORIGINAL_EFFECTS` em `privateRendererCore.js`
    - os seletores do formulário de login em `src/integration/addon/addon-renderer.js`
-3. Para cada âncora, informe: encontrada uma vez, várias vezes ou ausente. Se ausente, mostre o trecho equivalente mais provável da versão nova (no máximo algumas linhas).
-4. Leia `.client-integration/private-v1/manifest.json` e diga se a fonte registrada (tamanho e SHA-256) ainda bate com a instalação.
+3. Extraia, só lendo, os nomes da enumeração `PlayerSessionStateType` de `C:\Riot Games\Riot Client\RiotGamesApi.dll` (por exemplo, `grep -a -o` em volta de `PendingProductContextInitialization`). Compare com `NON_BLOCKING_SESSION_STATES` em `src/riot/riotAuthentication.js` e com as listas dos testes em `test/riot/riotAuthentication.test.js`. Liste os estados novos e diga se cada um parece automático (carregamento de dados, fila, renovação) ou exige uma pessoa (consentimento, restrição, escolha). Na dúvida, ele deve continuar bloqueando.
+4. Para cada âncora, informe: encontrada uma vez, várias vezes ou ausente. Se ausente, mostre o trecho equivalente mais provável da versão nova (no máximo algumas linhas).
+5. Leia `.client-integration/private-v1/manifest.json` e diga se a fonte registrada (tamanho e SHA-256) ainda bate com a instalação.
 
 ## Proibido
 
@@ -26,4 +27,4 @@ Leia antes: `docs/05 Guias/Atualização do Riot Client.md`, `docs/03 Módulos/I
 
 ## Saída
 
-Uma tabela de âncoras com o status, a versão encontrada, se a cópia preparada ainda vale, e a lista de mudanças propostas (arquivo, constante, valor novo) para alguém aplicar com testes.
+Uma tabela de âncoras com o status, a versão encontrada, se a cópia preparada ainda vale, os estados novos da sessão do jogador com a classificação sugerida, e a lista de mudanças propostas (arquivo, constante, valor novo) para alguém aplicar com testes.

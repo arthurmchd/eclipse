@@ -51,7 +51,8 @@ sequenceDiagram
 ## Regras que não podem quebrar
 
 - Nunca pedir um jogo antes de confirmar o Riot ID ([[signInFlow]]).
-- Nunca reenviar a senha depois de falha de senha, rede, limite de tentativas ou CAPTCHA pós-submissão ([[riotAuthentication]]).
+- Nunca reenviar a senha depois de falha de senha, rede, limite de tentativas, rota indisponível ou CAPTCHA pós-submissão ([[riotAuthentication]]).
+- Nunca tratar um estado desconhecido da sessão do jogador como autenticado ([[riotAuthentication]]).
 - Nunca digitar credenciais sobre um desafio pendente, mesmo que ele expire.
 - Nunca associar uma sessão de identidade desconhecida à conta anterior ([[main]], função `saveLeavingSession`).
 - Erros comuns não podem revelar a tela de login sozinhos.

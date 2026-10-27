@@ -8,10 +8,9 @@ tags: [backlog]
 
 Ordenado por prioridade. Use o template [[Tarefa]] para detalhar um item antes de começar. Todos os itens abaixo foram conferidos no código em 2026-10-26, durante a documentação dos módulos. Eles já existiam antes da reorganização.
 
-## Segurança do login (prioridade máxima)
+## Segurança do login
 
-1. **Senha pode ser enviada duas vezes.** Em `src/riot/riotAuthentication.js`, depois do `POST .../complete` (senha já enviada), uma resposta 404/405/501 devolve `{ supported: false }`. O [[signInFlow]] interpreta isso como "API indisponível" e digita a senha no formulário nativo. Quebra a regra "nunca reenviar a senha" ([[ADR-003 Sem contornar CAPTCHA ou 2FA]]). Correção: depois do envio, rota indisponível deve virar erro/intervenção, nunca `supported: false`. O teste "unavailable routes" precisa mudar junto.
-2. **`loginState` desconhecido passa como autenticado.** Em `sessionState` ([[riotAuthentication]]), só `pendingmultifactor` e `HUMAN_SESSION_STEPS` bloqueiam; qualquer estado novo da Riot libera a abertura do jogo. Correção: lista de estados permitidos (falhar fechado), com teste para um estado inventado.
+Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo) foram resolvidos em 2026-10-26. Ver [[Changelog]] e [[riotAuthentication]].
 
 ## Correções
 

@@ -5,10 +5,16 @@ const LEGACY_SESSION = '/rso-auth/v1/session';
 const PLAYER_SESSION = '/player-session-lifecycle/v1/session';
 const UNSUPPORTED = new Set([404, 405, 501]);
 const HUMAN_STEPS = new Set(['challenge', 'captcha', 'healup', 'confirm_age', 'kr-id-verification', 'ambiguous_auth', 'ambiguous_username']);
-const HUMAN_SESSION_STEPS = new Set([
-  'pendingconsent', 'pendingeulaacceptance', 'pendingforget', 'pendingageverification',
-  'pendinghealup', 'pendingkridverification', 'pendingdisambiguation', 'pendingriotid',
-  'pendinglolregionselection', 'pendingvngprofile', 'error',
+const NON_BLOCKING_SESSION_STATES = new Set([
+  'authorized', 'initializing', 'pendingproductcontext', 'pendingproductcontextinitialization',
+  'pendinginitialization', 'pendingclientconfigdata', 'pendingclientid', 'migrateauthorization',
+  'pendingpersistenceinitialization', 'restoreauthorization', 'pendingcreateauthorization',
+  'pendingauthintentdata', 'pendingloginstrategydata', 'pendingauthentication', 'logintokenexchange',
+  'refreshauthorization', 'pendingeuladata', 'pendinggamepassstatus', 'pendingriotiddata',
+  'pendingvngprofiledata', 'pendinglolregionselectiondata', 'pendingproductlaunchrestrictiondata',
+  'pendingproductagerestrictiondata', 'pendingaccountentitlementdata', 'pendinguserinfodata',
+  'pendingpersistentflagsdata', 'pendingaffinitydata', 'pendingloginqueuedata',
+  'pendingloginqueuebypass', 'pendingloginqueue', 'pendinggamesession',
 ]);
 const SAFE_ERRORS = new Map([
   ['auth_failure', 'auth_failure'], ['invalid_credentials', 'auth_failure'], ['bad_credentials', 'auth_failure'],
@@ -111,7 +117,7 @@ function createRiotAuthentication({ request } = {}) {
     if (!validObject(playerSession.json) || typeof playerSession.json.loginState !== 'string' || !playerSession.json.loginState) throw new Error('The Riot authentication service returned an invalid response');
     const loginState = playerSession.json.loginState.toLowerCase();
     if (loginState === 'pendingmultifactor') return { type: 'multifactor' };
-    if (HUMAN_SESSION_STEPS.has(loginState)) return { type: 'challenge' };
+    if (!NON_BLOCKING_SESSION_STATES.has(loginState)) return { type: 'challenge' };
     return state;
   }
 
@@ -162,7 +168,6 @@ function createRiotAuthentication({ request } = {}) {
       username: account.username, password: account.password, remember: true,
       language: 'en_US', captcha: '',
     }, signal, 30000);
-    if (UNSUPPORTED.has(completed.status)) return { supported: false };
     const result = successfulState(completed, { allowEmpty: true });
     if (result) {
       const challenge = attention(result);

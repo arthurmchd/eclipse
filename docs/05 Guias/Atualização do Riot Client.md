@@ -22,6 +22,9 @@ O modo login integrado só aceita versões da interface do Riot validadas (hoje 
 | Hook do formulário e MFA | `HOOK_START`, `HOOK_END`, `ORIGINAL_INITIALIZE`, `ORIGINAL_EFFECTS` em [[privateRendererCore]] | Nomes minificados mudam a cada build |
 | Seletores do formulário | `addon-renderer.js` ([[addons]]) | O painel procura o `LoginForm` |
 | Posições do preenchimento nativo | `login.ps1` ([[login.ps1]]) | Frações medidas na v141 |
+| Estados da sessão do jogador | `NON_BLOCKING_SESSION_STATES` em [[riotAuthentication]] | Estado automático novo fica bloqueado até entrar na lista. Compare com a enumeração `PlayerSessionStateType` em `C:\Riot Games\Riot Client\RiotGamesApi.dll` (só leitura) |
+
+Este último vale também para o gerenciador normal, não só para o login integrado: os serviços do Riot (`RiotGamesApi.dll`) atualizam junto com a interface.
 
 ## Passo a passo
 

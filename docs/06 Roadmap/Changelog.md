@@ -7,6 +7,12 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-10-26 · Segurança do login
+
+- **Sem segundo envio de senha.** Uma resposta 404/405/501 ao `complete` (senha já enviada) agora é erro, em vez de `{ supported: false }`, que levava o [[signInFlow]] a digitar a senha de novo no formulário nativo ([[riotAuthentication]]).
+- **Sessão do jogador falha fechada.** `sessionState` troca a lista de bloqueios por uma lista de estados permitidos (`NON_BLOCKING_SESSION_STATES`). Estados desconhecidos e 19 estados de bloqueio que o projeto não conhecia (restrições de idade e de jogo, e-mail dos pais, 2FA negado, escolhas de conta e plataforma…) agora exigem intervenção em vez de liberar o jogo. Lista tirada da enumeração `PlayerSessionStateType` do Riot 142.
+- 4 testes novos; 234 passando.
+
 ## 2026-10-26 · Reorganização profissional
 
 - Código movido para `src/{main,core,riot,platform/windows,integration,renderer}`, scripts para `scripts/{dev,integration,legacy}`, testes espelhando `src/` ([[ADR-006 Estrutura de pastas por camada]], [[Estrutura de pastas]]).
