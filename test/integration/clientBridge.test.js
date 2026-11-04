@@ -5,6 +5,44 @@ const http = require('node:http');
 const test = require('node:test');
 const { createClientBridge } = require('../../src/integration/bridgeServer');
 
+test('full management uses authenticated local commands with its own bounded payload', async (t) => {
+  const commands = [];
+  const f = await fixture(t, { manage: (method, args) => { commands.push([method, args]); return { saved: true }; } });
+  const body = JSON.stringify({ method: 'saveAccount', args: [{ note: 'x'.repeat(5000) }] });
+  const response = await f.request({ url: '/v1/manage', method: 'POST', body });
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.data, { ok: true, value: { saved: true } });
+  assert.equal(commands[0][0], 'saveAccount');
+  for (const options of [{ authenticated: false }, { headers: { Origin: 'null' } }, { headers: { Host: 'attacker.example' } }]) {
+    const denied = await f.request({ url: '/v1/manage', method: 'POST', body, ...options });
+    assert.ok([401, 403].includes(denied.status));
+  }
+  assert.equal(commands.length, 1);
+  for (const chunked of [false, true]) {
+    assert.equal((await f.request({ url: '/v1/manage', method: 'POST', body: 'x'.repeat(32769), chunked })).status, 413);
+  }
+});
+
+test('management rejects malformed envelopes and hides unexpected service failures', async (t) => {
+  const f = await fixture(t, { manage: () => { throw new Error('fixture-private-password'); } });
+  for (const input of [{ method: 'init' }, { method: 'init', args: [], extra: true }, { method: 123, args: [] }, { method: 'init', args: {} }]) {
+    assert.equal((await f.request({ url: '/v1/manage', method: 'POST', body: JSON.stringify(input) })).status, 400);
+  }
+  const response = await f.request({ url: '/v1/manage', method: 'POST', body: JSON.stringify({ method: 'init', args: [] }) });
+  assert.equal(response.status, 503);
+  assert.equal(response.raw.includes('fixture-private-password'), false);
+});
+
+test('management is unavailable without its service and rejects oversized responses', async (t) => {
+  const body = JSON.stringify({ method: 'init', args: [] });
+  const unavailable = await fixture(t);
+  assert.equal((await unavailable.request({ url: '/v1/manage', method: 'POST', body })).status, 503);
+  const oversized = await fixture(t, { manage: () => ({ data: 'x'.repeat(1024 * 1024) }) });
+  const response = await oversized.request({ url: '/v1/manage', method: 'POST', body });
+  assert.equal(response.status, 503);
+  assert.ok(response.raw.length < 256);
+});
+
 async function fixture(t, overrides = {}) {
   const directory = fs.mkdtempSync(path.join(__dirname, 'client-bridge-test-'));
   let plainToken;

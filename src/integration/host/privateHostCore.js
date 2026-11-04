@@ -176,6 +176,7 @@ function validateHostRequest(request, { workspaceRoot = DEFAULT_WORKSPACE } = {}
       if (!metadata || metadata.size !== contents.length || metadata.sha256 !== crypto.createHash('sha256').update(contents).digest('hex') || !contents.includes(Buffer.from('RAM_LOGIN_INTEGRATION_V1'))) throw new Error('Private UI addon verification failed');
     }
     const main = candidate.readFile('dist/main/main.js', 20 * 1024 * 1024).toString('utf8');
+    if (manifest.behavior?.fullManagerInClient !== true || !main.includes('riot-account-manager.manager-request.v1')) throw new Error('Private UI account management addon is missing; prepare the updated copy');
     if (!main.includes(PRIVATE_LOG_GUARD_MARKER) || hasUnsafeStartupLog(main)) throw new Error('Private UI logging guard is missing');
     if (!main.includes(PRIVATE_COMPATIBILITY_MARKER) || main.includes(ORIGINAL_PROTOCOL_BOOTSTRAP) || main.includes(ORIGINAL_PROTOCOL_BOOTSTRAP_142)) throw new Error('Private UI runtime compatibility guard is missing');
   } finally { source?.close(); candidate?.close(); }

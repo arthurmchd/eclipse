@@ -235,7 +235,7 @@ async function openClient(clientPath) {
   if (!exe) throw new Error('Riot Client not found. Set its path in Settings');
   selectedClientPath = exe;
   await windows.reveal();
-  if (!(await runningGames()).clientWindow) await launchProduct(exe, null, true);
+  if (!(await runningGames()).clientWindow) await openInterface({ exe, visible: true });
 }
 
 async function ensureBackgroundClient(clientPath) {
@@ -254,6 +254,8 @@ async function requestLaunch(game, log) {
   if (eligibility) log(`launch eligibility: HTTP ${eligibility.status} ${JSON.stringify(eligibility.json).slice(0, 300)}`);
   const r = await localApi('POST', base, null, 30000).catch((err) => ({ status: 0, json: err.message }));
   log(`launch request: HTTP ${r.status} ${JSON.stringify(r.json).slice(0, 300)}`);
+  const errorCode = typeof r.json?.errorCode === 'string' ? r.json.errorCode.slice(0, 100) : null;
+  return { status: r.status, errorCode };
 }
 
 const openInterface = createInterfaceOpener({
@@ -277,12 +279,16 @@ const signIn = createSignInFlow({
     return runWindowScript(request, () => {}, signal).promise;
   },
   windows, runningGames,
+  openVisibleInterface: (exe, signal, log) => openInterface({ exe, visible: true, signal, log }),
+  closeGames: () => taskkill([...GAME_PROCESSES.lol, ...GAME_PROCESSES.val]),
 });
 
 module.exports = {
   signIn, runningGames, detectClientPath, hasPersistedLogin, stripPersistedLogin, sameRiotId,
   showClient: () => openClient(selectedClientPath || detectClientPath()),
   openClient,
+  readAuthenticationState: signal => authentication.sessionState(signal),
+  readLoginScreenState: signal => authentication.loginScreenState(signal),
   ensureBackgroundClient,
   dispose: () => windows.stop(),
 };

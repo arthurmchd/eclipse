@@ -34,7 +34,8 @@
       stats: { lol: lol(30, 1, null, null), tft: { ranked: null }, val: val(27, 'Radiant', 412) } },
   ];
 
-  let settings = { refreshMinutes: 30, minimizeOnLaunch: true, hideRiotClient: true, closeRiotClient: true, streamerMode: false, riotClientPath: '', riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
+  let settings = { refreshMinutes: 30, minimizeOnLaunch: true, hideRiotClient: true, closeRiotClient: true, streamerMode: false, staySignedIn: true, riotClientPath: '', riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
+  let lastRefresh = iso(7 * 60000);
   let activeSignIn = null;
   const listeners = {};
   const emit = (ch, p) => (listeners[ch] || []).forEach((cb) => cb(p));
@@ -43,7 +44,7 @@
   const nextRefresh = () => new Date(now + 22 * 60000 + 59000).toISOString();
 
   window.api = {
-    init: async () => ({ accounts, settings, regions: REGIONS, valRegions: ['br', 'na', 'latam', 'eu', 'kr', 'ap'], lastRefresh: iso(7 * 60000), nextRefresh: nextRefresh(), version: '1.0.0', clientFound: true }),
+    init: async () => ({ accounts, settings, regions: REGIONS, valRegions: ['br', 'na', 'latam', 'eu', 'kr', 'ap'], lastRefresh, nextRefresh: nextRefresh(), version: '1.0.0', clientFound: true }),
     saveAccount: async (input) => {
       const { password, ...rest } = input;
       let acc = accounts.find((a) => a.id === input.id);
@@ -56,13 +57,17 @@
     forgetSession: async (id) => Object.assign(accounts.find((a) => a.id === id), { hasSession: false }),
     copy: async () => true,
     refresh: async () => {
-      for (let i = 0; i <= accounts.length; i++) { emit('refresh-progress', { done: i, total: accounts.length }); await wait(150); }
+      for (let i = 0; i < accounts.length; i++) { emit('refresh-progress', { done: i, total: accounts.length }); await wait(150); }
+      lastRefresh = new Date().toISOString();
+      emit('refresh-progress', { done: accounts.length, total: accounts.length });
       return { nextRefresh: nextRefresh() };
     },
     runningGames: async () => ({ lol: false, val: false, client: false }),
     signIn: async (id, game = 'lol') => {
       if (activeSignIn) return { ok: false, error: 'A sign-in is already in progress' };
       const attempt = activeSignIn = { cancelled: false };
+      const operation = (status) => emit('sign-in-operation', { id: 'mock-operation', accountId: id, game, status, needsAttention: false, signedIn: false });
+      operation('running');
       const name = { lol: 'League of Legends', tft: 'Teamfight Tactics', val: 'VALORANT' }[game];
       try {
         for (const t of ['Closing Riot Client…', 'Preparing background sign-in…', 'Signing in in the background…', `Starting ${name}…`]) {
@@ -73,6 +78,7 @@
         return attempt.cancelled ? { ok: false, cancelled: true, error: 'Sign-in cancelled' } : { ok: true, gameStarted: true };
       } finally {
         activeSignIn = null;
+        operation(attempt.cancelled ? 'cancelled' : 'succeeded');
       }
     },
     showRiotClient: async () => ({ ok: true }),
@@ -87,5 +93,6 @@
     onRefreshProgress: on('refresh-progress'),
     onNextRefresh: on('next-refresh'),
     onSignInStatus: on('sign-in-status'),
+    onSignInOperation: on('sign-in-operation'),
   };
 })();

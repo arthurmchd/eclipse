@@ -202,14 +202,13 @@ public static class RiotWindow {
   [RiotWindow]::ClearField($hwnd)
   [RiotWindow]::Type($hwnd, $req.password)
 
-  if ($req.remember) {
+  $wantedRemember = if ($req.remember -eq $true) { 'on' } else { 'off' }
+  $rememberState = Get-RememberState (Get-WindowPixels $hwnd)
+  if ($rememberState -ne 'unknown' -and $rememberState -ne $wantedRemember) {
+    [RiotWindow]::Click($hwnd, $REMEMBER[0], $REMEMBER[1])
     $rememberState = Get-RememberState (Get-WindowPixels $hwnd)
-    if ($rememberState -eq 'off') {
-      [RiotWindow]::Click($hwnd, $REMEMBER[0], $REMEMBER[1])
-      $rememberState = Get-RememberState (Get-WindowPixels $hwnd)
-    }
-    [Console]::Out.WriteLine("remember:$rememberState")
   }
+  [Console]::Out.WriteLine("remember:$rememberState")
 
   if ($req.submit) { [RiotWindow]::Click($hwnd, $SUBMIT[0], $SUBMIT[1]) }
   [Console]::Out.WriteLine('ok')

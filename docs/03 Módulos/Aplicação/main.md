@@ -8,80 +8,58 @@ tags: [módulo]
 
 # main
 
-> Processo principal do Electron: cria a janela, registra os canais IPC, agenda a atualização de elos e coordena a integração com o Riot Client.
+> Processo de serviços em segundo plano: mantém os dados e operações e abre a interface completa dentro da janela Riot.
 
 ## Responsabilidade
 
-- Garante uma única instância do app (`app.requestSingleInstanceLock`).
-- Quando o Electron fica pronto, cria o [[store]], o [[privateClient]] e o serviço de login ([[signInService]]).
-- Registra os handlers `ipcMain.handle` consumidos pelo [[preload]].
-- Atualiza elos em lote e no intervalo configurado, usando [[rankApi]].
-- Liga a integração com o Riot Client: bandeja, [[bridgeServer]] e cópia privada no modo `--riot-login`.
-- **Não** faz login nem fala com a API da Riot diretamente. Delega a [[signInService]] e [[riotClient]].
+- Garante uma única instância do aplicativo.
+- Cria [[store]], [[signInService]], [[managerService]], bandeja, [[bridgeServer]] e [[privateClient]].
+- Agenda a atualização de elos usando [[rankApi]] e publica seus eventos.
+- Encaminha a abertura de contas para a visualização integrada, sem criar uma janela independente.
+- Mantém a recuperação de desafios na interface que possui o contexto nativo.
 
 ## API pública
 
-Não exporta nada. A interface é o conjunto de canais IPC, os eventos enviados à janela e a flag de linha de comando.
+É o ponto de entrada Electron definido no `package.json`; não exporta API de consumo. Os comandos da interface completa passam por [[managerService]], em vez dos antigos handlers IPC da janela do gerenciador.
 
-| Canal / evento | Tipo | Descrição |
-|---|---|---|
-| `init` | IPC | Contas públicas, configurações mascaradas, `regions`, `valRegions`, `lastRefresh`, `nextRefresh`, versão, operação atual, `nativeIntegration` (com `requested`) e `clientFound` |
-| `account:save` | IPC | `store.upsertAccount` e dispara `refreshAll([id])` em segundo plano |
-| `account:delete` | IPC | `store.deleteAccount` |
-| `account:patch` | IPC | Altera só `note`, `ban`, `lastSeason` e `pinned` |
-| `account:forget-session` | IPC | Apaga a sessão salva e devolve a conta pública |
-| `copy` | IPC | Copia `password`, `riotId` ou, por padrão, `username` |
-| `refresh` | IPC | `refreshAll(ids)` |
-| `running-games` | IPC | `riotClient.runningGames()` |
-| `show-riot-client` | IPC | Mostra o cliente certo (ver decisões); devolve `{ ok, error? }` |
-| `cancel-sign-in` | IPC | `launchService.cancel()` |
-| `sign-in` | IPC | `launchService.signIn(id, game)`; espera o fim do login |
-| `settings:save` | IPC | `store.updateSettings`, reagenda o refresh e devolve `nextRefresh` e `clientFound` |
-| `pick-client-path` | IPC | Diálogo para escolher `RiotClientServices.exe` |
-| `open-data-folder` | IPC | Abre `store.dir` no Explorer |
-| `account-updated`, `refresh-progress`, `next-refresh`, `sign-in-status`, `sign-in-operation` | evento | Enviados por `send()` só se a janela existir |
-| `--riot-login` | argumento | Liga `riotLoginMode`: janela começa oculta e abre a interface integrada |
+As entradas do usuário são o atalho integrado, `npm start`, uma segunda instância e o menu de bandeja. A flag `--riot-login` continua reconhecida por compatibilidade; a interface integrada é o comportamento padrão.
 
 ## Dependências
 
-- Usa: [[paths]] (`RENDERER_DIR`, `APP_ICON`), [[store]], [[rankApi]], [[riotClient]], [[signInService]], [[bridgeServer]], [[status]] (`inspectClientIntegration`), [[privateClient]] (`createPrivateClient`, `inspectPrivateClient`), [[windowsDpapi]] (`protectString`, usado como `encodeToken`).
-- Usado por: Electron (`main` do `package.json`). Carrega o [[preload]] e o [[renderer]].
+- Usa: [[paths]], [[store]], [[rankApi]], [[riotClient]], [[signInService]], [[managerService]], [[bridgeServer]], [[privateClient]], [[windowsDpapi]] e APIs de bandeja/diálogo do Electron.
+- Usado por: Electron.
+- A visualização é criada por [[managerHost]] no processo do host privado, com [[manager-preload]] e [[renderer]].
 
 ## Invariantes e decisões
 
-- **Uma instância só.** Mantém um único armazenamento de credenciais e um único dono dos lançamentos, não importa qual interface pede. A segunda instância só repassa `--riot-login` ou traz o gerenciador para frente.
-- **Pedido antes do `ready` não se perde.** `second-instance` com `--riot-login` liga `riotLoginMode` mesmo antes de `startupComplete`. A abertura acontece no fim da inicialização.
-- **Janela isolada.** `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, sem menu. Controles da janela ficam com o Windows (`titleBarOverlay`).
-- **Links abrem fora do app.** Links (como as páginas das chaves de API) abrem no navegador padrão, nunca dentro do app. Só `https://` vai para `shell.openExternal`; toda janela nova é negada.
-- **Salvar a sessão de quem sai.** Antes de trocar, `saveLeavingSession` guarda o login mais recente da conta que estava conectada: o cliente renova esse login durante o uso e grava no disco quando fecha. Só salva se `hasPersistedLogin(yaml)` e se o Riot ID bater com a conta atual (`sameRiotId`). Sem confirmação de identidade, registra no log e não salva.
-- **Log de login sem credenciais.** Os passos do login vão para `sign-in.log` na pasta de dados, nunca credenciais. O arquivo vira `.old` acima de 200 KB. Erros de escrita são ignorados.
-- **Elos logo após salvar.** Conta nova ou alterada tem os elos buscados na hora; erro é ignorado.
-- **Um refresh por vez.** `refreshAll` reaproveita a promessa em andamento. `lastRefresh` só é gravado num refresh completo (sem `ids`). O timer nunca dispara em menos de 5 s.
-- **Sem edição durante o login.** `account:save` (conta existente), `account:delete` e `account:forget-session` recusam a conta de `activeAccountId()`.
-- **`account:patch` com lista branca.** Credenciais e estatísticas não passam por esse canal.
-- **Senha some da área de transferência.** Depois de 20 s a senha é apagada, se ainda for o conteúdo atual.
-- **Desafio nativo fica com o renderer original.** CAPTCHA/MFA pertence ao renderer que enviou as credenciais. Abrir um renderer privado nesse momento perderia o contexto da verificação. Se `nativeChallengePending()` (operação `running` com `needsAttention` e `nativeClient`), `openRiotLogin` esconde a cópia privada e `show-riot-client` e `openRiotLogin` chamam `riotClient.openClient` com o caminho configurado.
-- **Falha visível, sem substituto.** Um balão sozinho passa despercebido, principalmente com as notificações do Windows desligadas. `reportIntegrationError` mostra o gerenciador e um diálogo de erro, sem abrir a interface original da Riot como substituta.
-- **Aberturas serializadas.** `ensureClientIntegration` e `openRiotLogin` guardam a promessa em andamento (`integrationStarting`, `riotLoginOpening`). Pedidos repetidos do atalho compartilham uma abertura.
-- **Ordem de detecção.** Primeiro `inspectClientIntegration` (cliente oficial modificado). Só em `riotLoginMode`, se não estiver ativo, tenta `inspectPrivateClient` (cópia privada, `mode: 'private'`).
-- **Falha da ponte desfaz tudo.** Se `start()` da ponte falhar, a ponte é parada, a bandeja destruída e `nativeIntegration.active` vira `false` com mensagem em português.
-- **Fechar só esconde com ponte ativa.** Com ponte e bandeja, fechar a janela a esconde; sair é pelo menu da bandeja. `window-all-closed` só encerra sem bandeja.
-- **Saída ordenada.** `before-quit` cancela o login e espera `privateClient.stop()`, `riotClient.dispose()` e `clientBridge.stop()` antes de sair.
-- **Login esconde a cópia privada.** Em modo `private`, operação `running` chama `privateClient.hide()`. Falha mostra balão com até 240 caracteres; `needsAttention` mostra outro balão.
-- **Refresh na abertura.** Após `did-finish-load`, se o próximo refresh já venceu e há contas, atualiza tudo; senão só agenda.
+- **Painel somente no login.** Injeta a leitura sanitizada e cancelável `riotClient.readLoginScreenState(signal)` em [[riotOverlay]]. A visibilidade acompanha também entradas manuais e sessões lembradas pela Riot, sem depender dos eventos de login do gerenciador.
+- **Progresso visível.** No modo sobreposto ativa `visibleLogin` e encaminha a operação ao painel de carregamento. `setBlocked` impede outra seleção durante a tentativa; `setOperation` mantém o indicador visível sobre a Riot. O modo privado conserva a ocultação anterior.
+
+- **Progresso visível.** No modo sobreposto ativa `visibleLogin` e encaminha a operação ao painel de carregamento. `setBlocked` impede outra seleção durante a tentativa; `setOperation` mantém o indicador visível sobre a Riot. O modo privado conserva a ocultação anterior.
+
+- **Padrão sobreposto desde 2026-10-28.** Inicia [[riotOverlay]] e bandeja, sem abrir o Riot, a cópia privada ou a ponte HTTP. Comandos da view chegam diretamente ao [[managerService]] após validação IPC do host. `--private-client` preserva o comportamento anterior descrito abaixo. Operação em andamento oculta a sobreposição; ações explícitas da bandeja abrem o cliente oficial. O serviço continua quando não há janela visível. [[ADR-009 Sobreposição no cliente oficial]] substitui a hospedagem padrão da ADR-007.
+
+- **Sem `BrowserWindow` própria.** A janela independente foi removida da experiência normal; toda a interface de contas fica na própria janela Riot, conforme [[ADR-007 Interface completa dentro do Riot Client]].
+- **Uma instância, um armazenamento e um login.** Pedidos repetidos reutilizam o serviço e não criam outro dono das credenciais.
+- **Abertura serializada.** Pedidos concorrentes de iniciar a integração ou abrir contas compartilham a preparação em andamento.
+- **Contexto de verificação preservado.** Se uma operação está `running`, pede atenção e tem `nativeClient`, a recuperação abre a interface nativa que recebeu a senha; não cria outra página que reinicializaria o CAPTCHA/MFA. A mesma recuperação vale após falha com verificação pendente. Nesse caso, consulta o estado sanitizado da Riot: `auth` ou `authenticated` sem erro permite voltar às contas; desafio, estado desconhecido ou falha de consulta conserva a interface original.
+- **Login fora da interface.** Ocultar ou fechar a visualização de contas não cancela a operação. O serviço de login publica estado e o host integrado é escondido durante o lançamento.
+- **Eventos públicos, não IPC amplo.** Conta alterada, progresso de elos, próximo refresh e progresso/operação de login entram na fila limitada do [[managerService]].
+- **Sessão anterior só com identidade.** Ao encerrar uma conta, salva os tokens atualizados apenas se o Riot ID corresponde à conta conhecida; identidade não confirmada não é associada ao store.
+- **Falha visível sem ressuscitar a janela antiga.** Integração ausente, incompatível ou indisponível é informada por diálogo; a janela independente não é recriada como substituta silenciosa.
+- **Segredos continuam no serviço.** Descriptografia, clipboard e consultas de elo permanecem no main, não no renderer Riot.
+- **Bandeja é a recuperação.** Abrir contas pela bandeja abre a visualização filha do Riot; recuperar cliente, cancelar e sair seguem disponíveis.
+- **Saída ordenada.** Cancela a operação e para host privado, monitor Windows e ponte antes de encerrar.
+- **Alterações do usuário preservadas.** A migração da interface não substitui as correções locais de [[signInFlow]] e [[windowController]].
 
 ## Testes
 
-`test/main/mainStartup.test.js` executa o arquivo em `vm` com dependências falsas. Cobre: atalho promovendo um gerenciador já aberto, pedido antes do `ready`, cópia privada desatualizada e falha do host privado (diálogo, sem abrir a interface original), aberturas repetidas compartilhadas, falha da ponte com limpeza, recuperação do desafio nativo nos dois modos e a condição exata de `nativeChallengePending`.
+`test/main/mainStartup.test.js` executa o ponto de entrada num `vm` com dependências falsas. Confere a abertura integrada sem janela independente, pedidos concorrentes/segunda instância, falhas recuperáveis e a recuperação do desafio nativo. Validação de formulários e ações está em [[managerService]]; a hospedagem da UI está em [[managerHost]].
 
-Fora: handlers de contas, `copy`, refresh de elos, bandeja e `before-quit`.
+Nenhum desses testes autentica contas reais ou abre jogos.
 
 ## Pontos de atenção
 
-- O teste resolve `require` por nome exato (`../paths`, `../core/store`…). Um `require` novo em `index.js` quebra o teste com `Unexpected dependency`.
-- `refreshAll(ids)` durante um refresh completo devolve a promessa em andamento e ignora `ids`. Conta recém-salva só ganha elo no ciclo seguinte.
-- Se `refreshAll` falhar no meio (por exemplo, `store.getKeys()` sem conseguir descriptografar), `scheduleRefresh` não roda e o refresh automático para. O `setTimeout` não trata a rejeição.
-- Conta apagada durante o refresh faz `updateAccountFields` devolver `null`, e `account-updated` sai com `null`.
-- `show-riot-client` em modo `private` usa `riotClientPath || detectClientPath()`; `openRiotLogin` usa `detectClientPath(riotClientPath)`.
-- O item "Open Riot Client" da bandeja passa o `MenuItem` do Electron como opções de `openRiotLogin`. Funciona porque o objeto não tem `reportFailure`.
-- Ver [[Integração com o Riot Client]], [[Fluxo de login]], [[Limitações conhecidas]] e [[Backlog]].
+- Um `require` novo precisa entrar no mapa `deps` do harness de inicialização.
+- A cópia privada precisa estar preparada e compatível; a migração não autoriza alterar a instalação original Riot.
+- Ver [[Integração com o Riot Client]], [[Segurança e privacidade]] e [[Backlog]].

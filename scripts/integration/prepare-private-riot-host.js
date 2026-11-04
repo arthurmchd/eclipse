@@ -4,7 +4,7 @@ const { openArchive, appendToArchive, sha256File } = require('../../src/integrat
 const { hardenPrivateMainSource, hasUnsafeStartupLog, isSupportedVersion } = require('../../src/integration/host/privateHostCore');
 const { hardenPrivateRendererSource } = require('../../src/integration/host/privateRendererCore');
 
-const { PROJECT_ROOT: ROOT, ADDON_DIR, PRIVATE_HOST_DIR } = require('../../src/paths');
+const { PROJECT_ROOT: ROOT, ADDON_DIR, EMBEDDED_HOST_DIR } = require('../../src/paths');
 const DEFAULT_SOURCE = 'C:/Riot Games/Riot Client/RiotClientElectron/resources/app.asar';
 const PRIVATE_LOG_GUARD = 'RAM_PRIVATE_HOST_LOG_GUARD_V1';
 const UNSAFE_STARTUP_LOG = 'log$d.info("Starting RiotClientUx electron with args",cliArgs)';
@@ -26,7 +26,7 @@ function hardenBuffer(original) {
   return Buffer.from(hardened, 'utf8');
 }
 
-function preparePrivate({ source = DEFAULT_SOURCE, output = path.join(PRIVATE_HOST_DIR, 'app.asar') } = {}) {
+function preparePrivate({ source = DEFAULT_SOURCE, output = path.join(EMBEDDED_HOST_DIR, 'app.asar') } = {}) {
   source = path.resolve(source);
   output = path.resolve(output);
   withinRoot(output);
@@ -75,7 +75,7 @@ function preparePrivate({ source = DEFAULT_SOURCE, output = path.join(PRIVATE_HO
       candidate: { path: output, size: fs.statSync(output).size, sha256: sha256File(output) },
       changedFiles,
       privacy: { startupArgumentsRedacted: true, logGuardInstalled: true },
-      behavior: { externalMultifactorRecovery: pkg.version === '142.0.0' },
+      behavior: { externalMultifactorRecovery: pkg.version === '142.0.0', fullManagerInClient: true },
     };
     fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), { flag: 'wx' });
     return { manifestFile, manifest };

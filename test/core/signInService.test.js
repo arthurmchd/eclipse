@@ -142,6 +142,27 @@ test('normal manager preserves explicit visible-client preferences', async () =>
   assert.equal(f.received().closeClient, false);
 });
 
+test('embedded manager acknowledges immediately, keeps Riot hidden and preserves the game confirmation', async () => {
+  const f = fixture();
+  const hold = deferred();
+  f.store.data.settings.hideRiotClient = false;
+  f.store.data.settings.closeRiotClient = false;
+  f.riotClient.runningGames = async () => { throw new Error('The embedded UI already confirmed the switch'); };
+  f.riotClient.signIn = async (options) => { f.calls.push(['embedded-options', options]); return hold.promise; };
+  const accepted = f.service.startFromManager('test-account', 'val');
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.operationId, f.service.getState().id);
+  assert.equal(f.calls.length, 0);
+  await flush();
+  const options = f.calls.find(([name]) => name === 'embedded-options')[1];
+  assert.equal(options.hide, true);
+  assert.equal(options.closeClient, true);
+  assert.throws(() => f.service.startFromManager('test-account', 'lol'), /already in progress/);
+  hold.resolve(f.result);
+  assert.equal((await settle(f.service)).status, 'succeeded');
+  assert.equal(f.store.data.settings.hideRiotClient, false);
+});
+
 test('cancellation before scheduled execution performs no client or credential work', async () => {
   const f = fixture();
   f.service.start('test-account', 'lol');
@@ -232,6 +253,45 @@ test('observer and logging failures do not change a successful launch or hang co
   assert.equal(f.service.isBusy(), false);
 });
 
+test('failed native verification retains recovery metadata without keeping the launch busy', async () => {
+  const operations = [];
+  const f = fixture({ operationUpdated: (value) => operations.push(value) });
+  let report;
+  f.riotClient.signIn = async (options) => {
+    report = options.status;
+    report('Complete verification', { needsAttention: true, nativeClient: true });
+    throw Object.assign(new Error('Verification timed out'), { needsAttention: true, nativeClient: true });
+  };
+  assert.equal((await f.service.signIn('test-account', 'lol')).ok, false);
+  const state = f.service.getState();
+  assert.equal(state.status, 'failed');
+  assert.equal(state.needsAttention, true);
+  assert.equal(state.nativeClient, true);
+  assert.equal(f.service.isBusy(), false);
+  assert.deepEqual(operations.at(-1), state);
+  report('Late progress');
+  assert.deepEqual(f.service.getState(), state);
+  f.riotClient.signIn = async () => f.result;
+  assert.equal((await f.service.signIn('test-account', 'lol')).ok, true);
+  assert.equal(f.service.getState().needsAttention, false);
+  assert.equal(f.service.getState().nativeClient, false);
+});
+
+test('ordinary errors and cancellation do not retain stale verification notices', async () => {
+  for (const cancel of [false, true]) {
+    const f = fixture();
+    f.riotClient.signIn = async (options) => {
+      options.status('Needs attention', { needsAttention: true, nativeClient: true });
+      if (cancel) f.service.cancel();
+      throw Object.assign(new Error('Stopped'), cancel ? { needsAttention: true, nativeClient: true } : {});
+    };
+    await f.service.signIn('test-account', 'lol');
+    assert.equal(f.service.getState().status, cancel ? 'cancelled' : 'failed');
+    assert.equal(f.service.getState().needsAttention, false);
+    assert.equal(f.service.getState().nativeClient, false);
+  }
+});
+
 test('credentials edited before execution are never mixed with the original username', async () => {
   const f = fixture();
   const pending = f.service.signIn('test-account', 'lol');
@@ -288,4 +348,23 @@ test('non-Error failures and asynchronous observers do not leave an operation pe
   assert.equal(response.error, 'Sign-in failed');
   assert.equal(f.service.isBusy(), false);
   await flush();
+});
+
+test('stay signed in follows the setting and the signed-in stage is published once reached', async () => {
+  const f = fixture({ operationUpdated: (operation) => published.push(operation) });
+  const published = [];
+  f.riotClient.signIn = async (options) => {
+    received.push(options.remember);
+    options.status('Signing in in the background…', { needsAttention: false });
+    options.status('Signed in. Preparing the game…', { needsAttention: false, signedIn: true });
+    options.status('Starting League of Legends in the background…', { needsAttention: false });
+    return f.result;
+  };
+  const received = [];
+  await f.service.signIn('test-account', 'lol');
+  f.store.data.settings.staySignedIn = false;
+  await f.service.signIn('test-account', 'lol');
+  assert.deepEqual(received, [true, false]);
+  const running = published.filter((operation) => operation.status === 'running').map((operation) => operation.signedIn);
+  assert.deepEqual(running.slice(0, 4), [false, false, true, true]);
 });

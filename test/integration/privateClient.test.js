@@ -22,6 +22,7 @@ function fixture(t, options = {}) {
   const manifest = {
     mode: 'private-host',
     privacy: { startupArgumentsRedacted: true, logGuardInstalled: true },
+    behavior: { fullManagerInClient: true },
     source: { path: path.join(path.dirname(clientPath), 'RiotClientElectron', 'resources', 'app.asar'), package: { version: '141.0.0' } },
     candidate: { path: candidatePath },
   };
@@ -110,6 +111,29 @@ async function opened(f) {
   return child;
 }
 
+test('the complete embedded copy takes priority without moving the previous private interface', (t) => {
+  const f = fixture(t);
+  const directory = path.join(f.directory, 'embedded-v1');
+  fs.mkdirSync(directory);
+  const candidatePath = path.join(directory, 'app.asar');
+  fs.writeFileSync(candidatePath, 'synthetic complete interface');
+  const manifest = { ...f.manifest, candidate: { path: candidatePath } };
+  fs.writeFileSync(path.join(directory, 'manifest.json'), JSON.stringify(manifest));
+  const plan = inspectPrivateClient(f.clientPath, { workspaceRoot: f.workspaceRoot });
+  assert.equal(plan.directory, directory);
+  assert.equal(plan.candidatePath, candidatePath);
+  assert.equal(fs.existsSync(f.candidatePath), true);
+});
+
+test('a private interface without complete account management is rejected before starting', async (t) => {
+  const f = fixture(t);
+  delete f.manifest.behavior.fullManagerInClient;
+  f.saveManifest();
+  assert.equal(inspectPrivateClient(f.clientPath, { workspaceRoot: f.workspaceRoot }).active, false);
+  await assert.rejects(f.controller.open(f.clientPath), /ausente ou desatualizada/);
+  assert.equal(f.calls.length, 0);
+});
+
 test('private UI startup waits for a complete ready protocol event', async (t) => {
   const f = fixture(t);
   let settled = false;
@@ -169,7 +193,7 @@ test('unsupported private UI manifests fail before starting any backend or proce
   ]) {
     change(); f.saveManifest();
     assert.equal(inspectPrivateClient(f.clientPath, { workspaceRoot: f.workspaceRoot }).active, false);
-    await assert.rejects(f.controller.open(f.clientPath), /Prepare the private Riot interface/);
+    await assert.rejects(f.controller.open(f.clientPath), /ausente ou desatualizada/);
   }
   assert.equal(f.children.length, 0);
   assert.deepEqual(f.events, []);
@@ -206,6 +230,43 @@ test('hide and reopen send commands to the existing private host', async (t) => 
   assert.deepEqual(await f.controller.open(f.clientPath), { ready: true, mode: 'private', managerConnected: true });
   assert.equal(child.input.at(-1), 'show');
   assert.equal(f.children.length, 1);
+});
+
+test('opening account management reuses the Riot host and waits for its embedded view acknowledgement', async (t) => {
+  const f = fixture(t);
+  const child = await opened(f);
+  const first = f.controller.openManager(f.clientPath);
+  const second = f.controller.openManager(f.clientPath);
+  await flush();
+  assert.equal(child.input.filter((line) => line === 'open-manager').length, 1);
+  child.reply({ event: 'manager-ready' });
+  assert.deepEqual(await first, { ready: true, embedded: true });
+  assert.deepEqual(await second, { ready: true, embedded: true });
+  assert.equal(f.children.length, 1);
+});
+
+test('an embedded account view failure preserves the Riot interface and never echoes host payloads', async (t) => {
+  const f = fixture(t);
+  const child = await opened(f);
+  const pending = assert.rejects(f.controller.openManager(f.clientPath), (error) => {
+    assert.equal(error.message.includes(syntheticToken), false);
+    assert.match(error.message, /embedded account view could not open/);
+    return true;
+  });
+  await flush();
+  child.reply({ event: 'manager-error', error: syntheticToken });
+  await pending;
+  assert.equal(child.kills, 0);
+  assert.equal(child.exited, false);
+});
+
+test('closing the host releases a pending embedded view request', async (t) => {
+  const f = fixture(t);
+  const child = await opened(f);
+  const pending = assert.rejects(f.controller.openManager(f.clientPath), /closed before/);
+  await flush();
+  child.close();
+  await pending;
 });
 
 test('stopping the private host sends stop and permanently rejects further openings', async (t) => {

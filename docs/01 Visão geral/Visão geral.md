@@ -11,14 +11,11 @@ Painel para Windows que entra em várias contas da Riot com um clique: **League 
 
 Quem tem várias contas precisa sair, digitar usuário e senha e esperar o Riot Client a cada troca. O app guarda as contas criptografadas, reaproveita a sessão que o próprio Riot salvou ("Manter conectado") e pede a abertura do jogo pelo serviço local do Riot, com as janelas do cliente escondidas.
 
-## Dois modos de uso
+## Interface unificada
 
-| Modo | Atalho | O que abre |
-|---|---|---|
-| Gerenciador | `Abrir Riot Account Manager.bat` | Janela própria com as contas, filtros, elos e o botão Play |
-| Login integrado (experimental) | `Abrir Riot com minhas contas.bat` | Cópia privada da tela de login real do Riot com o painel **MINHAS CONTAS**; o gerenciador fica na bandeja |
+O aplicativo abre uma cópia privada da interface Riot. **Contas** abre o gerenciamento completo dentro dessa mesma janela: cadastro, edição, filtros, elos, configurações e progresso. O seletor rápido **MINHAS CONTAS** continua disponível no formulário de login. O serviço fica em segundo plano, sem janela independente.
 
-Detalhes do segundo modo em [[Integração com o Riot Client]].
+O acesso completo também funciona quando a Riot já está conectada, sem sair da sessão apenas para gerenciar contas. A arquitetura está em [[ADR-007 Interface completa dentro do Riot Client]] e o uso em [[Integração com o Riot Client]].
 
 ## Recursos
 

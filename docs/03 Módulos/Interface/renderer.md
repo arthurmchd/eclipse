@@ -2,18 +2,18 @@
 tipo: módulo
 arquivo: [src/renderer/app.js, src/renderer/ranks.js, src/renderer/index.html, src/renderer/styles.css]
 camada: interface
-testes: nenhum
+testes: test/renderer/integratedNavigation.test.js
 tags: [módulo]
 ---
 
 # renderer
 
-> Interface do gerenciador: lista as contas com seus elos, filtra e ordena, abre os modais de conta e configurações, e dispara login, cópia e refresh pelo `window.api`.
+> Interface completa de contas hospedada na própria janela Riot: lista elos, filtra e ordena, abre os modais de conta/configurações e dispara ações pelo `window.api` isolado.
 
 ## Responsabilidade
 
 - `index.html`: estrutura fixa (barra de título com abas, barra lateral, toolbar, banner, painel de lançamento, lista, toasts, três `<dialog>` e o menu do card) e a CSP.
-- `app.js`: estado, renderização por `innerHTML`, eventos, modais e chamadas ao [[main]] pelo [[preload]].
+- `app.js`: estado, renderização por `innerHTML`, eventos, modais e chamadas ao [[managerService]] pelo [[manager-preload]].
 - `ranks.js`: tabelas de tiers, URLs de emblemas e pontuação de elo por jogo e fila.
 - `styles.css`: tema por jogo, grade ou lista, modo streamer.
 - **Não** recebe senhas salvas nem chaves (só `hasPassword` e chaves mascaradas), não acessa a rede nem o Node. Tudo passa pelo main.
@@ -30,12 +30,12 @@ Nada é exportado para o app. `ranks.js` exporta para `app.js`:
 | `distributionGroups(game)` | função | Grupos da barra lateral, com ícone |
 | `lolEmblem`, `lolCrest`, `valIcon`, `valGroupIcon`, `profileIcon` | funções | URLs no CommunityDragon e no valorant-api |
 
-Chamadas a `window.api`: `init`, `saveAccount`, `deleteAccount`, `patchAccount`, `forgetSession`, `copy`, `refresh`, `runningGames`, `signIn`, `showRiotClient`, `cancelSignIn`, `saveSettings`, `pickClientPath`, `openDataFolder`. Eventos: `onAccountUpdated`, `onSignInStatus`, `onSignInOperation`, `onRefreshProgress`, `onNextRefresh`.
+Chamadas a `window.api`: `init`, `saveAccount`, `deleteAccount`, `patchAccount`, `forgetSession`, `copy`, `refresh`, `runningGames`, `signIn`, `showRiotClient`, `cancelSignIn`, `saveSettings`, `pickClientPath`, `openDataFolder`, `closeManager`. Eventos: `onAccountUpdated`, `onSignInStatus`, `onSignInOperation`, `onRefreshProgress`, `onNextRefresh`.
 
 ## Dependências
 
-- Usa: [[preload]] (`window.api`), fontes `@fontsource` (`../../node_modules/…`), imagens de `raw.communitydragon.org` e `media.valorant-api.com`.
-- Usado por: [[main]], que carrega `index.html` de `RENDERER_DIR` ([[paths]]). `scripts/dev/preview-server.js` serve a mesma página com `mock-api.js` no lugar do preload ([[Desenvolvimento]]).
+- Usa: [[manager-preload]] (`window.api`), fontes `@fontsource` (`../../node_modules/…`), imagens de `raw.communitydragon.org` e `media.valorant-api.com`.
+- Usado por: [[managerHost]], que carrega `MANAGER_RENDERER_FILE` dentro da janela Riot ([[paths]]). `scripts/dev/preview-server.js` serve a mesma página com `mock-api.js` no lugar do preload ([[Desenvolvimento]]).
 
 ## Estado, renderização e preferências
 
@@ -55,6 +55,7 @@ Chamadas a `window.api`: `init`, `saveAccount`, `deleteAccount`, `patchAccount`,
 - **`play(acc)`**: confirma conta banida e jogo aberto, marca `signingIn`, assina `onSignInStatus`, chama `signIn` e mostra o resultado num toast que fecha em 4 s (sucesso) ou 8 s.
 - **Painel de lançamento**: progresso, "Show Riot Client" só com `needsAttention`, e "Cancel".
 - **Atalhos** (ignorados com um `<dialog>` aberto): `Ctrl+F` busca, `Ctrl+N` nova conta, `Ctrl+1/2/3` LoL/TFT/VALORANT, `F5` atualiza elos.
+- **Voltar ao Riot:** botão visível na barra superior e `Escape` quando não há modal aberto. Chama `closeManager`, sem encerrar a janela Riot nem cancelar uma operação.
 
 ## Invariantes e decisões
 
@@ -64,20 +65,22 @@ Chamadas a `window.api`: `init`, `saveAccount`, `deleteAccount`, `patchAccount`,
 - **Senha vazia mantém a atual.** `password` vai `undefined`; o campo só é obrigatório se a conta ainda não tem senha.
 - **Colar "Name#TAG" divide.** No campo de nome, o que vem depois de `#` vai para a tag e o foco passa para ela.
 - **Quem limpa é o `signIn`.** A requisição `signIn` cuida da limpeza e reativa o Play quando termina. `cancelSignIn` só marca `cancelling`.
-- **Confirmação de troca é da janela.** Na janela, o aviso de jogo aberto acontece aqui; o [[signInService]] não pergunta.
+- **Confirmação de troca é da visualização.** O aviso de banimento/jogo aberto continua aqui; `startFromManager` preserva esse fluxo, mantendo o cliente oculto. O seletor rápido segue recusando troca com jogo aberto.
 - **Login vindo da ponte aparece.** `onSignInOperation` mantém `signingIn` em sincronia com operações iniciadas fora da janela. No `init`, uma operação `running` é restaurada.
 - **Falha de carga visível.** `loadData` pede os dados ao main com até 3 tentativas, espaçadas de 1 s. Se ainda falhar, diz na tela que as contas continuam na pasta de dados, em vez de mostrar lista vazia, e oferece "Try again".
 - **Redesenho de 60 s.** Existe para atualizar os prazos de ban e os rótulos "há x minutos".
 - **Escopo do ban.** `val` vale para VALORANT, `lol` para LoL e TFT, `all` para todos. Ban vencido conta como sem ban.
 - **Pontuação.** LoL/TFT: índice do tier × 1000 + divisão × 100 + LP; Master+ sem divisão, barra até 1500 LP. VALORANT: tier × 1000 + RR, ranqueado a partir do tier 3, Radiant (27) com barra até 1000 RR. Sem elo na fila (ou VALORANT abaixo do tier 3): `score = -1`.
 - **Tema por aba.** Cada aba troca a paleta: LoL dourado e azul-petróleo hextech, TFT dourado e roxo arcano, VALORANT vermelho e angular. O botão Play imita o visual de cada cliente.
-- **Barra de título.** Os controles da janela são desenhados pelo Windows à direita (`titleBarOverlay` no [[main]]); a barra arrasta a janela (`-webkit-app-region: drag`).
+- **Sem janela própria.** A barra superior pertence à visualização de contas. Não arrasta uma janela nem desenha controles de fechar/minimizar do sistema; os controles continuam sendo os da janela Riot. Ver [[ADR-007 Interface completa dentro do Riot Client]].
+- **Campos sensíveis digitados são transitórios.** Ao fechar os modais e ao voltar ao Riot, limpa os campos de senha e chaves recém-digitadas. Não preenche esses campos com valores salvos. Falha ao fechar a visualização mantém o rascunho e apresenta erro.
+- **Preferências antigas preservadas.** Com `embedded: true`, as opções de janela independente deixam de ser oferecidas e a interface explica o comportamento em segundo plano. Os valores antigos não são apagados do armazenamento.
 - **Emblemas de LoL.** Os arquivos têm 1280×720 com o emblema no meio; a imagem é ampliada (410%) para passar do preenchimento.
 - **Modo streamer.** Desfoca `.username`; passar o mouse revela.
 
 ## Testes
 
-Nenhum teste automatizado. A verificação é visual, pelo preview com `mock-api.js` ([[Desenvolvimento]]).
+`test/renderer/integratedNavigation.test.js` cobre a navegação integrada, o retorno ao Riot, o tratamento de `Escape` com modal, a limpeza de campos sensíveis e a preservação de funcionalidades no HTML/CSS. A prévia com `mock-api.js` continua sendo uma ferramenta de conferência visual, sem contas reais ([[Desenvolvimento]]).
 
 ## Pontos de atenção
 

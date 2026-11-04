@@ -26,6 +26,9 @@ http
       if (url === '/src/renderer/index.html') {
         data = data.toString().replace('<script type="module" src="app.js">', '<script src="/scripts/dev/mock-api.js"></script>\n  <script type="module" src="app.js">');
       }
+      if (url === '/src/renderer/cards.html') {
+        data = data.toString().replace('<script type="module" src="cards.js">', '<script src="/scripts/dev/mock-api.js"></script><script type="module" src="cards.js">');
+      }
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
       res.end(data);
     });

@@ -4,6 +4,44 @@ const { createSignInFlow } = require('../../src/riot/signInFlow');
 
 const account = { username: 'example-user', password: 'example-password', gameName: 'Example', tagLine: 'BR1' };
 
+test('visible login keeps the official interface alive and closes its window only after the game is ready', async () => {
+  const f = fixture();
+  f.options.visibleLogin = true;
+  f.state.authorized = false;
+  f.io.runningGames = async () => ({ lol: f.state.authorized, val: false });
+  f.io.openVisibleInterface = async () => f.events.push('visible-interface');
+  f.io.windows.closeClient = async () => f.events.push('close-client-window');
+  f.io.authenticate = async () => ({ supported: false });
+  assert.equal((await f.run()).gameStarted, true);
+  assert.equal(f.events.includes('closed'), false);
+  assert.equal(f.events.includes('hide'), false);
+  assert.equal(f.events.includes('conceal'), false);
+  assert.equal(f.events.some(e => Array.isArray(e) && e[0] === 'write'), false);
+  assert.equal(f.events.at(-1), 'close-client-window');
+  assert.ok(f.events.indexOf('close-client-window') > f.events.indexOf('game-window'));
+});
+
+test('visible login errors keep Riot open without requesting or closing a game', async () => {
+  const f = fixture();
+  f.options.visibleLogin = true;
+  f.state.authorized = false;
+  f.io.runningGames = async () => ({});
+  f.io.openVisibleInterface = async () => {};
+  f.io.authenticate = async () => { throw new Error('Wrong username or password'); };
+  f.io.windows.closeClient = async () => f.events.push('close-client-window');
+  await assert.rejects(f.run(), /Wrong username/);
+  for (const event of ['hide', 'conceal', 'closed', 'request-launch', 'close-client-window']) assert.equal(f.events.includes(event), false);
+});
+
+test('overlay launch releases the Riot window monitor only after the actual game window is ready', async () => {
+  const f = fixture();
+  f.options.releaseAfterLaunch = true;
+  f.io.windows.park = async () => f.events.push('park');
+  assert.equal((await f.run()).gameStarted, true);
+  assert.equal(f.events.at(-1), 'park');
+  assert.ok(f.events.indexOf('park') > f.events.indexOf('game-window'));
+});
+
 test('loss of the window guard interrupts login before requesting the product', async () => {
   const f = fixture();
   let healthy = true;
@@ -12,6 +50,32 @@ test('loss of the window guard interrupts login before requesting the product', 
   await assert.rejects(f.run(), /guard stopped/);
   assert.equal(f.events.includes('request-launch'), false);
   assert.equal(f.events.some((entry) => Array.isArray(entry) && entry[0] === 'type'), false);
+});
+
+test('window guard restarts and unrecoverable losses are written to the sign-in log', async () => {
+  const recovered = fixture();
+  const logs = [];
+  recovered.options.log = (line) => logs.push(line);
+  let pending = [{ reason: 'window-style-timeout', recovered: true }];
+  recovered.io.windows.drainIncidents = () => pending.splice(0);
+  const result = await recovered.run();
+  assert.equal(result.gameStarted, true);
+  assert.ok(logs.includes('window guard restarted after window-style-timeout'));
+
+  const failed = fixture();
+  const failedLogs = [];
+  failed.options.log = (line) => failedLogs.push(line);
+  let healthy = true;
+  pending = [];
+  failed.io.windows.drainIncidents = () => pending.splice(0);
+  failed.io.windows.assertHealthy = () => { if (!healthy) throw new Error('The background window guard stopped (window-opacity-denied). Try Play again'); };
+  failed.io.sessionState = async () => {
+    healthy = false;
+    pending = [{ reason: 'window-opacity-denied', recovered: false }];
+    return { type: 'auth' };
+  };
+  await assert.rejects(failed.run(), /window-opacity-denied/);
+  assert.ok(failedLogs.includes('window guard could not be restarted after window-opacity-denied'));
 });
 
 function fixture() {
@@ -371,7 +435,183 @@ test('manual verification after native credential entry identifies the original 
   assert.equal(result.gameStarted, true);
   assert.ok(f.statuses.some((status) => status.needsAttention && status.nativeClient === true));
   assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
+  assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
+  assert.ok(f.events.indexOf('reveal') < f.events.indexOf('request-launch'));
+  assert.ok(f.events.lastIndexOf('conceal') > f.events.indexOf('reveal'));
+});
+
+for (const challenge of [{ type: 'multifactor' }, { type: 'challenge' }, { type: 'auth', error: 'captcha_not_allowed' }]) {
+  test(`native ${challenge.error || challenge.type} remains available after the verification expires`, async () => {
+    const f = directFixture();
+    let typed = false;
+    f.io.authenticate = async () => ({ supported: false });
+    f.io.typeCredentials = async () => { typed = true; f.events.push(['type', true]); return ['remember:on']; };
+    f.io.sessionState = async () => typed ? challenge : { type: 'auth' };
+    await assert.rejects(f.run(), (error) => {
+      assert.match(error.message, /timed out waiting for your attention/);
+      assert.equal(error.needsAttention, true);
+      assert.equal(error.nativeClient, true);
+      return true;
+    });
+    assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
+    assert.equal(f.events.at(-1), 'reveal');
+    assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
+    assert.equal(f.events.includes('request-launch'), false);
+    assert.equal(f.events.includes('closed'), false);
+    assert.equal(f.events.includes('launch'), false);
+  });
+}
+
+test('a native verification remains recoverable when revealing its existing window fails', async () => {
+  const f = directFixture();
+  let typed = false;
+  f.io.authenticate = async () => ({ supported: false });
+  f.io.typeCredentials = async () => { typed = true; return ['remember:on']; };
+  f.io.sessionState = async () => ({ type: typed ? 'multifactor' : 'auth' });
+  f.io.windows.reveal = async () => { f.events.push('reveal'); throw new Error('window-style-denied'); };
+  await assert.rejects(f.run(), (error) => {
+    assert.equal(error.message, 'window-style-denied');
+    assert.equal(error.needsAttention, true);
+    assert.equal(error.nativeClient, true);
+    return true;
+  });
+  assert.equal(f.events.at(-1), 'reveal');
+  assert.equal(f.events.includes('request-launch'), false);
+});
+
+for (const revealFails of [false, true]) {
+  test(`a guard failure after native entry recovers pending MFA${revealFails ? ' even if window recovery fails' : ''}`, async () => {
+    const f = directFixture();
+    let healthy = true;
+    let inspections = 0;
+    const logs = [];
+    f.options.log = (line) => logs.push(line);
+    f.io.windows.assertHealthy = () => { if (!healthy) throw new Error('original guard failure'); };
+    f.io.authenticate = async () => ({ supported: false });
+    f.io.typeCredentials = async () => { healthy = false; f.events.push(['type', true]); return ['remember:on']; };
+    f.io.readAuthenticationState = async () => { inspections++; return { type: 'multifactor' }; };
+    f.io.windows.reveal = async () => { f.events.push('reveal'); if (revealFails) throw new Error('recovery failed'); };
+    await assert.rejects(f.run(), (error) => {
+      assert.equal(error.message, 'original guard failure');
+      assert.equal(error.needsAttention, true);
+      assert.equal(error.nativeClient, true);
+      return true;
+    });
+    assert.equal(inspections, 1);
+    assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
+    assert.equal(f.events.at(-1), 'reveal');
+    assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
+    assert.equal(f.events.includes('request-launch'), false);
+    assert.equal(f.events.includes('closed'), false);
+    assert.equal(f.events.includes('launch'), false);
+    assert.equal(logs.includes('could not recover the native sign-in verification window'), revealFails);
+  });
+}
+
+test('an unreadable state during native error recovery keeps the original failure without inventing a challenge', async () => {
+  const f = directFixture();
+  let healthy = true;
+  let inspections = 0;
+  f.io.windows.assertHealthy = () => { if (!healthy) throw new Error('original guard failure'); };
+  f.io.authenticate = async () => ({ supported: false });
+  f.io.typeCredentials = async () => { healthy = false; return ['remember:on']; };
+  f.io.readAuthenticationState = async () => { inspections++; throw new Error('inspection failed'); };
+  await assert.rejects(f.run(), (error) => {
+    assert.equal(error.message, 'original guard failure');
+    assert.equal(error.needsAttention, undefined);
+    assert.equal(error.nativeClient, undefined);
+    return true;
+  });
+  assert.equal(inspections, 1);
   assert.equal(f.events.includes('reveal'), false);
+  assert.equal(f.events.at(-1), 'conceal');
+});
+
+test('cancellation after native entry never inspects or reveals another verification', async () => {
+  const f = directFixture();
+  const controller = new AbortController();
+  f.options.signal = controller.signal;
+  f.io.authenticate = async () => ({ supported: false });
+  f.io.typeCredentials = async () => { controller.abort(); return ['remember:on']; };
+  f.io.readAuthenticationState = async () => { assert.fail('A cancelled operation must not inspect authentication'); };
+  await assert.rejects(f.run(), /cancelled/);
+  assert.equal(f.events.includes('reveal'), false);
+  assert.equal(f.events.at(-1), 'conceal');
+});
+
+test('a failure after native authentication completes never reopens a newly reported challenge', async () => {
+  const f = directFixture();
+  f.io.authenticate = async () => ({ supported: false });
+  let finished = false;
+  let extraInspections = 0;
+  f.io.readAuthenticationState = async () => {
+    if (finished) extraInspections++;
+    return { type: finished ? 'multifactor' : 'authenticated' };
+  };
+  f.io.requestLaunch = async () => { finished = true; throw new Error('game launch failed'); };
+  await assert.rejects(f.run(), (error) => {
+    assert.equal(error.message, 'game launch failed');
+    assert.equal(error.needsAttention, undefined);
+    assert.equal(error.nativeClient, undefined);
+    return true;
+  });
+  assert.equal(extraInspections, 0);
+  assert.equal(f.events.includes('reveal'), false);
+  assert.equal(f.events.at(-1), 'conceal');
+});
+
+test('a slow native sign-in preserves manual recovery without automatically revealing the client', async () => {
+  const f = directFixture();
+  f.io.authenticate = async () => ({ supported: false });
+  f.io.typeCredentials = async () => ['remember:on'];
+  await assert.rejects(f.run(), (error) => {
+    assert.equal(error.needsAttention, true);
+    assert.equal(error.nativeClient, true);
+    return true;
+  });
+  assert.equal(f.events.includes('reveal'), false);
+  assert.equal(f.events.at(-1), 'hide');
+  assert.equal(f.events.includes('request-launch'), false);
+});
+
+test('cancelling a revealed native verification conceals it and clears recovery flags', async () => {
+  const f = directFixture();
+  const controller = new AbortController();
+  let typed = false;
+  f.options.signal = controller.signal;
+  f.io.authenticate = async () => ({ supported: false });
+  f.io.typeCredentials = async () => { typed = true; return ['remember:on']; };
+  f.io.sessionState = async () => ({ type: typed ? 'multifactor' : 'auth' });
+  const sleep = f.io.sleep;
+  f.io.sleep = async (ms) => { await sleep(ms); controller.abort(); };
+  await assert.rejects(f.run(), (error) => {
+    assert.match(error.message, /cancelled/);
+    assert.equal(error.needsAttention, undefined);
+    assert.equal(error.nativeClient, undefined);
+    return true;
+  });
+  assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
+  assert.equal(f.events.at(-1), 'conceal');
+  assert.equal(f.events.includes('request-launch'), false);
+});
+
+test('a game timeout after native verification does not retain authentication recovery flags', async () => {
+  const f = directFixture();
+  let typed = false;
+  f.state.gameWindow = false;
+  f.io.authenticate = async () => ({ supported: false });
+  f.io.typeCredentials = async () => { typed = true; return ['remember:on']; };
+  f.io.sessionState = async () => ({ type: f.state.authorized ? 'authenticated' : typed ? 'multifactor' : 'auth' });
+  f.io.isAuthorized = async () => { if (f.elapsed() >= 1400) f.state.authorized = true; return f.state.authorized; };
+  await assert.rejects(f.run(), (error) => {
+    assert.match(error.message, /game did not open/);
+    assert.equal(error.needsAttention, undefined);
+    assert.equal(error.nativeClient, undefined);
+    return true;
+  });
+  assert.ok(f.statuses.some((status) => status.needsAttention && /game is taking longer/i.test(status.text)));
+  assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
+  assert.equal(f.events.at(-1), 'conceal');
 });
 
 test('an invalid direct-login result fails closed without duplicate credential submission', async () => {
@@ -482,4 +722,120 @@ test('dry runs never submit background authentication or launch even an already 
     assert.equal(f.events.includes('request-launch'), false);
     assert.equal(f.events.some((event) => Array.isArray(event) && event[0] === 'type' && event[1] === true), false);
   }
+});
+
+test('stay signed in off ignores saved sessions, types with remember off and keeps no session', async () => {
+  const f = fixture();
+  const typed = [];
+  f.options.remember = false;
+  f.options.session = () => { throw new Error('Saved sessions must not be read'); };
+  f.io.typeCredentials = async (request) => { typed.push(request.remember); f.state.authorized = true; return ['remember:off']; };
+  const result = await f.run();
+  assert.equal(result.gameStarted, true);
+  assert.equal(result.usedSavedSession, false);
+  assert.equal(result.session, null);
+  assert.deepEqual(typed, [false]);
+  assert.equal(f.events.some((event) => Array.isArray(event) && event[0] === 'write'), false);
+});
+
+test('direct sign-in forwards the stay signed in choice and marks every status after authorization', async () => {
+  const f = directFixture();
+  let options;
+  f.options.remember = false;
+  f.io.authenticate = async (_account, _signal, value) => { options = value; f.state.authorized = true; return { supported: true }; };
+  await f.run();
+  assert.deepEqual(options, { remember: false });
+  const first = f.statuses.findIndex((status) => status.signedIn === true);
+  assert.ok(first > 0);
+  assert.equal(f.statuses[first].text, 'Signed in. Preparing the game…');
+  assert.ok(f.statuses.slice(0, first).every((status) => status.signedIn !== true));
+  assert.ok(f.statuses.slice(first).every((status) => status.signedIn === true));
+});
+
+function automaticCheckFixture(checkMs) {
+  const f = directFixture();
+  const timeline = [];
+  let submittedAt = null;
+  f.io.authenticate = async () => ({ supported: true, requiresNativeForm: true, reason: 'captcha' });
+  f.io.typeCredentials = async () => { submittedAt = f.elapsed(); return ['remember:unknown']; };
+  f.io.readAuthenticationState = async () => (submittedAt !== null && f.elapsed() - submittedAt < checkMs ? { type: 'challenge' } : { type: 'auth' });
+  f.io.isAuthorized = async () => submittedAt !== null && f.elapsed() - submittedAt >= checkMs;
+  f.io.windows.reveal = async () => { timeline.push(['reveal', f.elapsed() - submittedAt]); };
+  f.options.status = (text, details = {}) => { f.statuses.push({ text, ...details }); if (details.needsAttention) timeline.push(['attention', f.elapsed() - submittedAt]); };
+  return { f, timeline };
+}
+
+test('a brief automatic Riot check after native credential entry does not ask for attention', async () => {
+  const { f, timeline } = automaticCheckFixture(3000);
+  const result = await f.run();
+  assert.equal(result.gameStarted, true);
+  assert.deepEqual(timeline, []);
+  assert.equal(f.statuses.some((status) => status.needsAttention), false);
+});
+
+test('a Riot check that outlasts the grace period still asks for attention and reveals the native window', async () => {
+  const { f, timeline } = automaticCheckFixture(20000);
+  const result = await f.run();
+  assert.equal(result.gameStarted, true);
+  const attention = timeline.find(([kind]) => kind === 'attention');
+  assert.ok(attention && attention[1] >= 12000 && attention[1] < 20000);
+  assert.ok(timeline.some(([kind]) => kind === 'reveal'));
+});
+
+const OUTDATED = { status: 424, errorCode: 'launch_failed_product_not_up_to_date' };
+
+function outdatedFixture(updatedAt) {
+  const f = directFixture();
+  f.requests = [];
+  f.io.requestLaunch = async (game) => {
+    f.requests.push(f.elapsed());
+    f.events.push('request-launch');
+    if (f.elapsed() < updatedAt) return OUTDATED;
+    f.state.processes[game === 'val' ? 'val' : 'lol'] = true;
+    return { status: 200, errorCode: null };
+  };
+  return f;
+}
+
+test('an outdated game is requested again until the update finishes and then opens', async () => {
+  const f = outdatedFixture(300000);
+  const result = await f.run();
+  assert.equal(result.gameStarted, true);
+  assert.ok(f.elapsed() >= 300000);
+  assert.ok(f.requests.length > 2);
+  for (let i = 1; i < f.requests.length; i += 1) assert.ok(f.requests[i] - f.requests[i - 1] >= 15000);
+  assert.ok(f.statuses.some((status) => /waiting for the league of legends update/i.test(status.text) && status.signedIn === true && status.needsAttention === false));
+  assert.equal(f.statuses.some((status) => /game is taking longer/i.test(status.text)), false);
+});
+
+test('an update that never finishes fails only after the update timeout', async () => {
+  const f = outdatedFixture(Infinity);
+  await assert.rejects(f.run(), /update did not finish in time/);
+  assert.ok(f.elapsed() >= 1200000);
+  assert.equal(f.statuses.some((status) => /game is taking longer/i.test(status.text)), false);
+});
+
+test('the open deadline counts from the accepted request after an update', async () => {
+  const f = outdatedFixture(250000);
+  let acceptedAt = null;
+  const request = f.io.requestLaunch;
+  f.io.requestLaunch = async (game) => {
+    const launch = await request(game);
+    if (launch.status === 200 && acceptedAt === null) acceptedAt = f.elapsed();
+    return launch;
+  };
+  f.io.windows.gameWindow = async () => acceptedAt !== null && f.elapsed() >= acceptedAt + 100000;
+  const result = await f.run();
+  assert.equal(result.gameStarted, true);
+  assert.ok(f.elapsed() > 180000 + 100000);
+  assert.ok(f.statuses.some((status) => status.needsAttention && /game is taking longer/i.test(status.text)));
+});
+
+test('a launch refused for another reason is not repeated and keeps the open timeout', async () => {
+  const f = directFixture();
+  f.state.gameWindow = false;
+  f.io.requestLaunch = async () => { f.events.push('request-launch'); return { status: 500, errorCode: 'other' }; };
+  await assert.rejects(f.run(), /game did not open/);
+  assert.equal(f.events.filter((event) => event === 'request-launch').length, 1);
+  assert.ok(f.elapsed() < 200000);
 });

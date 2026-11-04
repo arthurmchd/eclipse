@@ -94,3 +94,10 @@ test('backups track account and settings edits without rank or launch churn', (t
   assert.equal(newest.accounts[0].note, 'Edited note');
   assert.equal(newest.settings.minimizeOnLaunch, false);
 });
+
+test('stay signed in is on by default and can be turned off', (t) => {
+  const { store } = createStore(t);
+  assert.equal(store.publicSettings().staySignedIn, true);
+  assert.equal(store.updateSettings({ staySignedIn: false }).staySignedIn, false);
+  assert.equal(store.data.settings.staySignedIn, false);
+});

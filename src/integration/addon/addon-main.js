@@ -10,7 +10,7 @@
     const path = require('path');
     const http = require('http');
     const OFFLINE = 'Open Riot Account Manager to connect';
-    const MAX_RESPONSE_BYTES = 512 * 1024;
+    const MAX_RESPONSE_BYTES = 1024 * 1024;
     const DPAPI_COMMAND = '__RAM_DPAPI_HELPER_BASE64__';
     let cachedConnection = null;
     const validId = (value) => typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(value);
@@ -74,12 +74,13 @@
           headers['Content-Type'] = 'application/json';
           headers['Content-Length'] = Buffer.byteLength(body);
         }
-        const req = http.request({ hostname: '127.0.0.1', port: config.port, path: endpoint, method, headers, timeout: 4000 }, (res) => {
+        const timeout = endpoint === '/v1/manage' && payload?.method === 'pickClientPath' ? 300000 : endpoint === '/v1/manage' && payload?.method === 'showRiotClient' ? 60000 : endpoint === '/v1/open-manager' ? 30000 : 4000;
+        const req = http.request({ hostname: '127.0.0.1', port: config.port, path: endpoint, method, headers, timeout }, (res) => {
           let size = 0;
           const chunks = [];
           res.on('data', (chunk) => {
             size += chunk.length;
-            if (size > MAX_RESPONSE_BYTES) {
+            if (size > (endpoint === '/v1/manage' ? MAX_RESPONSE_BYTES : 512 * 1024)) {
               res.destroy();
               reject(new Error('Account Manager returned too much data'));
               return;
@@ -105,6 +106,12 @@
         req.end(body);
       });
     }
+
+    globalThis[Symbol.for('riot-account-manager.manager-request.v1')] = (method, args) => {
+      const allowed = ['init', 'events', 'operation', 'saveAccount', 'deleteAccount', 'patchAccount', 'forgetSession', 'copy', 'refresh', 'runningGames', 'signIn', 'showRiotClient', 'cancelSignIn', 'saveSettings', 'pickClientPath', 'openDataFolder', 'openExternal'];
+      if (!allowed.includes(method) || !Array.isArray(args) || args.length > 2) return Promise.reject(new Error('Invalid account command'));
+      return request('POST', '/v1/manage', { method, args });
+    };
 
     function publicState(value) {
       const accounts = (Array.isArray(value.accounts) ? value.accounts : []).filter((account) => account && validId(account.id)).slice(0, 1000).map((account) => ({

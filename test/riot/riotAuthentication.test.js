@@ -10,6 +10,27 @@ const account = { username: 'synthetic-private-login', password: 'synthetic-priv
 const auth = { type: 'auth', suuid: 'synthetic-active-auth-context', captcha: { type: 'none' } };
 const response = (json, status = 200) => ({ status, json });
 
+test('overlay detects the login form even with native CAPTCHA without exposing its contents', async () => {
+  for (const captcha of [{ type: 'none' }, { type: 'hcaptcha', token: 'synthetic-private' }]) {
+    const f = fixture([response({ ...auth, captcha }), response({}, 404)]);
+    assert.deepEqual(await f.loginScreenState(), { type: 'auth' });
+    assert.equal(f.calls.length, 2);
+    assert.deepEqual(f.calls.map(([method, endpoint]) => [method, endpoint]), [['GET', AUTH], ['GET', '/rso-auth/v1/authorization']]);
+  }
+});
+
+test('overlay hides for authenticated, MFA, unknown and unavailable sessions, with legacy fallback', async () => {
+  for (const value of [{ type: 'authenticated' }, { type: 'success' }, { type: 'multifactor' }, { type: 'challenge' }, {}, null]) {
+    assert.equal(await fixture([response(value)]).loginScreenState(), null);
+  }
+  assert.equal(await fixture([response({}, 503)]).loginScreenState(), null);
+  const f = fixture([response({}, 404), response({ type: 'error', error: 'invalid_credentials' })]);
+  const signal = new AbortController().signal;
+  assert.deepEqual(await f.loginScreenState(signal), { type: 'error', error: 'auth_failure' });
+  assert.equal(f.calls[1][1], '/rso-auth/v1/session');
+  assert.equal(f.calls[1][4].signal, signal);
+});
+
 function fixture(replies) {
   const calls = [];
   const service = createRiotAuthentication({ request: async (...args) => {
@@ -273,4 +294,18 @@ test('invalid credential inputs are rejected without any local requests', async 
     await assert.rejects(f.authenticate(value), /username and password/);
     assert.equal(f.calls.length, 0);
   }
+});
+
+test('overlay hides when an account is already authorized even if the authenticator still reports its login form', async () => {
+  const signal = new AbortController().signal;
+  const f = fixture([response(auth), response({ type: 'authorization' })]);
+  assert.equal(await f.loginScreenState(signal), null);
+  assert.equal(f.calls[1][1], '/rso-auth/v1/authorization');
+  assert.equal(f.calls[1][4].signal, signal);
+});
+
+test('direct sign-in asks Riot not to remember the login when stay signed in is off', async () => {
+  const f = fixture([response(auth), response({ type: 'success' })]);
+  assert.deepEqual(await f.authenticate(account, undefined, { remember: false }), { supported: true });
+  assert.deepEqual(f.calls[1][2], { ...account, remember: false, language: 'en_US', captcha: '' });
 });

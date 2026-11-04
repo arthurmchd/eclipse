@@ -54,5 +54,6 @@ Cada caminho escreve uma linha no `sign-in.log` pelo `log` recebido.
 
 ## Pontos de atenção
 
-- **Validação real pendente.** Não foi confirmado numa instalação real se o `show` abre a interface a partir do modo headless. O `sign-in.log` mostra qual caminho foi usado: "opened the Riot interface through the background service" ou "restarting it with the interface".
+- **Validado numa instalação real (Riot 142, 2026-10-26 23:00).** O `POST /riot-client-lifecycle/v1/show` abriu a interface a partir dos serviços em `--headless` em 0,8 s (`Riot Client.exe` iniciado pelo próprio serviço), e o [[login.ps1]] preencheu o formulário (`remember:on`). O reinício com interface não foi necessário e continua como reserva, **ainda sem validação real**. O `sign-in.log` mostra o caminho usado: "opened the Riot interface through the background service" ou "restarting it with the interface".
+- **O login ainda não chegou ao jogo nesse teste.** 0,7 s depois do preenchimento, o fluxo parou com "The background window guard stopped". É outro problema, do monitor de janelas; ver [[Backlog]].
 - O endpoint `/riot-client-lifecycle/v1/show` não é contrato público ([[Limitações conhecidas]]).

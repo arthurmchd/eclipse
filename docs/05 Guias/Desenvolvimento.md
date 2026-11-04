@@ -15,8 +15,8 @@ tags: [dev]
 
 | Comando | O que faz |
 |---|---|
-| `npm start` | Abre o gerenciador |
-| `npm run start:riot-login` | Abre no modo login integrado (igual ao `.bat`) |
+| `npm start` | Abre a interface Riot integrada, com gerenciamento completo em Contas |
+| `npm run start:riot-login` | Alias compatível para a mesma abertura integrada |
 | `npm test` | Roda todos os testes (`node --test "test/**/*.test.js"`) |
 | `npm run preview` | Interface no navegador com contas fictícias em <http://localhost:5178> |
 | `npm run preview:riot-login` | Demonstração do painel MINHAS CONTAS com contas fictícias |
@@ -41,7 +41,7 @@ Rodar um teste só: `node --test test/riot/signInFlow.test.js`.
 - **CommonJS no main e nos scripts, ES modules no renderer.** Sem build, sem TypeScript.
 - **Fábricas com dependências injetáveis** (`createX({ spawn, request, ... })`) para tudo que toca processo, rede ou disco.
 - **Caminhos só por `src/paths.js`** ([[paths]]).
-- **Mensagens para o usuário:** interface do gerenciador em inglês; painel integrado e diálogos do modo integrado em português.
+- **Uma única janela de uso:** a visualização completa de contas é um `WebContentsView` dentro da janela Riot; o main não cria uma janela independente. A interface de desenvolvimento continua disponível no navegador com dados fictícios.
 - **Nomes de arquivo em camelCase**, exceto os addons (`addon-*.js`), que seguem o nome das entradas do Riot.
 
 ## Adicionar um módulo
@@ -53,4 +53,4 @@ Rodar um teste só: `node --test test/riot/signInFlow.test.js`.
 
 ## Prévia no navegador
 
-`npm run preview` serve a raiz do projeto, redireciona `/` para `/src/renderer/index.html` e injeta `scripts/dev/mock-api.js`, que cria um `window.api` falso com contas de exemplo. É só para desenvolvimento: escuta em todas as interfaces e não deve ser exposto ([[Backlog]]).
+`npm run preview` serve a raiz do projeto, redireciona `/` para `/src/renderer/index.html` e injeta `scripts/dev/mock-api.js` nela e em `/src/renderer/cards.html` (cartões da sobreposição), que cria um `window.api` falso com contas de exemplo. É só para desenvolvimento: escuta em todas as interfaces e não deve ser exposto ([[Backlog]]).

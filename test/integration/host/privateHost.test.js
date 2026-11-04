@@ -50,12 +50,13 @@ function archiveFixture(t, { version = '141.0.0', main = hardenPrivateMainSource
   const manifestPath = path.join(directory, 'candidate', 'manifest.json');
   const pkg = { name: 'riot-client-ux', version, main: './dist/main/main.js' };
   const original = { 'package.json': JSON.stringify(pkg), 'dist/main/main.js': originalMain, 'dist/main/preload.js': '// original preload', 'dist/renderer/renderer.js': '// original renderer' };
-  const candidate = { ...original, 'dist/main/main.js': `${main}\n/*${marker}*/`, 'dist/main/preload.js': `/*${marker}*/`, 'dist/renderer/renderer.js': `/*${marker}*/` };
+  const candidate = { ...original, 'dist/main/main.js': `${main}\n/*${marker}*/\n/*riot-account-manager.manager-request.v1*/`, 'dist/main/preload.js': `/*${marker}*/`, 'dist/renderer/renderer.js': `/*${marker}*/` };
   writeArchive(sourcePath, original);
   writeArchive(candidatePath, candidate);
   const manifest = {
     schemaVersion: 1,
     mode: 'private-host',
+    behavior: { fullManagerInClient: true },
     privacy: { startupArgumentsRedacted: true, logGuardInstalled: true },
     source: { path: sourcePath, size: fs.statSync(sourcePath).size, sha256: sha256File(sourcePath), package: pkg },
     candidate: { path: candidatePath, size: fs.statSync(candidatePath).size, sha256: sha256File(candidatePath) },
@@ -224,7 +225,7 @@ test('host request requires private mode and the prepared log-privacy guarantees
   assert.throws(f.validate, /privacy guarantees/);
 });
 
-function hostFixture(t, { ready = Promise.resolve(), unavailableEncryption = false, loadFailure = false, invalidHash = false, validateFailure = false } = {}) {
+function hostFixture(t, { ready = Promise.resolve(), unavailableEncryption = false, loadFailure = false, invalidHash = false, validateFailure = false, createAccountsView, mainGlobal = {} } = {}) {
   const input = new PassThrough();
   const output = [];
   const errors = [];
@@ -248,7 +249,7 @@ function hostFixture(t, { ready = Promise.resolve(), unavailableEncryption = fal
   const config = { candidatePath: path.resolve('test/private/app.asar'), mainPath: path.resolve('test/private/app.asar/dist/main/main.js'), candidateSha256: 'expected-hash', profilePath: path.resolve('test/private/profile'), userDataRoot: path.resolve('test/private/state'), logDir: path.resolve('test/private/logs'), appPort: 55555, appPid: 1234, encryptedAuthToken: Buffer.from('fake-ciphertext').toString('base64') };
   const electron = { app, protocol: { registerSchemesAsPrivileged: (schemes) => startup.push(['register-protocol', schemes]) }, BrowserWindow: { getAllWindows: () => windows }, safeStorage: { isEncryptionAvailable: () => !unavailableEncryption, decryptString: () => { decrypted++; return 'dummy-decrypted-token'; } } };
   const launch = runPrivateHost({
-    electron, processObject, input, mainGlobal: {},
+    electron, processObject, input, mainGlobal, createAccountsView,
     decryptToken: async () => {
       if (unavailableEncryption) throw new Error('synthetic DPAPI unavailable');
       return electron.safeStorage.decryptString();
@@ -338,6 +339,29 @@ test('host shows its main renderer after the hidden-startup first-show workaroun
   assert.equal(main.hides, 1);
   assert.equal(main.shows, 1);
   assert.deepEqual(f.events(), [{ event: 'ready', integrationReady: true, managerConnected: true }]);
+});
+
+test('host queues account management until the real Riot renderer is ready and keeps it in that window', async (t) => {
+  const actions = [];
+  const mainGlobal = { [Symbol.for('riot-account-manager.manager-request.v1')]: async (method, args) => ({ ok: true, value: { method, args } }) };
+  const f = hostFixture(t, { mainGlobal, createAccountsView: ({ request }) => ({
+    open: async (window) => { actions.push(['open', window]); assert.deepEqual(await request('init', []), { ok: true, value: { method: 'init', args: [] } }); },
+    close: () => actions.push(['close']), dispose: () => actions.push(['dispose']),
+  }) });
+  f.send();
+  f.input.write('open-manager\n');
+  await f.launch;
+  assert.equal(actions.length, 0);
+  const window = f.addWindow('http://127.0.0.1:55000/index.html');
+  window.webContents.emit('did-finish-load');
+  await flush(); await flush();
+  assert.equal(actions[0][0], 'open');
+  assert.equal(actions[0][1], window);
+  assert.equal(f.events().at(-1).event, 'manager-ready');
+  assert.equal(f.windows.length, 1);
+  f.input.write('close-manager\n');
+  await flush();
+  assert.equal(actions.at(-1)[0], 'close');
 });
 
 for (const [label, options, expectedStage] of [

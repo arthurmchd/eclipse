@@ -12,12 +12,12 @@ tags: [módulo]
 
 ## Responsabilidade
 
-- `addon-main.js`: no processo main do Riot, lê a descoberta, decifra o token da ponte e registra quatro handlers IPC que chamam o [[bridgeServer]].
+- `addon-main.js`: no processo main do Riot, lê a descoberta, decifra o token da ponte, registra quatro handlers IPC do seletor e oferece o transporte de gerenciamento somente a [[managerHost]] no main.
 - `addon-preload.js`: expõe `window.riotAccountManager` com quatro métodos fixos.
-- `addon-renderer.js`: desenha o painel quando o formulário de login está visível e consulta o estado a cada segundo.
+- `addon-renderer.js`: desenha o seletor rápido no login e mantém um acesso **Contas** também na página conectada. Gerenciar contas abre o `WebContentsView` na própria janela Riot.
 - `preview.html`: página de demonstração local, com dados fictícios, para ver o painel sem o Riot.
 
-Os addons não fazem login nem tocam a senha digitada. Quem entra na conta é o gerenciador ([[signInService]]).
+O seletor não lê os campos de senha do Riot. Quem entra na conta continua sendo [[signInService]]. A visualização completa recebe os campos de cadastro que o usuário digita e os envia pelo transporte main de gerenciamento, sem obter senhas ou chaves já armazenadas.
 
 ## API pública
 
@@ -27,6 +27,7 @@ Os addons não fazem login nem tocam a senha digitada. Quem entra na conta é o 
 | `ram-client:sign-in` | IPC | `(accountId, game)` → `POST /v1/sign-in`, devolve `operationId`. |
 | `ram-client:cancel`, `ram-client:open-manager` | IPC | `POST` sem campos. |
 | `window.riotAccountManager` | objeto congelado | `state()`, `signIn(accountId, game)`, `cancel()`, `openManager()`. |
+| `Symbol.for('riot-account-manager.manager-request.v1')` | função no main | Encaminha métodos/argumentos de [[managerHost]] para `POST /v1/manage`; não é exposta ao renderer Riot. |
 | `#ram-login-account-panel-v1` | elemento | `aside` com shadow DOM fechado. |
 
 ## Dependências
@@ -43,11 +44,11 @@ Os addons não fazem login nem tocam a senha digitada. Quem entra na conta é o 
 - **Token só no main.** O token da ponte nunca chega ao renderer. As chamadas HTTP saem do processo main, sem `Origin`.
 - **Remetente confiável.** Cada handler exige: frame principal da janela; título `Riot Client`; URL `http:` em `127.0.0.1` ou `localhost`, sem usuário ou senha, com porta numérica válida; e URL do frame igual à do `webContents`. Páginas remotas e iframes recebem erro.
 - **Descoberta validada.** Lê `%APPDATA%\riot-account-manager\riot-client-bridge.json` (até 8 KiB). Exige `version` 1, PID e porta válidos e token em Base64. O token decifrado tem de 32 a 256 caracteres, sem CR, LF ou NUL. A conexão fica em cache enquanto blob, PID e porta não mudam.
-- **Resposta limitada.** Prazo de 4 s, até 512 KiB, objeto JSON. Status fora de 2xx ou `ok: false` viram erro curto.
+- **Resposta limitada.** Respostas são objetos JSON limitados a 1 MiB. Status fora de 2xx ou `ok: false` viram erro curto. O prazo comum é 4 s; escolher o caminho do cliente permite 300 s para o diálogo, recuperar a interface permite 60 s e abrir Contas permite 30 s. O login confirma uma operação e é acompanhado por eventos, sem uma requisição HTTP longa contendo senha.
 - **Estado filtrado de novo.** Até 1000 contas com `id` válido; `gameName` até 64 e `tagLine` até 32 caracteres; só os booleanos `hasPassword` e `hasSession`. A operação só passa com status `running`, `succeeded`, `failed` ou `cancelled`.
 - **API mínima no preload.** Só quatro métodos, sem um `invoke` genérico.
 - **Painel fora do layout do Riot.** As regras inline do `aside` (fixo, `z-index` alto) mantêm o painel fora do fluxo de layout do Riot/League. O shadow DOM é fechado. Nomes de conta entram como `textContent`.
-- **Só na tela de login.** Os seletores pegam o `LoginForm` da 141 instalada (`[data-testid="login-form"]`, `.login-form`) e excluem formulários de criação de conta ou troca de senha, que também podem ter campo de senha. O campo precisa ter tamanho e nenhum ancestral com `display: none`, `visibility: hidden/collapse` ou opacidade 0. O valor da senha nunca é lido.
+- **Seletor rápido só no login; gerenciamento sempre acessível.** Os seletores pegam o `LoginForm` e excluem criação de conta ou troca de senha. O campo precisa ter tamanho e nenhum ancestral oculto. O valor da senha nunca é lido. O botão independente **Contas** não depende da existência desse formulário e permanece disponível na página conectada.
 - **Consulta só quando visível.** Um `MutationObserver` agenda a checagem (100 ms). Com o login visível, `refresh` roda a cada 1 s; oculto, o intervalo para. Tudo é limpo em `beforeunload`.
 - **Login exige senha salva.** O botão "Entrar e jogar" e cada conta só ficam ativos se a conta tiver senha no gerenciador.
 - **Prévia sem Riot.** `preview.html` define um `window.riotAccountManager` falso com três contas fictícias e um formulário com `data-testid="login-form"`, e carrega `addon-renderer.js` do mesmo diretório. Não envia credenciais nem conecta à Riot. Ver [[Desenvolvimento]].

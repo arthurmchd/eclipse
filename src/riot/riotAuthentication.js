@@ -2,6 +2,7 @@ const AUTHENTICATION = '/rso-authenticator/v1/authentication';
 const START = `${AUTHENTICATION}/riot-identity/start`;
 const COMPLETE = `${AUTHENTICATION}/riot-identity/complete`;
 const LEGACY_SESSION = '/rso-auth/v1/session';
+const AUTHORIZATION = '/rso-auth/v1/authorization';
 const PLAYER_SESSION = '/player-session-lifecycle/v1/session';
 const UNSUPPORTED = new Set([404, 405, 501]);
 const HUMAN_STEPS = new Set(['challenge', 'captcha', 'healup', 'confirm_age', 'kr-id-verification', 'ambiguous_auth', 'ambiguous_username']);
@@ -121,7 +122,7 @@ function createRiotAuthentication({ request } = {}) {
     return state;
   }
 
-  async function authenticate(account, signal) {
+  async function authenticate(account, signal, { remember = true } = {}) {
     cancelled(signal);
     if (!account || typeof account.username !== 'string' || !account.username || account.username.length > 256
         || typeof account.password !== 'string' || !account.password || account.password.length > 256
@@ -165,7 +166,7 @@ function createRiotAuthentication({ request } = {}) {
     if (state.type !== 'auth') throw new Error('Riot needs your attention. Open Riot Client to continue');
     cancelled(signal);
     const completed = await call('POST', COMPLETE, {
-      username: account.username, password: account.password, remember: true,
+      username: account.username, password: account.password, remember: remember !== false,
       language: 'en_US', captcha: '',
     }, signal, 30000);
     const result = successfulState(completed, { allowEmpty: true });
@@ -177,7 +178,19 @@ function createRiotAuthentication({ request } = {}) {
     return { supported: true };
   }
 
-  return { authenticate, sessionState };
+  async function loginScreenState(signal) {
+    let response = await call('GET', AUTHENTICATION, undefined, signal);
+    if (UNSUPPORTED.has(response.status)) response = await call('GET', LEGACY_SESSION, undefined, signal);
+    if (response.status !== 200 || !validObject(response.json)) return null;
+    const value = response.json;
+    if (typeof value.type !== 'string') return null;
+    const type = value.type.toLowerCase();
+    if (type === 'auth') return (await call('GET', AUTHORIZATION, undefined, signal)).status === 200 ? null : { type: 'auth' };
+    if (type === 'error' && typeof value.error === 'string' && SAFE_ERRORS.get(value.error.toLowerCase()) === 'auth_failure') return { type: 'error', error: 'auth_failure' };
+    return null;
+  }
+
+  return { authenticate, sessionState, loginScreenState };
 }
 
 module.exports = { createRiotAuthentication };

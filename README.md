@@ -1,20 +1,30 @@
 # Riot Account Manager
 
-Painel para Windows que entra em várias contas da Riot com um clique (League of Legends, Teamfight Tactics e VALORANT) e mostra o elo de cada conta com os emblemas oficiais.
+Gerenciamento de contas em uma sobreposição que acompanha o Riot Client oficial: cadastro, edição, configurações, elos e abertura de League of Legends, Teamfight Tactics e VALORANT. O serviço fica na bandeja; você abre o Riot pelo atalho normal.
+
+A interface padrão mostra cartões de contas diretamente sobre a arte dos personagens, nos 70% direitos da janela. O login à esquerda fica livre. Cada cartão mostra nome, nível e, para Solo/Duo e Flex lado a lado (Competitivo no VALORANT), rank, winrate, vitórias e derrotas; cadastro e configurações usam diálogos compactos. A interface completa antiga continua apenas no modo privado de compatibilidade.
 
 - Senhas, chaves e sessões criptografadas com o DPAPI do Windows
 - Troca de conta reaproveitando a sessão salva pelo próprio Riot, com o cliente oculto
-- Modo experimental com o painel **MINHAS CONTAS** dentro da tela de login real do Riot
+- Interface completa em **Contas**, disponível sobre a janela oficial enquanto ela está em primeiro plano
 - Não contorna CAPTCHA nem 2FA e não mexe nos jogos nem no Vanguard
 
 ## Início rápido
+
+Em uma instalação nova do projeto, com o Riot Client compatível instalado:
 
 ```powershell
 npm ci
 npm start
 ```
 
-Ou dois cliques em `Abrir Riot Account Manager.bat`. Para o login integrado, `Abrir Riot com minhas contas.bat` (exige preparar a cópia privada; veja a documentação).
+Inicie por `Iniciar gerenciador de contas.bat` ou `npm start`, depois abra o Riot Client normalmente. O serviço não abre o Riot sozinho na inicialização. Clique em **Contas**, no canto superior direito. O painel acompanha o cliente e some quando ele é minimizado ou outro aplicativo recebe foco. Encerre a instância antiga pela bandeja antes de atualizar. O início automático com Windows não é ativado.
+
+O modo anterior com cópia privada continua disponível por `npm run start:private` e exige `npm run integration:prepare-private`. A sobreposição padrão dispensa essa preparação. O `.bat` antigo passa a iniciar o mesmo serviço em segundo plano.
+
+Na janela Riot, use **Contas** para abrir o gerenciamento completo e **Voltar ao Riot** para retornar. Os dados e as sessões salvas são preservados. Fechar a visualização não cancela um login em andamento; a bandeja oferece recuperação do cliente, cancelamento e saída.
+
+Após Play no modo sobreposto, o Riot fica visível com carregamento e Cancelar. Quando a janela do jogo estiver pronta, a janela Riot recebe o pedido de fechamento. Verificações, falhas e cancelamento mantêm a interface acessível.
 
 Requisitos: Windows 10/11 e Node.js 22+.
 
@@ -34,12 +44,12 @@ A documentação completa é um vault do Obsidian em [`docs/`](docs/00%20Início
 
 ```
 src/
-  main/              processo principal Electron e preload
+  main/              serviço principal Electron, sem janela própria
   core/              armazenamento, serviço de login, consulta de elos
   riot/              controle do Riot Client e fluxo de login
   platform/windows/  janelas, DPAPI e auxiliares PowerShell
-  integration/       cópia privada da interface do Riot, ponte local e addons
-  renderer/          interface do gerenciador
+  integration/       cópia privada, ponte, addons e visualização de contas isolada
+  renderer/          interface completa exibida dentro da janela Riot
 scripts/             dev, integration e legacy
 test/                espelha src/
 docs/                vault do Obsidian
@@ -49,8 +59,9 @@ docs/                vault do Obsidian
 
 | Comando | O que faz |
 |---|---|
-| `npm start` | Abre o gerenciador |
-| `npm run start:riot-login` | Abre no modo login integrado |
+| `npm start` | Inicia a sobreposição na bandeja; abra o Riot normalmente |
+| `npm run start:riot-login` | Alias para o serviço de sobreposição |
+| `npm run start:private` | Modo anterior com cópia privada preparada |
 | `npm test` | Roda os testes |
 | `npm run preview` | Interface no navegador com contas fictícias (<http://localhost:5178>) |
 | `npm run integration:prepare-private` | Prepara a cópia privada da interface do Riot |

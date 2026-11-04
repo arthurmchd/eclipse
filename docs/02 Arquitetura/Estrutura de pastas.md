@@ -7,20 +7,19 @@ tags: [arquitetura, pastas]
 
 ```
 riot-account-manager/
-├── Abrir Riot Account Manager.bat      atalho do gerenciador
-├── Abrir Riot com minhas contas.bat    atalho do login integrado
+├── Abrir Riot com minhas contas.bat    atalho da interface integrada
 ├── CLAUDE.md                           instruções para agentes de IA
 ├── README.md
 ├── package.json                        main = src/main/index.js
 ├── docs/                               este vault do Obsidian
 ├── src/
 │   ├── paths.js                        único lugar que conhece o layout
-│   ├── main/                           processo principal Electron
-│   │   ├── index.js
-│   │   └── preload.js
+│   ├── main/                           serviços Electron sem janela própria
+│   │   └── index.js
 │   ├── core/                           regras da aplicação
 │   │   ├── store.js
 │   │   ├── signInService.js
+│   │   ├── managerService.js
 │   │   └── rankApi.js
 │   ├── riot/                           controle do Riot Client
 │   │   ├── riotClient.js
@@ -42,6 +41,9 @@ riot-account-manager/
 │   │   ├── backend.js
 │   │   ├── asar.js
 │   │   ├── status.js
+│   │   ├── manager/                    visualização filha da janela Riot
+│   │   │   ├── managerHost.js
+│   │   │   └── manager-preload.js
 │   │   ├── host/                       processo do host privado
 │   │   │   ├── hostEntry.js
 │   │   │   ├── privateHost.js
@@ -52,7 +54,7 @@ riot-account-manager/
 │   │       ├── addon-preload.js
 │   │       ├── addon-renderer.js
 │   │       └── preview.html
-│   └── renderer/                       interface do gerenciador
+│   └── renderer/                       interface completa dentro do Riot
 │       ├── index.html
 │       ├── app.js
 │       ├── ranks.js
@@ -100,3 +102,5 @@ riot-account-manager/
 | `GUIA-GITHUB.md` | [[Publicar no GitHub]] |
 
 O comando `npm run integration:prepare` (experimento legado) virou `npm run legacy:prepare-install`. Os demais comandos mantiveram o nome. Ver [[ADR-006 Estrutura de pastas por camada]].
+
+Na migração posterior para a janela única, `src/main/preload.js` e o atalho da janela independente foram removidos. O preload dedicado passou a `src/integration/manager/manager-preload.js`, e o HTML/CSS/JS existente foi preservado para a visualização integrada. Ver [[ADR-007 Interface completa dentro do Riot Client]].

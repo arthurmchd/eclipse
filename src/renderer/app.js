@@ -22,6 +22,7 @@ const ICONS = {
 const state = {
   accounts: [],
   settings: {},
+  embedded: false,
   regions: {},
   valRegions: [],
   nextRefresh: null,
@@ -135,7 +136,7 @@ function renderDistribution() {
     .map(
       (g) => `
       <li>
-        <button data-tier="${g.id}" class="${state.tierFilter === g.id ? 'active' : ''} ${counts[g.id] ? '' : 'empty'}" style="--tier:${g.color}">
+        <button data-tier="${g.id}" title="${esc(g.name)}" class="${state.tierFilter === g.id ? 'active' : ''} ${counts[g.id] ? '' : 'empty'}" style="--tier:${g.color}">
           <img src="${g.icon}" alt="" loading="lazy">
           <span>${g.name}</span>
           <b>${counts[g.id] || 0}</b>
@@ -151,7 +152,7 @@ function renderBanner() {
   const msgs = [];
   const s = state.settings;
   if (!state.clientFound) msgs.push('Riot Client not found. Set its location in <a data-open="settings">Settings</a> to sign in.');
-  if (nativeWarning) msgs.push(esc(state.nativeIntegration.reason || 'The experimental Riot login panel is not active. The regular account manager remains available.'));
+  if (nativeWarning) msgs.push(esc(state.nativeIntegration.reason || 'A integração de contas não está disponível. Abra o Riot com Minhas Contas novamente.'));
   if (state.game === 'val' ? !s.henrikApiKeyMasked : !s.riotApiKeyMasked) {
     msgs.push(
       state.game === 'val'
@@ -429,24 +430,30 @@ async function submitSettings(e) {
   const f = $('#settings-form').elements;
   const input = {
     refreshMinutes: Number(f.refreshMinutes.value),
-    minimizeOnLaunch: f.minimizeOnLaunch.checked,
-    hideRiotClient: f.hideRiotClient.checked,
-    closeRiotClient: f.closeRiotClient.checked,
     streamerMode: f.streamerMode.checked,
     riotClientPath: f.riotClientPath.value.trim(),
   };
+  if (!state.embedded) Object.assign(input, {
+    minimizeOnLaunch: f.minimizeOnLaunch.checked,
+    hideRiotClient: f.hideRiotClient.checked,
+    closeRiotClient: f.closeRiotClient.checked,
+  });
   if (f.riotApiKey.value.trim()) input.riotApiKey = f.riotApiKey.value;
   if (f.riotTftApiKey.value.trim()) input.riotTftApiKey = f.riotTftApiKey.value;
   if (f.henrikApiKey.value.trim()) input.henrikApiKey = f.henrikApiKey.value;
   const keysChanged = Boolean(input.riotApiKey || input.riotTftApiKey || input.henrikApiKey);
-  const res = await api.saveSettings(input);
-  state.settings = res;
-  state.nextRefresh = res.nextRefresh;
-  state.clientFound = res.clientFound;
-  $('#settings-modal').close();
-  render();
-  toast('Settings saved', 'ok', 2000);
-  if (keysChanged && state.accounts.length) refreshRanks();
+  try {
+    const res = await api.saveSettings(input);
+    state.settings = res;
+    state.nextRefresh = res.nextRefresh;
+    state.clientFound = res.clientFound;
+    $('#settings-modal').close();
+    render();
+    toast('Settings saved', 'ok', 2000);
+    if (keysChanged && state.accounts.length) refreshRanks();
+  } catch (error) {
+    toast(error.message || String(error), 'error', 6000);
+  }
 }
 
 function upsertLocal(acc) {
@@ -608,7 +615,37 @@ async function onMenu(action, acc) {
   if (action === 'delete') deleteAccount(acc);
 }
 
+function clearSecretInputs() {
+  $$('#account-form input[name="password"], #settings-form input[type="password"]').forEach((input) => { input.value = ''; });
+}
+
+async function closeIntegratedManager() {
+  if (!state.embedded || typeof api.closeManager !== 'function') return;
+  try {
+    await api.closeManager();
+    clearSecretInputs();
+  } catch (error) {
+    toast(error.message || String(error), 'error', 6000);
+  }
+}
+
+function bindIntegratedNavigation() {
+  const back = $('#return-to-riot');
+  back.hidden = !state.embedded || typeof api.closeManager !== 'function';
+  back.addEventListener('click', closeIntegratedManager);
+  $('#window-behaviour').hidden = state.embedded;
+  $('#integrated-behaviour').hidden = !state.embedded;
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return;
+    if (!state.embedded || typeof api.closeManager !== 'function') return;
+    event.preventDefault();
+    closeIntegratedManager();
+  });
+  $$('dialog').forEach((dialog) => dialog.addEventListener('close', clearSecretInputs));
+}
+
 function bind() {
+  bindIntegratedNavigation();
   $('.game-tabs').addEventListener('click', (e) => {
     const b = e.target.closest('[data-game]');
     if (!b) return;
@@ -756,15 +793,17 @@ function bind() {
   });
 
   api.onAccountUpdated((acc) => {
+    if (!acc || typeof acc.id !== 'string') return;
     const i = state.accounts.findIndex((a) => a.id === acc.id);
     if (i >= 0) state.accounts[i] = acc;
-    else return;
+    else state.accounts.push(acc);
     renderDistribution();
     renderAccounts();
   });
   api.onSignInOperation?.((operation) => {
+    const cancelling = state.signingIn?.id === operation?.accountId && state.signingIn.cancelling;
     state.signingIn = operation?.status === 'running'
-      ? { id: operation.accountId, text: operation.text, needsAttention: operation.needsAttention, cancelling: false }
+      ? { id: operation.accountId, text: operation.text, needsAttention: operation.needsAttention, cancelling: Boolean(cancelling) }
       : null;
     renderAccounts();
   });
@@ -819,6 +858,7 @@ async function main() {
     nextRefresh: data.nextRefresh,
     clientFound: data.clientFound,
     nativeIntegration: data.nativeIntegration,
+    embedded: data.embedded === true,
   });
   if (!QUEUES[state.game]) state.game = 'lol';
   $('#version').textContent = `v${data.version}`;

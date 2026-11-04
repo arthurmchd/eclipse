@@ -10,6 +10,7 @@
   "scripts": {
     "start": "electron .",
     "start:riot-login": "electron . --riot-login",
+    "start:private": "electron . --private-client",
     "test": "node --test \"test/**/*.test.js\"",
     "preview": "node scripts/dev/preview-server.js",
     "preview:riot-login": "electron scripts/dev/preview-riot-integration.js",

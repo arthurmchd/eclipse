@@ -4,7 +4,9 @@
   if (globalThis[marker]) return;
   globalThis[marker] = true;
   const HOST_ID = 'ram-login-account-panel-v1';
+  const LAUNCHER_ID = 'ram-account-workspace-launcher-v1';
   let host, root, list, status, signInButton, cancelButton, refreshButton, gameSelect, body, toggle;
+  let launcher;
   let timer = null, observer = null, scanTimer = null, refreshing = false, pending = false, destroyed = false;
   let accounts = [], operation = null, selectedId = '', lastAccounts = '', collapsed = window.innerWidth < 850;
 
@@ -21,8 +23,8 @@
     return item;
   }
   function errorText(value) {
-    if (value === 'Open Riot Account Manager to connect') return 'Abra o Riot Account Manager para conectar.';
-    return typeof value === 'string' && value ? value.slice(0, 512) : 'Não foi possível conectar ao gerenciador.';
+    if (value === 'Open Riot Account Manager to connect') return 'Abra o Riot com Minhas Contas para conectar.';
+    return typeof value === 'string' && value ? value.slice(0, 512) : 'Não foi possível conectar ao serviço de contas.';
   }
   function showStatus(text, error = false) {
     if (!status) return;
@@ -46,13 +48,13 @@
       lastAccounts = signature;
       list.replaceChildren();
       if (!accounts.some((account) => account.id === selectedId && account.hasPassword)) selectedId = accounts.find((account) => account.hasPassword)?.id || '';
-      if (!accounts.length) list.append(element('p', 'Adicione suas contas no gerenciador para entrar por aqui.', 'empty'));
+      if (!accounts.length) list.append(element('p', 'Abra Gerenciar contas para cadastrar sua primeira conta aqui no Riot.', 'empty'));
       for (const account of accounts) {
         const item = button('', () => { selectedId = account.id; updateControls(); }, 'account');
         item.dataset.accountId = account.id;
         item.setAttribute('role', 'option');
         item.append(element('strong', `${account.gameName}#${account.tagLine}`));
-        item.append(element('small', account.hasPassword ? (account.hasSession ? 'Sessão salva' : 'Login automático') : 'Adicione a senha no gerenciador'));
+        item.append(element('small', account.hasPassword ? (account.hasSession ? 'Sessão salva' : 'Login automático') : 'Adicione a senha em Gerenciar contas'));
         list.append(item);
       }
     }
@@ -60,7 +62,7 @@
   }
   async function call(method, ...args) {
     const api = window.riotAccountManager;
-    if (!api || typeof api[method] !== 'function') throw new Error('Abra o Riot Account Manager para conectar.');
+    if (!api || typeof api[method] !== 'function') throw new Error('Abra o Riot com Minhas Contas para conectar.');
     const result = await api[method](...args);
     if (!result?.ok) throw new Error(errorText(result?.error));
     return result;
@@ -113,13 +115,32 @@
   }
   async function openManager() {
     try { await call('openManager'); }
-    catch (error) { showStatus(errorText(error.message), true); }
+    catch (error) {
+      const text = errorText(error.message);
+      showStatus(text, true);
+      if (launcher) launcher.title = text;
+    }
+  }
+  function mountLauncher() {
+    if (launcher || destroyed) return;
+    const container = element('nav');
+    container.id = LAUNCHER_ID;
+    container.setAttribute('aria-label', 'Contas no Riot Client');
+    container.style.cssText = 'position:fixed;right:96px;top:36px;z-index:2147483001;pointer-events:auto;';
+    const shadow = container.attachShadow({ mode: 'closed' });
+    const style = element('style');
+    style.textContent = ':host{font:600 12px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;}button{font:inherit;color:#f2ebe2;background:#202125;border:1px solid #72645c;border-radius:7px;padding:9px 16px;cursor:pointer;box-shadow:0 3px 16px #0005;}button:hover{background:#393136;border-color:#dc726a;}button:focus-visible{outline:2px solid #ed766e;outline-offset:3px;}@media(max-width:650px){button{padding:8px 10px;}}';
+    launcher = button('Contas', openManager);
+    launcher.setAttribute('aria-label', 'Abrir contas, elos e configurações');
+    launcher.title = 'Contas, elos e configurações';
+    shadow.append(style, launcher);
+    document.body.append(container);
   }
   function mount() {
     if (host || destroyed) return;
     host = element('aside');
     host.id = HOST_ID;
-    host.setAttribute('aria-label', 'Contas salvas do Riot Account Manager');
+    host.setAttribute('aria-label', 'Contas salvas no Riot Client');
     host.hidden = true;
     host.style.cssText = 'position:fixed;right:24px;top:76px;width:min(310px,calc(100vw - 32px));max-height:calc(100vh - 112px);z-index:2147483000;pointer-events:auto;';
     root = host.attachShadow({ mode: 'closed' });
@@ -148,7 +169,7 @@
     toggle.setAttribute('aria-expanded', String(!collapsed));
     head.append(toggle); panel.append(head);
     body = element('div', undefined, 'body'); body.hidden = collapsed;
-    body.append(element('p', 'Entre com uma conta salva no gerenciador.', 'intro'));
+    body.append(element('p', 'Escolha uma conta salva ou gerencie suas contas aqui no Riot.', 'intro'));
     list = element('div', undefined, 'list'); list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Contas salvas'); body.append(list);
     const gameLabel = element('label', undefined, 'game'); gameLabel.append(element('span', 'Abrir jogo'));
     gameSelect = element('select');
@@ -182,6 +203,7 @@
   function scan() {
     scanTimer = null;
     if (destroyed || !document.body) return;
+    mountLauncher();
     mount();
     const visible = loginVisible();
     if (host.hidden !== !visible) host.hidden = !visible;

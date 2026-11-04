@@ -1,6 +1,7 @@
 const { buildLaunchArguments, validateHostRequest, preparePrivateHostBeforeReady } = require('./privateHostCore');
 const { sha256File } = require('../asar');
 const { unprotectString } = require('../../platform/windows/windowsDpapi');
+const { createManagerHost } = require('../manager/managerHost');
 
 async function runPrivateHost({
   electron = require('electron'), processObject = process,
@@ -11,6 +12,7 @@ async function runPrivateHost({
   diagnostic = () => {},
   decryptToken = unprotectString,
   requestTimeoutMs = 30000,
+  createAccountsView = createManagerHost,
 } = {}) {
   const { app, BrowserWindow } = electron;
   const originalWrite = protocolOutput.write.bind(protocolOutput);
@@ -29,6 +31,8 @@ async function runPrivateHost({
   let resolveRequest;
   let rejectRequest;
   let timer;
+  let accountsView = null;
+  let managerRequested = false;
   const request = new Promise((resolve, reject) => { resolveRequest = resolve; rejectRequest = reject; });
   request.catch(() => {});
   const mark = (value) => { try { diagnostic(value); } catch {} };
@@ -39,6 +43,7 @@ async function runPrivateHost({
     stopped = true;
     mark('stop');
     clearTimeout(timer);
+    accountsView?.dispose();
     input.removeListener('data', onData);
     input.removeListener('end', onEnd);
     input.removeListener('error', fail);
@@ -74,6 +79,21 @@ async function runPrivateHost({
       } catch {}
     }
   };
+  async function openManager(window) {
+    if (!window || stopped) return;
+    try {
+      if (!accountsView) accountsView = createAccountsView({
+        electron,
+        request: (method, args) => {
+          const requestManager = mainGlobal[Symbol.for('riot-account-manager.manager-request.v1')];
+          if (typeof requestManager !== 'function') throw new Error('The local account service is unavailable');
+          return requestManager(method, args);
+        },
+      });
+      await accountsView.open(window);
+      if (!stopped) emit({ event: 'manager-ready' });
+    } catch { if (!stopped) emit({ event: 'manager-error' }); }
+  }
   function onLine(line) {
     if (initial) {
       initial = false;
@@ -84,6 +104,13 @@ async function runPrivateHost({
     }
     if (line === 'hide') hide();
     else if (line === 'show') show();
+    else if (line === 'open-manager') {
+      managerRequested = true;
+      show();
+      const window = BrowserWindow.getAllWindows().find((item) => !item.isDestroyed() && isMainRenderer(item));
+      if (window && ready) openManager(window);
+    }
+    else if (line === 'close-manager') { managerRequested = false; accountsView?.close(); }
     else if (line === 'stop') stop();
     else fail();
   }
@@ -127,6 +154,7 @@ async function runPrivateHost({
         try { window.hide(); window.show(); } catch { fail(); return; }
       }
       emit({ event: 'ready', integrationReady: true, managerConnected: managerConnected === true });
+      if (managerRequested && !stopped) openManager(window);
     });
     window.webContents.on('render-process-gone', () => { stage = 'renderer'; fail(); });
     window.webContents.on('did-fail-load', (_loadEvent, _code, _description, _url, mainFrame) => {
@@ -146,6 +174,7 @@ async function runPrivateHost({
     mark('will-quit');
     stopped = true;
     clearTimeout(timer);
+    accountsView?.dispose();
     input.removeListener('data', onData);
     input.removeListener('end', onEnd);
     input.removeListener('error', fail);

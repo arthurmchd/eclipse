@@ -28,7 +28,10 @@ Calcula caminhos absolutos uma vez, a partir da posição do próprio arquivo, e
 | `PRIVATE_HOST_ENTRY` | constante | `src/integration/host/hostEntry.js` |
 | `INTEGRATION_DATA_DIR` | constante | `.client-integration/` na raiz do projeto |
 | `PRIVATE_HOST_DIR` | constante | `.client-integration/private-v1/` |
+| `EMBEDDED_HOST_DIR` | constante | `.client-integration/private-v1/embedded-v1/`, cópia com o gerenciamento completo |
 | `APP_ICON` | constante | `src/renderer/assets/icon.png` |
+| `MANAGER_RENDERER_FILE` | constante | `src/renderer/index.html`, carregado pela visualização dentro do Riot |
+| `MANAGER_PRELOAD_FILE` | constante | `src/integration/manager/manager-preload.js` |
 | `unpackedPath(file)` | função | Troca `app.asar` por `app.asar.unpacked` no caminho |
 | `windowsHelper(name)` | função | `unpackedPath` de `WINDOWS_HELPERS_DIR/name` |
 
@@ -39,13 +42,20 @@ Calcula caminhos absolutos uma vez, a partir da posição do próprio arquivo, e
 
 ## Invariantes e decisões
 
+- `ACCOUNT_CARDS_FILE` aponta para `src/renderer/cards.html`, a interface compacta do modo sobreposto.
+
+- `OVERLAY_RENDERER_FILE` e `OVERLAY_PRELOAD_FILE` centralizam os arquivos locais do botão de [[riotOverlay]]. O observador usa `windowsHelper('riotWindowObserver.ps1')`.
+
+- **Atualização sem mover a cópia anterior.** O preparador usa `EMBEDDED_HOST_DIR`. O controlador procura primeiro essa pasta e só aceita uma cópia anterior se também declarar o gerenciamento completo; perfis e logs seguem a pasta escolhida.
+
 Arquivo novo, criado na reorganização de pastas ([[Estrutura de pastas]]). Não há original com comentários; as regras abaixo vêm do código e do que ele substituiu.
 
 - **A raiz depende da posição do arquivo.** `PROJECT_ROOT = path.resolve(__dirname, '..')`. Mover `paths.js` para outra pasta muda todos os caminhos.
 - **Substitui caminhos espalhados.** Antes, `riotClient` e `windowController` montavam o caminho do `.ps1` com `__dirname` e o mesmo `.replace('app.asar', 'app.asar.unpacked')`. `privateClient`, o antigo `run-private-riot-host.js` e os scripts de preparo montavam `.client-integration/private-v1` cada um.
 - **Helpers fora do asar.** Os scripts PowerShell são executados por um processo externo, que precisa de um arquivo real no disco. `unpackedPath` aponta para a cópia em `app.asar.unpacked`. Rodando do código-fonte, sem asar, o caminho não muda.
 - **`.client-integration/` fica no projeto, não em `userData`.** Guarda cópias locais da interface da Riot, perfis, registros e resultados de testes. Está no `.gitignore` e não pode ser distribuída, porque contém recursos proprietários da instalação local. Ver [[Integração com o Riot Client]].
-- **Um ícone só.** `APP_ICON` serve à janela e ao ícone reserva da bandeja no [[main]].
+- **Um ícone só.** `APP_ICON` serve como reserva da bandeja no [[main]], sem depender da janela independente removida.
+- **A visualização integrada usa caminhos centralizados.** [[managerHost]] recebe o HTML local e o preload dedicado pelas constantes deste módulo; a nova estrutura está em [[ADR-007 Interface completa dentro do Riot Client]].
 
 ## Testes
 

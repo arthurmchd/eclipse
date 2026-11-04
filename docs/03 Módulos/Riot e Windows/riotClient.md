@@ -32,6 +32,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 | `openClient(clientPath)` | função async | Revela as janelas Riot. Se não há janela do cliente, abre a interface visível. |
 | `ensureBackgroundClient(clientPath)` | função async | Oculta janelas (`hide`), inicia o backend `--headless` se não roda e espera até 45 s pelo estado de sessão. Retorna o caminho. |
 | `dispose()` | função async | `windows.stop()`. |
+| `readAuthenticationState(signal)` | função async | Estado sanitizado de `riotAuthentication.sessionState(signal)`, usado para recuperar verificação pendente e controlar a visibilidade dos cartões. Sinal opcional cancela a leitura. |
 
 ## Dependências
 
@@ -40,6 +41,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 
 ## Estado do módulo
 
+- `readLoginScreenState(signal)` encaminha a leitura cancelável e sanitizada de `authentication.loginScreenState` exclusivamente para decidir visibilidade de [[riotOverlay]], sem usar essa classificação para autorizar login ou jogo.
 - `windows`: um único `createWindowController()`, criado no carregamento. Vive enquanto o app vive.
 - `selectedClientPath`: último caminho confirmado. A API local o usa para achar o certificado do Riot.
 - `localApi` = `createRiotTransport(...)`; `authentication` = `createRiotAuthentication({ request: localApi })`.
@@ -83,10 +85,15 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 - Base: `/product-launcher/v1/products/<produto>/patchlines/live`. `lol` e `tft` → `league_of_legends`; `val` → `valorant`.
 - `GET <base>/eligibility` só para o log. Depois `POST <base>` com 30 s.
 - Grava status e até 300 caracteres do JSON de cada resposta. Nunca lança erro.
+- Devolve `{ status, errorCode }`. `errorCode` é o `errorCode` textual da resposta, cortado em 100 caracteres, ou `null`. Falha de rede vira `status: 0`.
 
 ## Invariantes e decisões
+- `openClient` usa o mesmo abridor quando os serviços já rodam sem interface; pede a janela ao backend antes de considerar outro início. Executar novamente apenas o exe não garantia uma janela.
+
+- Para [[ADR-010 Login visível com progresso]], fornece `openVisibleInterface` ao fluxo usando o abridor existente e `closeGames` restrito aos processos de jogos, sem reiniciar a interface Riot. A confirmação de fechar jogos permanece no renderer antes da operação.
 
 - **A API local é a fonte do estado de login.** Porta e senha estão no lockfile do cliente.
+- **Recuperação consulta somente metadados públicos.** `readAuthenticationState` reaproveita a normalização de [[riotAuthentication]], sem expor tokens ou credenciais. Erros de consulta são propagados para o [[main]] preservar a tela existente em vez de reiniciar o contexto.
 - **Troca de conta pelo "Stay signed in".** Depois que uma conta entra uma vez com a opção marcada, o `RiotGamesPrivateSettings.yaml` guarda esse login. O app mantém uma cópia por conta e a devolve antes de iniciar o cliente. O cliente então entra sozinho, sem janela nem digitação. Se a cópia falta ou expirou, as credenciais são enviadas pela API direta ou digitadas no formulário oculto.
 - **`clientWindow` olha só a interface.** `RiotClientServices.exe` roda em segundo plano sem janela. Por isso `clientWindow` considera só `Riot Client.exe` e `RiotClientUx.exe`.
 - **Dois formatos de login lembrado.** Um `refresh_token` em `psl.authorization.riot-client` (Riot Client v141) ou um cookie `"ssid"` (versões antigas).
@@ -96,7 +103,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 - **Fechar com pedido de saída primeiro.** Um cliente conectado recebe `quit` antes do `taskkill`, para gravar no disco a sessão mais recente. O YAML é lido só depois.
 - **Rota de digitação é só compatibilidade.** `typeCredentials` só roda quando a API de login direto não está disponível (ou exige o formulário nativo). O monitor já está armado. Se uma janela do cliente já existe, não abre outra.
 - **Serviços headless não abrem interface sozinhos.** Até 2026-10-26, `typeCredentials` chamava `RiotClientServices.exe` de novo para abrir a interface. Com os serviços já em `--headless`, isso não abria janela nenhuma e o login falhava com "The Riot Client window did not open". A abertura agora é responsabilidade do [[riotInterface]].
-- **`requestLaunch` registra o motivo de recusa.** Por exemplo, quando o jogo ainda precisa de atualização. Quem decide o sucesso é o [[signInFlow]], pela janela do jogo.
+- **`requestLaunch` registra e devolve o motivo de recusa.** Por exemplo, HTTP 424 `launch_failed_product_not_up_to_date` quando o jogo ainda precisa de atualização; com ele o [[signInFlow]] espera e repete o pedido (desde 2026-11-04). Quem decide o sucesso continua sendo o [[signInFlow]], pela janela do jogo.
 - **`launchProduct` nunca inclui um jogo.** O argumento `game` é ignorado. O jogo só é pedido depois da verificação, por `requestLaunch`.
 - **`login.ps1` fora do `app.asar`.** O caminho vem de `windowsHelper` ([[paths]]), que troca `app.asar` por `app.asar.unpacked`. O PowerShell não lê arquivos de dentro do asar.
 

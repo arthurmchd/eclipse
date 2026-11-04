@@ -7,7 +7,9 @@ tags: [arquitetura, integração]
 
 # Integração com o Riot Client
 
-O atalho `Abrir Riot com minhas contas.bat` abre uma **cópia privada** da interface real do Riot Client, hospedada pelo Electron do projeto e conectada aos serviços oficiais locais da Riot. O painel **MINHAS CONTAS** aparece junto do formulário de login. A instalação original do Riot permanece intacta.
+Desde 2026-10-28, o padrão é a [[riotOverlay]] sobre o cliente oficial, conforme [[ADR-009 Sobreposição no cliente oficial]]. `npm start` e os atalhos iniciam somente o serviço. O usuário abre o Riot normalmente e acessa Contas. A janela acompanha posição e escala por [[riotWindowObserver]] e tem a janela da Riot como dona ([[ADR-012 Sobreposição presa à janela do Riot]]), sem injeção nem alteração da instalação. O conteúdo abaixo documenta o modo anterior, agora explícito por `npm run start:private`.
+
+O atalho `Abrir Riot com minhas contas.bat` e `npm start` abrem uma **cópia privada** da interface real do Riot Client, hospedada pelo Electron do projeto e conectada aos serviços oficiais locais da Riot. **Contas** abre todo o gerenciamento na mesma janela Riot, e o seletor **MINHAS CONTAS** continua junto do formulário de login. A instalação original permanece intacta; não há mais janela independente Riot Account Manager.
 
 Modo experimental para os pacotes de interface **141.0.0 e 142.0.0**. A instalação desta máquina usa o 142.0.0 e exibe **v142.0.1** no rodapé do login. Não é extensão carregada pelo executável original do Riot nem plugin do Rose/Pengu. A decisão está em [[ADR-001 Cópia privada da interface do Riot]].
 
@@ -37,20 +39,22 @@ sequenceDiagram
 
 Módulos envolvidos: [[privateClient]], [[hostEntry]], [[privateHost]], [[privateHostCore]], [[privateRendererCore]], [[addons]], [[bridgeServer]], [[bootstrapChannel]], [[backend]], [[asar]], [[windowsDpapi]].
 
+O gerenciamento completo acrescenta [[managerHost]], [[manager-preload]] e [[managerService]]. O primeiro cria somente um `WebContentsView` filho da janela Riot, o segundo expõe a API limitada para seus próprios arquivos e o terceiro valida os comandos e mantém eventos públicos. A decisão e as fronteiras estão em [[ADR-007 Interface completa dentro do Riot Client]].
+
 ## Como usar
 
 1. Após atualizar o código, encerre a instância anterior uma vez (bandeja → **Quit**).
 2. Abra `Abrir Riot com minhas contas.bat`.
-3. Na tela de login, expanda **MINHAS CONTAS**, escolha a conta e o jogo e pressione **Entrar e jogar**. Cadastre ou edite contas pelo botão **Gerenciar contas**.
+3. Use **Contas** para cadastrar, editar, excluir, consultar elos, filtrar, copiar dados, configurar chaves e acompanhar o login dentro da mesma janela. **Voltar ao Riot** fecha essa visualização. No formulário inicial também é possível expandir **MINHAS CONTAS**, escolher a conta e o jogo e pressionar **Entrar e jogar**.
 4. O gerenciador oculta a interface e faz o login em segundo plano ([[Fluxo de login]]). Quando o jogo abrir, ele será a janela visível.
 
-Se a Riot já estiver conectada, a página inicial dela aparece e o painel fica oculto. Para ver o seletor, saia da sessão pela própria interface. O launcher não desconecta uma sessão só para mostrar o painel.
+Se a Riot já estiver conectada, sua página inicial aparece. O acesso **Contas** continua disponível, sem desconectar a sessão apenas para gerenciar contas. O seletor rápido é específico do formulário de login.
 
-O gerenciador fica na bandeja: **Open account manager** acompanha a operação, **Open Riot Client** abre a interface, **Cancel sign-in** interrompe, **Quit** encerra.
+O serviço continua na bandeja. Abrir contas pela bandeja usa a visualização dentro do Riot, sem outra janela. Recuperar o cliente mostra a interface correta para uma verificação pendente; cancelar e sair continuam disponíveis.
 
 ## Proteção dos dados
 
-- O painel envia só o identificador da conta e o jogo. Senhas e sessões ficam no gerenciador.
+- O seletor rápido envia só o identificador da conta e o jogo. A visualização completa envia valores de cadastro/edição que o usuário digitou; senhas e chaves persistidas nunca são devolvidas para preencher formulários. Copiar senha é uma ação do main na área de transferência.
 - A ponte escuta apenas em `127.0.0.1`, exige token, valida mensagens e limita o tamanho. O token é protegido pelo DPAPI do usuário.
 - A inicialização usa um named pipe com nome aleatório. Credenciais de conexão não vão nos argumentos do processo; o token do backend chega criptografado.
 - O backend é verificado por HTTPS com o certificado da instalação Riot, com validação de certificado ligada.
@@ -58,7 +62,8 @@ O gerenciador fica na bandeja: **Open account manager** acompanha a operação, 
 - No modo integrado o Riot fica sempre oculto, independentemente das preferências antigas do gerenciador.
 - Senha incorreta, erro de rede e limite de tentativas não disparam reenvio. O preenchimento nativo só é usado se a API estiver indisponível ou o CAPTCHA vier antes da senha. CAPTCHA depois da submissão pede intervenção, não reenvia.
 - Contexto de autenticação ausente ou em erro segue a tela oficial: limpar, inicializar, só então submeter.
-- Troca pelo painel é recusada com LoL/TFT/VALORANT abertos. O login é serializado.
+- Troca pelo seletor rápido é recusada com LoL/TFT/VALORANT abertos. A visualização completa preserva as confirmações de encerramento do jogo antes de trocar. O login é serializado em ambos os caminhos.
+- O gerenciamento completo é isolado da página Riot com sandbox, preload e validação de `webContents`, frame principal e URL local. Ele não recebe o token da ponte e não faz HTTP direto.
 
 Mais em [[Segurança e privacidade]].
 

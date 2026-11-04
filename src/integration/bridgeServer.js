@@ -4,6 +4,7 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 
 const MAX_BODY_BYTES = 4096;
+const MAX_MANAGER_BODY_BYTES = 32768;
 const ACCOUNT_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
 const GAMES = new Set(['lol', 'tft', 'val']);
 
@@ -40,8 +41,8 @@ function requestError(status, message) {
   return error;
 }
 
-async function readJson(request) {
-  if (Number(request.headers['content-length'] || 0) > MAX_BODY_BYTES) throw requestError(413, 'Request is too large');
+async function readJson(request, maxBytes = MAX_BODY_BYTES) {
+  if (Number(request.headers['content-length'] || 0) > maxBytes) throw requestError(413, 'Request is too large');
   const contentType = request.headers['content-type'];
   if (contentType && !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(contentType)) throw requestError(415, 'Expected JSON');
   const body = await new Promise((resolve, reject) => {
@@ -51,7 +52,7 @@ async function readJson(request) {
     request.on('data', (chunk) => {
       if (complete) return;
       bytes += chunk.length;
-      if (bytes > MAX_BODY_BYTES) { complete = true; reject(requestError(413, 'Request is too large')); return; }
+      if (bytes > maxBytes) { complete = true; reject(requestError(413, 'Request is too large')); return; }
       chunks.push(chunk);
     });
     request.once('end', () => { if (!complete) { complete = true; resolve(Buffer.concat(chunks).toString('utf8')); } });
@@ -65,7 +66,7 @@ async function readJson(request) {
   return input;
 }
 
-function createClientBridge({ directory, encodeToken, listAccounts, getState, signIn, cancel, openManager, onError = () => {} } = {}) {
+function createClientBridge({ directory, encodeToken, listAccounts, getState, signIn, cancel, openManager, manage, onError = () => {} } = {}) {
   if (typeof directory !== 'string' || !path.isAbsolute(directory)) throw new Error('An absolute bridge directory is required');
   for (const [name, callback] of Object.entries({ encodeToken, listAccounts, getState, signIn, cancel, openManager })) {
     if (typeof callback !== 'function') throw new Error(`${name} callback is required`);
@@ -124,8 +125,17 @@ function createClientBridge({ directory, encodeToken, listAccounts, getState, si
           reply(response, 200, { ok: true, accounts: publicAccounts(accounts), operation: publicOperation(operation) });
           return;
         }
-        if (request.method !== 'POST' || !['/v1/sign-in', '/v1/cancel', '/v1/open-manager'].includes(request.url)) throw requestError(404, 'Endpoint not found');
-        const input = await readJson(request);
+        if (request.method !== 'POST' || !['/v1/sign-in', '/v1/cancel', '/v1/open-manager', '/v1/manage'].includes(request.url)) throw requestError(404, 'Endpoint not found');
+        const input = await readJson(request, request.url === '/v1/manage' ? MAX_MANAGER_BODY_BYTES : MAX_BODY_BYTES);
+        if (request.url === '/v1/manage') {
+          if (typeof manage !== 'function') throw requestError(503, 'Account controls are unavailable');
+          if (Object.keys(input).length !== 2 || typeof input.method !== 'string' || input.method.length > 64 || !Array.isArray(input.args)) throw requestError(400, 'Invalid account command');
+          const value = await manage(input.method, input.args);
+          const payload = { ok: true, value: value === undefined ? null : value };
+          if (Buffer.byteLength(JSON.stringify(payload)) > 1024 * 1024) throw requestError(503, 'Account response is too large');
+          reply(response, 200, payload);
+          return;
+        }
         if (request.url === '/v1/sign-in') {
           if (Object.keys(input).length !== 2 || !Object.hasOwn(input, 'accountId') || !Object.hasOwn(input, 'game') || typeof input.accountId !== 'string' || !ACCOUNT_ID.test(input.accountId) || !GAMES.has(input.game)) throw requestError(400, 'Invalid account or game');
           const result = await signIn({ accountId: input.accountId, game: input.game });

@@ -48,6 +48,7 @@ Exporta só a classe `Store`.
 
 ## Invariantes e decisões
 
+- **`staySignedIn`** (padrão `true`) guarda a opção "Manter login". `publicSettings` devolve `true` quando o campo não existe, para dados antigos. Adicionado em 2026-11-04.
 - **Segredos só com DPAPI.** Senhas e chaves de API são criptografadas com `safeStorage`, que no Windows usa DPAPI: só este usuário do Windows consegue descriptografar. Sem criptografia disponível, `encrypt` lança erro em vez de gravar texto puro.
 - **Formato.** Em `data.json` os segredos ficam em base64. No `.bin` da sessão vão os bytes criptografados crus.
 - **Padrões.** `riotApiKey`, `riotTftApiKey` e `henrikApiKey` ficam criptografadas. A de TFT é opcional, porque chaves pessoais de TFT são separadas. `riotClientPath` vazio significa detectar automaticamente. Demais: `refreshMinutes: 30`, `minimizeOnLaunch`, `hideRiotClient` e `closeRiotClient` ligados, `streamerMode` desligado.

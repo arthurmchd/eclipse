@@ -4,24 +4,26 @@ const { spawn: spawnProcess } = require('child_process');
 const { readBackend, readBackendCertificate, verifyBackend } = require('./backend');
 const { createBootstrapChannel } = require('./bootstrapChannel');
 const { isSupportedVersion } = require('./host/privateHostCore');
-const { PROJECT_ROOT, PRIVATE_HOST_ENTRY } = require('../paths');
+const { PROJECT_ROOT, PRIVATE_HOST_ENTRY, PRIVATE_HOST_DIR, EMBEDDED_HOST_DIR } = require('../paths');
 
 function inspectPrivateClient(clientPath, { workspaceRoot = PROJECT_ROOT } = {}) {
-  const directory = path.join(workspaceRoot, '.client-integration', 'private-v1');
-  const manifestPath = path.join(directory, 'manifest.json');
-  try {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    const expectedSource = path.join(path.dirname(clientPath || ''), 'RiotClientElectron', 'resources', 'app.asar');
-    if (manifest.mode !== 'private-host' || !isSupportedVersion(manifest.source?.package?.version)
-        || (manifest.source.package.version === '142.0.0' && manifest.behavior?.externalMultifactorRecovery !== true)
-        || manifest.privacy?.startupArgumentsRedacted !== true || manifest.privacy?.logGuardInstalled !== true
-        || path.resolve(manifest.source.path) !== path.resolve(expectedSource)
-        || path.resolve(manifest.candidate.path) !== path.join(directory, 'app.asar')
-        || !fs.existsSync(manifest.candidate.path)) throw new Error('unsupported');
-    return { active: true, mode: 'private', version: manifest.source.package.version, manifestPath, candidatePath: manifest.candidate.path, directory };
-  } catch {
-    return { active: false, mode: 'private', reason: 'Prepare the private Riot interface before using this experimental launcher' };
+  for (const root of [EMBEDDED_HOST_DIR, PRIVATE_HOST_DIR]) {
+    const directory = path.join(workspaceRoot, path.relative(PROJECT_ROOT, root));
+    const manifestPath = path.join(directory, 'manifest.json');
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      const expectedSource = path.join(path.dirname(clientPath || ''), 'RiotClientElectron', 'resources', 'app.asar');
+      if (manifest.mode !== 'private-host' || !isSupportedVersion(manifest.source?.package?.version)
+          || manifest.behavior?.fullManagerInClient !== true
+          || (manifest.source.package.version === '142.0.0' && manifest.behavior?.externalMultifactorRecovery !== true)
+          || manifest.privacy?.startupArgumentsRedacted !== true || manifest.privacy?.logGuardInstalled !== true
+          || path.resolve(manifest.source.path) !== path.resolve(expectedSource)
+          || path.resolve(manifest.candidate.path) !== path.join(directory, 'app.asar')
+          || !fs.existsSync(manifest.candidate.path)) throw new Error('unsupported');
+      return { active: true, mode: 'private', version: manifest.source.package.version, manifestPath, candidatePath: manifest.candidate.path, directory };
+    } catch {}
   }
+  return { active: false, mode: 'private', reason: 'A cópia preparada da interface Riot está ausente ou desatualizada. Execute npm run integration:prepare-private antes de abrir.' };
 }
 
 function createPrivateClient({
@@ -56,7 +58,7 @@ function createPrivateClient({
         connection.token = '';
         if (typeof encryptedAuthToken !== 'string' || !encryptedAuthToken) throw new Error('Could not protect the private UI connection');
         const channel = await createChannel({ timeoutMs });
-        entry = { child: null, channel, alive: false, transport: null };
+        entry = { child: null, channel, alive: false, transport: null, managerOpening: null, finishManager: null };
         if (disposed) throw new Error('The private Riot interface is shutting down');
         const child = spawn(electronPath, [hostEntry, `--ram-bootstrap-pipe=${channel.path}`], {
           windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
@@ -85,6 +87,8 @@ function createPrivateClient({
               let response;
               try { response = JSON.parse(line); } catch { continue; }
               if (!response || typeof response !== 'object' || Array.isArray(response)) continue;
+              if (response.event === 'manager-ready') entry.finishManager?.();
+              if (response.event === 'manager-error') entry.finishManager?.(new Error('The embedded account view could not open'));
               if (response.event === 'ready') {
                 if (response.integrationReady !== true) { done(new Error('The private Riot account panel did not load')); continue; }
                 managerConnected = response.managerConnected === true;
@@ -115,6 +119,7 @@ function createPrivateClient({
             entry.alive = false;
             if (current === entry) current = null;
             channel.close();
+            entry.finishManager?.(new Error('The Riot interface closed before the account view opened'));
             const error = new Error('The private Riot interface closed before loading');
             error.diagnostic = { exitCode: Number.isInteger(code) ? code : null, startup: startupDiagnostic };
             done(error);
@@ -147,11 +152,32 @@ function createPrivateClient({
 
   return {
     open,
+    isOpen() { return Boolean(current?.alive); },
+    async openManager(clientPath) {
+      await open(clientPath);
+      const entry = current;
+      if (!entry?.alive || !entry.transport || entry.transport.destroyed) throw new Error('The Riot interface is unavailable');
+      if (entry.managerOpening) return entry.managerOpening;
+      entry.managerOpening = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => finish(new Error('The embedded account view did not finish loading')), Math.min(timeoutMs, 15000));
+        const finish = (error) => {
+          if (entry.finishManager !== finish) return;
+          clearTimeout(timer);
+          entry.finishManager = null;
+          if (error) reject(error); else resolve({ ready: true, embedded: true });
+        };
+        entry.finishManager = finish;
+        write('open-manager');
+      });
+      try { return await entry.managerOpening; }
+      finally { entry.managerOpening = null; }
+    },
     hide() { write('hide'); },
     async stop() {
       disposed = true;
       const entry = current;
       current = null;
+      entry?.finishManager?.(new Error('The Riot interface is shutting down'));
       if (!entry?.alive) { entry?.channel.close(); return; }
       try { await new Promise((resolve) => {
         const timer = setTimeout(() => { entry.child.kill(); resolve(); }, 3000);

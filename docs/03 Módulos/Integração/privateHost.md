@@ -12,19 +12,19 @@ tags: [módulo]
 
 ## Responsabilidade
 
-Lê a primeira linha do canal (o pedido JSON) e depois os comandos `hide`, `show` e `stop`. Valida o pedido com [[privateHostCore]]. Isola o perfil do Chromium, decifra o token com DPAPI e carrega o main do Riot com argumentos sintéticos só em memória. Observa as janelas e emite `ready` quando o painel dos [[addons]] carregou. Não fala com a ponte diretamente; quem faz isso é o addon.
+Lê o pedido JSON inicial e os comandos `hide`, `show`, `open-manager`, `close-manager` e `stop`. Valida com [[privateHostCore]], isola o perfil Chromium, decifra o token DPAPI e carrega o main Riot com argumentos só em memória. Observa as janelas e emite `ready` quando os [[addons]] carregaram. A visualização completa é criada por [[managerHost]] dentro da janela principal, usando o transporte do addon main.
 
 ## API pública
 
 | Export | Tipo | Descrição |
 |---|---|---|
-| `runPrivateHost(options)` | função assíncrona | Devolve `{ stop, hide, show }`. Opções injetáveis: `electron`, `processObject`, `input`, `protocolOutput`, `loadMain`, `validateRequest`, `checkHash`, `mainGlobal`, `diagnostic`, `decryptToken`, `requestTimeoutMs` (30000). |
+| `runPrivateHost(options)` | função assíncrona | Devolve `{ stop, hide, show }`. Opções injetáveis: `electron`, `processObject`, `input`, `protocolOutput`, `loadMain`, `validateRequest`, `checkHash`, `mainGlobal`, `diagnostic`, `decryptToken`, `requestTimeoutMs` (30000) e `createAccountsView`. |
 
-Eventos emitidos no canal: `{ event: 'ready', integrationReady: true, managerConnected }` e `{ event: 'error', stage, error }` com texto genérico. Etapas: `validation`, `decryption`, `load-main`, `renderer`.
+Eventos emitidos no canal: `{ event: 'ready', integrationReady: true, managerConnected }`, `{ event: 'error', stage, error }` com texto genérico, e `manager-ready` ou `manager-error` para a abertura da visualização de contas. Etapas: `validation`, `decryption`, `load-main`, `renderer`.
 
 ## Dependências
 
-- Usa: [[privateHostCore]], [[asar]] (`sha256File`), [[windowsDpapi]] (`unprotectString`), `electron`.
+- Usa: [[privateHostCore]], [[asar]] (`sha256File`), [[windowsDpapi]] (`unprotectString`), [[managerHost]] e `electron`.
 - Usado por: [[hostEntry]].
 
 ## Invariantes e decisões
@@ -41,6 +41,10 @@ Eventos emitidos no canal: `{ event: 'ready', integrationReady: true, managerCon
 - **Prova de que o painel carregou.** Exige `window.riotAccountManager` com `state`, `signIn`, `cancel` e `openManager` e o símbolo `riot-account-manager.renderer.v1` em `window`. Sem isso, falha em `renderer`. A verificação só lê; chama `state()` para medir `managerConnected` e nunca chama as outras funções.
 - **Mostrar após o primeiro carregamento.** Se não estiver oculto, faz `hide()` e `show()` na janela principal ao ficar pronto. Os testes chamam isso de contorno do "primeiro show" com início oculto.
 - **Oculto continua oculto.** Com `hide`, qualquer `show` de janela é desfeito. `show` só atua na janela principal: `hide`, `show`, `focus`.
+- **Contas é uma visualização da janela Riot.** `open-manager` mostra a janela principal e cria/reutiliza [[managerHost]]. Se o renderer ainda não está pronto, guarda o pedido e o executa após a validação. `close-manager` fecha somente a visualização. Não cria outra `BrowserWindow`.
+- **Erro de Contas não mata o Riot.** Falha ao abrir a visualização emite `manager-error`, permitindo ao controlador informar o erro e manter a interface Riot disponível.
+- **Transporte no main.** O serviço de gerenciamento é obtido pelo símbolo `riot-account-manager.manager-request.v1` no contexto principal. Não é entregue à página Riot como uma API genérica.
+- **Descarte acompanha o host.** Parar o host descarta a visualização, remove seu IPC e encerra seu `webContents`; fechar apenas Contas não cancela operações no serviço.
 - **Entrada limitada.** O pedido inicial pode ter até 64 KiB. Depois, cada comando até 128 bytes. Comando desconhecido derruba o host.
 - **Falha única e genérica.** Só o primeiro erro é emitido, sem detalhes. Exceções não tratadas, rejeições não tratadas, crash do renderer e falha de carga do frame principal também falham. Toda falha encerra o app.
 - **Prazos.** 30 s para chegar o pedido. 45 s depois de carregar o main para ficar pronto.

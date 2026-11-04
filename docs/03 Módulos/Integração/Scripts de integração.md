@@ -12,7 +12,7 @@ tags: [módulo]
 
 ## Responsabilidade
 
-- `prepare-private-riot-host.js`: gera `.client-integration/private-v1/app.asar` e `manifest.json` a partir do `app.asar` instalado.
+- `prepare-private-riot-host.js`: gera `.client-integration/private-v1/embedded-v1/app.asar` e `manifest.json` a partir do `app.asar` instalado. O destino novo mantém a cópia anterior em seu lugar.
 - `probe-private-riot-host.js`: abre a cópia privada uma vez e grava se o painel carregou e falou com a ponte.
 - `legacy/prepare-riot-integration.js`: gera o candidato do experimento legado em `.client-integration/app.asar`.
 - `legacy/install-riot-integration.ps1`: troca o `app.asar` instalado pelo candidato legado, ou restaura o backup.
@@ -46,7 +46,7 @@ Exports para testes: `preparePrivate`, `hardenBuffer`, `PRIVATE_LOG_GUARD`, `UNS
 - **Transformações.** `main.js` passa por `hardenPrivateMainSource` e precisa sair com o guarda de log e sem o log inseguro. `renderer.js` passa por `hardenPrivateRendererSource` com a versão da origem.
 - **Origem intacta.** O SHA-256 da origem é recalculado no fim. Se mudou, o Riot se atualizou durante a preparação e o candidato é apagado.
 - **Confere a entrada que roda.** O candidato é reaberto e o `dist/main/main.js` apontado pelo cabeçalho é verificado. Os bytes antigos que o gravador append-only deixa no payload não contam: só a entrada do cabeçalho executa.
-- **Manifesto.** `schemaVersion` 1, `mode: 'private-host'`, hashes e tamanhos de origem e candidato, `changedFiles`, `privacy.startupArgumentsRedacted` e `privacy.logGuardInstalled` verdadeiros, e `behavior.externalMultifactorRecovery` verdadeiro só na 142. Gravado com `wx`.
+- **Manifesto.** `schemaVersion` 1, `mode: 'private-host'`, hashes e tamanhos de origem e candidato, `changedFiles`, `privacy.startupArgumentsRedacted`, `privacy.logGuardInstalled` e `behavior.fullManagerInClient` verdadeiros, e `behavior.externalMultifactorRecovery` verdadeiro só na 142. Gravado com `wx`.
 
 **Probe.**
 - **Somente leitura.** Não inicia processo do Riot e nunca pede login, logout, abertura de jogo ou mudança em conta salva. O único processo iniciado é o host privado.

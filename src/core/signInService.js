@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-function createSignInService({ store, riotClient, status = () => {}, operationUpdated = () => {}, accountUpdated = () => {}, log = () => {}, onClosed = () => {}, onLaunched = () => {} }) {
+function createSignInService({ store, riotClient, status = () => {}, operationUpdated = () => {}, accountUpdated = () => {}, log = () => {}, onClosed = () => {}, onLaunched = () => {}, releaseAfterLaunch = false, visibleLogin = false }) {
   let operation = null;
   let controller = null;
   let pending = null;
@@ -13,7 +13,7 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
     return account;
   }
 
-  function begin(id, game, { requireIdle = false } = {}) {
+  function begin(id, game, { requireIdle = false, forceHidden = false } = {}) {
     if (pending) throw new Error('A sign-in is already in progress');
     const account = validate(id, game);
     const selected = { username: account.username, gameName: account.gameName, tagLine: account.tagLine };
@@ -40,7 +40,7 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
     const attempt = controller;
     const current = operation = {
       id: crypto.randomUUID(), accountId: id, game, status: 'running',
-      text: 'Preparing sign-in…', needsAttention: false, nativeClient: false, startedAt: new Date().toISOString(),
+      text: 'Preparing sign-in…', needsAttention: false, nativeClient: false, signedIn: false, startedAt: new Date().toISOString(),
     };
     current.operationId = current.id;
     let finish;
@@ -65,12 +65,16 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
           session: () => store.loadSession(id), game,
           hasSavedSession: store.hasSession(id),
           clientPath: store.data.settings.riotClientPath,
-          hide: requireIdle ? true : store.data.settings.hideRiotClient,
-          closeClient: requireIdle ? true : store.data.settings.closeRiotClient,
+          hide: visibleLogin ? false : requireIdle || forceHidden ? true : store.data.settings.hideRiotClient,
+          closeClient: requireIdle || forceHidden ? true : store.data.settings.closeRiotClient,
           signal: attempt.signal,
+          releaseAfterLaunch,
+          visibleLogin,
+          remember: store.data.settings.staySignedIn !== false,
           status: (text, details = {}) => {
+            if (current.status !== 'running') return;
             const publicText = safeText(text);
-            Object.assign(current, { text: publicText, needsAttention: Boolean(details.needsAttention), nativeClient: Boolean(details.nativeClient) });
+            Object.assign(current, { text: publicText, needsAttention: Boolean(details.needsAttention), nativeClient: Boolean(details.nativeClient), signedIn: current.signedIn || details.signedIn === true });
             writeLog(publicText);
             notify(status, { id, text: publicText, needsAttention: current.needsAttention, nativeClient: current.nativeClient });
             notify(operationUpdated, { ...current });
@@ -98,12 +102,17 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
         const cancelled = attempt.signal.aborted;
         Object.assign(current, {
           status: cancelled ? 'cancelled' : 'failed', cancelled,
+          needsAttention: !cancelled && err?.needsAttention === true,
+          nativeClient: !cancelled && err?.needsAttention === true && err?.nativeClient === true,
           error: safeText(err?.message), text: cancelled ? 'Sign-in cancelled' : safeText(err?.message),
         });
         writeLog(`sign-in ${current.status}: ${safeText(err?.message)}`);
         response = { ok: false, error: current.text, cancelled };
       } finally {
-        current.needsAttention = false;
+        if (current.status !== 'failed') {
+          current.needsAttention = false;
+          current.nativeClient = false;
+        }
         current.finishedAt = new Date().toISOString();
         controller = null;
         pending = null;
@@ -122,6 +131,9 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
     },
     start(id, game) {
       return { ok: true, operationId: begin(id, game, { requireIdle: true }).operationId };
+    },
+    startFromManager(id, game) {
+      return { ok: true, operationId: begin(id, game, { forceHidden: true }).operationId };
     },
     cancel() { controller?.abort(); return { ok: true }; },
     getState() { return operation ? { ...operation } : null; },

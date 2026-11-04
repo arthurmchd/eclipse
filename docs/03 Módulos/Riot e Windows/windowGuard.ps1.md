@@ -24,8 +24,12 @@ Protocolo por stdin/stdout, em UTF-8. A primeira linha é JSON:
 |---|---|
 | `watch` ou ausente | `Watch(ownerPid)`: monitor persistente. |
 | `restore` | `RestoreAll(true)` uma vez. |
+| `park` | Restaura estilos, mantém Riot oculto e não ativa janela. |
+| `close-client` | Restaura estilos e envia WM_CLOSE somente a janelas raiz de Riot Client/RiotClientUx; não mata serviços nem jogos. |
 | `game-window` | Imprime `game-ready` se a janela do jogo está pronta. |
 | `self-test` | Testes internos sem tocar no desktop. |
+| `inspect` | Somente leitura: metadados das janelas Riot para diagnóstico de estilos, sem título nem conteúdo. |
+| `hide-auxiliary` | Oculta somente TrayIconClass pertencente aos processos Riot e impede sua restauração como visível. |
 
 No modo `watch`, cada linha seguinte é um comando:
 
@@ -34,6 +38,7 @@ No modo `watch`, cada linha seguinte é um comando:
 | `hide` | Estilos ocultos, alpha 1, janela continua "mostrada". | `command:hide` |
 | `conceal` | O mesmo de `hide` + `SW_HIDE`. | `command:conceal` |
 | `reveal` | Restaura e ativa a janela principal. Para varreduras e eventos. | `command:reveal` |
+| `park` | Para varreduras, oculta as janelas e restaura estilos com visibilidade salva desligada. | `command:park` |
 | `stop` | Restaura sem ativar e sai. | `command:stop` |
 | `game-window:<game>` | Consulta a janela do jogo. | `game-window:<game>:ready` ou `:waiting` |
 
@@ -50,14 +55,25 @@ Também imprime `ready` após armar, `ok` ao terminar bem e `error:<motivo>` (c�
 - **Snapshot por janela** em propriedades `SetProp` com prefixo `RiotAccountManager.Guard.`: `Saved`, `ExStyle`, `Visible`, `Iconic`, `Color`, `Alpha`, `AlphaFlags`, `Concealed`.
 - **Ganchos:** `SetWinEventHook` para primeiro plano (`3`) e criação/exibição (`0x8000`–`0x8002`), fora de contexto e ignorando o próprio processo (flag `2`).
 - **Laço do `Watch`:** drena até 128 mensagens, processa comandos, trata até 128 eventos, confere o dono a cada 500 ms, varre a cada 100 ms (fora de `reveal`) e dorme 5 ms. Sai com fim do stdin, dono encerrado ou `stop`.
-- **Saída:** `mode = "reveal"`, remove os ganchos e chama `RestoreAll(false)`, salvo worker abandonado.
+- **Saída:** remove os ganchos. `stop`, fim normal do stdin ou dono encerrado restauram com `RestoreAll(false)`, salvo worker abandonado. Erro interno em modo oculto e `handoff` conservam os snapshots e a ocultação enquanto o dono vive, para o próximo monitor herdar o estado sem mostrar o Riot.
 - **Janela principal em `RestoreAll`:** maior área com título; título "Riot Client" ganha bônus de 100 000 000.
 - **`GameWindow`:** janela raiz visível, não minimizada, ao menos 160×120, sem `0x80`, não "cloaked" no DWM (atributo 14). Processo `VALORANT` ou `VALORANT-Win64-Shipping` para `val`; `LeagueClientUx` ou `League of Legends` para `lol` e `tft`.
 - **Foco:** guarda a última janela não Riot em primeiro plano e devolve o foco a ela quando uma janela Riot o toma.
 
 ## Invariantes e decisões
 
+- **TrayIconClass nunca é ativada.** A recuperação mantém essa classe oculta mesmo se um snapshot anterior gravou visibilidade por engano. A escolha da janela para ativar exige processo de interface Riot Client/RiotClientUx, janela raiz e dimensões mínimas de 320×240. Serviços, janelas auxiliares e jogos não são candidatos. O self-test cobre essa seleção sem tocar no desktop.
+
+- **Recuperação sem reexibição.** O comando `handoff` confirma `command:handoff` e termina sem restaurar janelas com dono vivo. Erro interno em `hide`/`conceal` usa a mesma política. O controlador faz restauração avulsa no encerramento definitivo se o monitor morreu; [[ADR-008 Recuperação visual sem reexibir o Riot]] registra o contrato.
+- **Modo inicial confirmado.** A mensagem inicial aceita `initialMode` igual a `hide` ou `conceal` (padrão `hide`), aplicado antes do primeiro `Sweep` e de `ready`. Um modo diferente é recusado.
+- **Somente os estilos controlados.** Ocultação e restauração preservam os demais bits atuais de `EXSTYLE`, conferem apenas os bits de camada, interação, ativação e barra de tarefas, e repetem até três vezes uma mudança concorrente. Restaurar o snapshot inteiro poderia desfazer alterações feitas pelo cliente durante o login e exigir que a janela aceitasse bits que o monitor nunca alterou. Janela destruída durante a operação é ignorada; uma camada ou opacidade que não foi aplicada continua gerando erro. O alpha é relido pela API depois da escrita.
+- **Diagnóstico sem conteúdo da janela.** `inspect` enumera somente processos do filtro Riot e lê PID, handle, classe, estilos da classe/janela, snapshot, dimensões, visibilidade e alpha. Não altera janelas, não lê título, formulário, senha, token nem argumentos de processo. `classStyle` permite distinguir a incompatibilidade de `WS_EX_LAYERED` com `CS_OWNDC`/`CS_CLASSDC`; é uma hipótese a confirmar na instalação real, não uma razão para ignorar falhas automaticamente.
+- **Ocultar antes de esperar estilos.** No modo `conceal`, após salvar o snapshot, já envia `SW_HIDE` antes do worker de estilos. Assim a janela não precisa permanecer visível durante uma mudança de estilo lenta. O modo `hide` mantém renderização e opacidade para o formulário nativo.
+- **Restauração avulsa sem ativação.** `{ action: 'restore', activate: false }` limpa snapshots no encerramento definitivo sem colocar o Riot à frente. Sem `activate`, o padrão continua verdadeiro para recuperação manual.
+
 - **O pump de mensagens é obrigatório.** Ganchos WinEvent fora de contexto entregam eventos pela fila desta thread.
+- **Espera do worker não bloqueia a fila.** Enquanto espera a alteração de estilo, processa mensagens em intervalos limitados; os callbacks continuam apenas enfileirando eventos. O prazo de 750 ms permanece, sem aceitar uma alteração incompleta como sucesso. O self-test cobre worker que depende desse processamento.
+- **Diagnóstico opcional.** O pedido pode incluir `diagnostics: true` para emitir fase, processo, handle, classe, estilos, duração e erro Win32. A ação `inspect` só lê metadados das janelas Riot. Não inclui títulos, conteúdo, credenciais ou tokens.
 - **Varredura cobre janelas recriadas.** O cliente pode recriar janelas com o jogo aberto; a varredura periódica as pega.
 - **Nome do processo nunca fica em cache.** O cliente pode criar a interface depois da primeira varredura, ou o Windows pode reutilizar um PID numa troca de conta. Usa `OpenProcess(0x1000)` (`PROCESS_QUERY_LIMITED_INFORMATION`).
 - **`Saved` é gravado por último.** A recuperação nunca lê um snapshot pela metade.
@@ -68,13 +84,14 @@ Também imprime `ready` após armar, `ok` ao terminar bem e `error:<motivo>` (c�
 - **Alpha 1, não 0.** Mantém o Chromium renderizando para `PrintWindow` e para a digitação postada do [[login.ps1]].
 - **Saindo de `conceal`, `SW_SHOWNA`.** A janela já está transparente antes de reaparecer, e não é ativada.
 - **Restauração sem ativação.** `SW_SHOWMINNOACTIVE` (7), `SW_SHOWNA` (8) ou `SW_HIDE` (0), conforme o snapshot. Só `reveal` ativa a janela principal com `SW_RESTORE` (9) ou `SW_SHOW` (5).
-- **Bit layered sai primeiro.** Senão, `SetLayeredWindowAttributes` deixa em alpha 1 uma janela que usava `UpdateLayeredWindow`, e as chamadas seguintes dela falham.
+- **Bit layered sai primeiro.** Ao restaurar uma janela originalmente layered, primeiro altera somente `WS_EX_LAYERED`, depois repõe os bits controlados do snapshot. Isso limpa o modo de alpha definido por `SetLayeredWindowAttributes` sem sobrescrever os demais estilos que o cliente mudou. Senão, uma janela que usava `UpdateLayeredWindow` pode continuar transparente e suas chamadas seguintes falham.
 - **Callback nativo só enfileira.** Mudar estilos de outro processo ali pode reentrar na entrega de WinEvents ou atrasar a thread que lê o stdin. Fila limitada a 512.
 - **Seguir a janela atual do usuário.** Não só a que estava ativa quando o monitor começou.
 - **Delegate enraizado.** `callback` é estático e `GC.KeepAlive` o mantém vivo durante todo o gancho nativo.
 - **Drenagem limitada.** No máximo 128 mensagens por volta, para uma rajada de eventos não atrasar comandos nem o fim da entrada.
-- **Worker abandonado encerra o helper.** Uma chamada de estilo com timeout não pode ser cancelada com segurança. O helper sai em vez de restaurar em paralelo com ela. Os snapshots continuam nas janelas para um `restore` manual depois.
-- **`SelfTest` não toca no desktop.** Testa o filtro de nomes, o worker (execução, erro e timeout) e a fila de eventos com um handle sintético nunca entregue a `HandleEvent`. Espera o worker de teste sair antes de descartar o evento dele.
+- **Worker abandonado encerra o helper.** Uma chamada de estilo com timeout não pode ser cancelada com segurança. O helper sai em vez de restaurar em paralelo com ela. Os snapshots continuam nas janelas para um `restore` manual depois. Desde 2026-10-26, o [[windowController]] sobe um monitor novo quando isso acontece com o modo armado. O novo herda os snapshots, porque `Remember` não sobrescreve um `Saved` existente.
+- **Falha real ainda interrompe o monitor.** Exceções de `Hide` após as tentativas limitadas encerram o processo com `error:<código>`. Com dono vivo e modo oculto, essa saída mantém as janelas ocultas para a recuperação do [[windowController]], sem restaurá-las no intervalo.
+- **`SelfTest` não toca no desktop.** Testa o filtro de nomes, as máscaras de estilos, restauração após mudanças concorrentes nos estilos do cliente, ciclo layered, política de restauração, worker (execução, erro e timeout) e fila de eventos com um handle sintético nunca entregue a `HandleEvent`. Espera o worker de teste sair antes de descartar o evento dele.
 - **Erro sem dados do pedido.** A saída nunca ecoa entrada do usuário. Quebras de linha do motivo viram espaço.
 
 ## Testes
@@ -84,7 +101,7 @@ Também imprime `ready` após armar, `ok` ao terminar bem e `error:<motivo>` (c�
 ## Pontos de atenção
 
 - **`firstFailure` guarda a última falha.** Em `RestoreAll`, cada erro sobrescreve o anterior.
-- **Motivo de erro sem lista fechada.** Ao contrário do [[login.ps1]], qualquer mensagem de exceção .NET vai para `error:`. O `ConvertFrom-Json` da primeira linha não tem `try` próprio. O pedido não tem segredo, mas a regra é mais fraca.
+- **Motivo de erro sem lista fechada aqui.** Ao contrário do [[login.ps1]], qualquer mensagem de exceção .NET vai para `error:`. O `ConvertFrom-Json` da primeira linha não tem `try` próprio. Desde 2026-10-26, o [[windowController]] aceita só códigos `^[a-z0-9-]{1,64}$` e troca o resto por `unknown` antes de qualquer log.
 - **Filtro por nome de executável.** Nomes novos de processo da Riot ou do jogo quebram a detecção: [[Atualização do Riot Client]].
 - **Custo contínuo.** Varredura a cada 100 ms com `EnumWindows` e `OpenProcess` por janela, enquanto o app estiver aberto.
 - **Ao fechar o app, as janelas voltam.** O fim do stdin restaura o estado original; janelas que estavam visíveis reaparecem.

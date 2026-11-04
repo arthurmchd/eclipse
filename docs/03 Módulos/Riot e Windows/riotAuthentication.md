@@ -12,6 +12,7 @@ tags: [módulo]
 
 ## Responsabilidade
 
+- `loginScreenState(signal)` faz somente GET e devolve `auth`, erro fixo de credenciais ou `null` para visibilidade. Um formulário `auth` que anuncia CAPTCHA continua sendo login; essa leitura não concede autorização, não submete dados e não muda as verificações de `sessionState` ou `authenticate`. MFA, sucesso e estados não reconhecidos não exibem cartões. Mantém fallback legado e cancelamento.
 - Envia usuário e senha uma única vez por tentativa à rota `rso-authenticator` do serviço local.
 - Normaliza o estado de autenticação em poucos tipos fixos.
 - Não espera autorização, não confere o Riot ID e não abre jogo. Isso é do [[signInFlow]].
@@ -92,7 +93,8 @@ Fonte: enumeração `PlayerSessionStateType` lida (sem alterar nada) em `C:\Riot
 - **Sessão do jogador falha fechada.** Só estados conhecidos como não bloqueantes liberam o jogo. Um estado novo da Riot vira `challenge`: o fluxo pede intervenção e espera, em vez de abrir o jogo com uma verificação pendente. Antes de 2026-10-26 era o contrário (lista de bloqueios, e todo o resto passava).
 - **Erros fixos.** Rede: "Could not contact the Riot authentication service". Formato inválido: "The Riot authentication service returned an invalid response". HTTP 429: "Too many attempts, wait a few minutes".
 - **Cancelamento antes e depois de cada requisição.** Cancelar após o `DELETE` impede o `start` e o envio da senha.
-- **`remember: true` sempre.** O cliente grava o login lembrado que o app guarda por conta ([[Armazenamento e dados]]).
+- **`remember` segue a configuração "Manter login".** `authenticate(account, signal, { remember })` envia `remember: true` por padrão e `false` só quando a opção está desmarcada. Com `true`, o cliente grava o login lembrado que o app guarda por conta ([[Armazenamento e dados]]). Desmarcado desde 2026-11-04, a Riot não lembra a conta.
+- **Conta autorizada não está na tela de login.** `loginScreenState` devolve `auth` só se `GET /rso-auth/v1/authorization` não responder 200. O autenticador pode continuar reportando `auth` depois de entrar; sem essa conferência, os cartões ficavam sobre a página inicial do Riot.
 
 ## Testes
 

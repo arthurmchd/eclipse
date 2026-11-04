@@ -13,7 +13,7 @@ tags: [módulo]
 ## Responsabilidade
 
 - Acha a janela de login do Riot, mesmo oculta, e espera o formulário carregar.
-- Digita usuário e senha, marca "Stay signed in" quando reconhece a caixa desmarcada e clica em entrar.
+- Digita usuário e senha, deixa "Stay signed in" no estado pedido (`remember`) quando reconhece a caixa e clica em entrar.
 - Não mostra nem ativa janelas, não injeta teclado global e não move o mouse do usuário. Visibilidade e foco são só do [[windowGuard.ps1]].
 - Não resolve CAPTCHA nem 2FA.
 
@@ -28,7 +28,7 @@ Entrada: um único JSON UTF-8 no stdin.
 
 O [[riotClient]] também envia `hide`; o script ignora esse campo.
 
-Saída: `remember:on|off|unknown` (só com `remember`), depois `ok`. Em falha, `error:<código>` e código de saída 1.
+Saída: `remember:on|off|unknown`, depois `ok`. Em falha, `error:<código>` e código de saída 1.
 
 Códigos permitidos: `invalid-request`, `invalid-action`, `invalid-credentials`, `window-not-found`, `form-not-ready`, `input-failed`, `point-test-failed`, `checkbox-test-failed`. Qualquer outro vira `window-script-failed`.
 
@@ -43,7 +43,7 @@ Códigos permitidos: `invalid-request`, `invalid-action`, `invalid-credentials`,
 2. `SetProcessDPIAware`.
 3. Por até 60 s, a cada 250 ms: procura a janela. O formulário está pronto após 4 leituras seguidas da mesma janela com `Test-FormReady`.
 4. Clica no campo de usuário, limpa e digita. Repete no campo de senha.
-5. Com `remember`: lê a caixa. Só clica se estiver `off`, e lê de novo. Imprime o estado.
+5. Lê a caixa. Se o estado é reconhecido e difere do pedido (`on` com `remember: true`, `off` com qualquer outro valor), clica uma vez e lê de novo. Com `unknown`, não clica. Imprime o estado. Até 2026-11-04 só marcava, nunca desmarcava.
 6. Com `submit`: clica em entrar.
 
 ## Detalhes

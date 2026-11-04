@@ -1,20 +1,35 @@
+const AUTOMATIC_CHECK_GRACE_MS = 12000;
+const GAME_OPEN_TIMEOUT_MS = 180000;
+const GAME_UPDATE_TIMEOUT_MS = 1200000;
+const RELAUNCH_INTERVAL_MS = 15000;
+const outdated = (launch) => launch?.status === 424 && launch.errorCode === 'launch_failed_product_not_up_to_date';
+
 function createSignInFlow(io) {
   const {
     detectClientPath, closeEverything, readSettingsYaml, writeSettingsYaml,
     hasPersistedLogin, stripPersistedLogin, sameRiotId, sessionState, readAuthenticationState,
     isAuthorized, activeRiotId, localApi, launchProduct, requestLaunch,
-    typeCredentials, authenticate, windows, runningGames,
+    typeCredentials, authenticate, windows, runningGames, openVisibleInterface, closeGames,
     now = Date.now, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = io;
 
-  return async function signIn({ account, session, hasSavedSession, game, clientPath, hide = true, closeClient = true, dryRun = false, status = () => {}, log = () => {}, onClosed = () => {}, signal }) {
+  return async function signIn({ account, session, hasSavedSession, game, clientPath, hide = true, closeClient = true, dryRun = false, releaseAfterLaunch = false, visibleLogin = false, remember = true, status = () => {}, log = () => {}, onClosed = () => {}, signal }) {
+    if (visibleLogin) hide = false;
     if (!['lol', 'tft', 'val'].includes(game)) throw new Error('Select a supported game');
     const exe = detectClientPath(clientPath);
     if (!exe) throw new Error('Riot Client not found. Set its path in Settings');
     let guardArmed = false;
+    const reportGuard = () => {
+      for (const incident of windows.drainIncidents?.() || []) {
+        log(`window guard ${incident.recovered ? 'restarted' : 'could not be restarted'} after ${incident.reason}`);
+      }
+    };
     const check = () => {
       if (signal?.aborted) throw new Error('Sign-in cancelled');
-      if (guardArmed) windows.assertHealthy?.();
+      if (guardArmed) {
+        reportGuard();
+        windows.assertHealthy?.();
+      }
     };
     const pause = async (ms) => {
       check();
@@ -35,18 +50,32 @@ function createSignInFlow(io) {
     let manualAttention = false;
     let attentionText = '';
     let nativeFormUsed = false;
+    let nativeAuthenticationComplete = false;
+    let nativeAttentionPending = false;
+    let nativeAttentionRevealed = false;
+    let automaticCheckUntil = 0;
     function attention(text) {
       manualAttention = true;
       if (attentionText === text) return;
       attentionText = text;
       status(text, { needsAttention: true, nativeClient: nativeFormUsed });
     }
+    async function authenticationAttention(text, revealNative = true) {
+      attention(text);
+      if (!nativeFormUsed) return;
+      nativeAttentionPending = true;
+      if (revealNative && !nativeAttentionRevealed) {
+        await windows.reveal();
+        nativeAttentionRevealed = true;
+      }
+    }
     async function authState() {
       const state = await (readAuthenticationState || sessionState)();
       if (state?.type === 'multifactor') {
-        attention('Riot needs your 2FA code. Use Show Riot Client to enter it');
+        await authenticationAttention('Riot needs your 2FA code. Use Show Riot Client to enter it');
       } else if (state?.error === 'captcha_not_allowed' || /captcha|challenge/i.test(state?.type || '')) {
-        attention('Riot needs a security check. Use Show Riot Client to complete it');
+        if (now() < automaticCheckUntil) return state;
+        await authenticationAttention('Riot needs a security check. Use Show Riot Client to complete it');
       } else if (state?.error) {
         const errors = { auth_failure: 'Wrong username or password', rate_limited: 'Too many attempts, wait a few minutes' };
         throw new Error(errors[state.error] || `Riot sign-in error: ${state.error}`);
@@ -62,7 +91,7 @@ function createSignInFlow(io) {
         if (authorized && !isHumanStep(state)) return true;
         if (!manualAttention && !stalled && now() - began > 35000) {
           stalled = true;
-          attention('Sign-in is taking longer. Use Show Riot Client if Riot needs your attention');
+          await authenticationAttention('Sign-in is taking longer. Use Show Riot Client if Riot needs your attention', false);
         }
         return false;
       }, timeoutMs, 700);
@@ -102,13 +131,27 @@ function createSignInFlow(io) {
         check();
       }
 
-      if (!signedIn && !reuseSignedOutBackend) {
+      if (visibleLogin) {
+        status('Preparando o login no Riot Client…', { needsAttention: false });
+        if (running.lol || running.val) await closeGames();
+        if (!await sessionState()) {
+          await launchProduct(exe, null, true);
+          if (!await wait(sessionState, 45000)) throw new Error('The Riot Client did not start');
+        }
+        await openVisibleInterface(exe, signal, log);
+        if (!signedIn) {
+          await localApi('DELETE', '/rso-auth/v1/session');
+          if (!await wait(async () => !await isAuthorized(), 15000)) throw new Error('Could not sign out the previous account');
+          check();
+        }
+      }
+      if (!visibleLogin && !signedIn && !reuseSignedOutBackend) {
         status('Closing Riot Client in the background…', { needsAttention: false });
         const closed = await closeEverything(log);
         check();
         await onClosed(closed);
         check();
-        const saved = typeof session === 'function' ? await session() : session;
+        const saved = !remember ? null : typeof session === 'function' ? await session() : session;
         check();
         restoring = hasPersistedLogin(saved);
         if (restoring) {
@@ -156,20 +199,21 @@ function createSignInFlow(io) {
         status('Signing in in the background…', { needsAttention: false });
         let direct = { supported: false };
         if (!dryRun && typeof authenticate === 'function') {
-          direct = await authenticate(account, signal);
+          direct = await authenticate(account, signal, { remember });
           check();
           if (direct?.supported !== true && direct?.supported !== false) throw new Error('The Riot background sign-in service returned an invalid response');
         }
         if (!direct.supported || direct.requiresNativeForm === true) {
           check();
           nativeFormUsed = true;
-          status('Finishing sign-in through the hidden Riot interface…', { needsAttention: false, nativeClient: true });
+          status(visibleLogin ? 'Entrando na conta…' : 'Finishing sign-in through the hidden Riot interface…', { needsAttention: false, nativeClient: true });
           if (hide && typeof authenticate === 'function') await windows.hide();
           check();
           const lines = await typeCredentials({
             action: 'type', username: account.username, password: account.password,
-            hide, remember: true, submit: !dryRun,
+            hide, remember, submit: !dryRun,
           }, signal, log);
+          automaticCheckUntil = now() + AUTOMATIC_CHECK_GRACE_MS;
           log(`credentials entered (${lines.filter((line) => line.startsWith('remember:')).join(', ') || 'remember state unavailable'})`);
         } else {
           log('sign-in requested through the Riot background service');
@@ -179,7 +223,9 @@ function createSignInFlow(io) {
         }
         check();
         if (dryRun) return result;
-        if (!(await awaitAuthorization(180000))) throw new Error('Sign-in timed out. Use Show Riot Client in Settings to inspect it');
+        if (!(await awaitAuthorization(180000))) throw new Error(nativeAttentionPending
+          ? 'Sign-in timed out waiting for your attention. Complete the pending step in Riot Client, then try Play again'
+          : 'Sign-in timed out. Use Show Riot Client in Settings to inspect it');
       }
       if (dryRun) return result;
 
@@ -187,44 +233,78 @@ function createSignInFlow(io) {
         if (!(await awaitAuthorization(180000))) throw new Error('Riot security check timed out. Use Show Riot Client in Settings to continue');
       }
 
+      nativeAuthenticationComplete = true;
+      nativeAttentionPending = false;
       if (hide) await windows.conceal();
       manualAttention = false;
-      status('Signed in. Preparing the game…', { needsAttention: false });
+      const signedInStatus = (text) => status(text, { needsAttention: false, signedIn: true });
+      signedInStatus('Signed in. Preparing the game…');
       result.riotId = await wait(activeRiotId, 8000);
       if (!result.riotId) throw new Error('Could not verify the signed-in account');
       if (!sameRiotId(result.riotId, account)) throw new Error('The signed-in Riot ID does not match the selected account. Check the Riot ID saved in this app');
-      status(game === 'val' ? 'Starting VALORANT in the background…' : 'Starting League of Legends in the background…', { needsAttention: false });
+      signedInStatus(game === 'val' ? 'Starting VALORANT in the background…' : 'Starting League of Legends in the background…');
       const processGame = game === 'val' ? 'val' : 'lol';
       const isGameReady = async () => (await runningGames())[processGame] && await windows.gameWindow(game);
       let ready = await isGameReady();
       check();
       if (!ready) {
-        await requestLaunch(game, log);
+        let launch = await requestLaunch(game, log);
+        let requestedAt = now();
+        let updating = false;
         let notified = false;
         const began = now();
-        ready = await wait(async () => {
-          if (await isGameReady()) return true;
-          if (!notified && now() - began > 40000) {
+        const limit = () => (outdated(launch) ? began + GAME_UPDATE_TIMEOUT_MS : requestedAt + GAME_OPEN_TIMEOUT_MS);
+        while (!ready && now() < limit()) {
+          check();
+          ready = await isGameReady();
+          check();
+          if (ready) break;
+          if (outdated(launch)) {
+            if (!updating) {
+              updating = true;
+              signedInStatus(game === 'val' ? 'Waiting for the VALORANT update to finish…' : 'Waiting for the League of Legends update to finish…');
+            }
+            if (now() - requestedAt >= RELAUNCH_INTERVAL_MS) {
+              launch = await requestLaunch(game, log);
+              requestedAt = now();
+              check();
+            }
+          } else if (!notified && now() - requestedAt > 40000) {
             notified = true;
             attention('The game is taking longer to open or updating. Use Show Riot Client for details');
           }
-          return false;
-        }, 180000, 1000);
+          await pause(1000);
+        }
+        if (!ready && outdated(launch)) throw new Error('The game update did not finish in time. Open Riot Client to check the update');
       }
       if (!ready) throw new Error('The game did not open. Use Show Riot Client in Settings to check updates or installation');
       check();
-      result.session = await wait(async () => {
+      result.session = remember ? await wait(async () => {
         const yaml = readSettingsYaml();
         return hasPersistedLogin(yaml) ? yaml : null;
-      }, 6000);
-      log(result.session ? 'session available for next launch' : 'no remembered login was written');
+      }, 6000) : null;
+      log(!remember ? 'stay signed in is off; no session was kept' : result.session ? 'session available for next launch' : 'no remembered login was written');
       check();
-      if (hide || closeClient) await windows.conceal();
+      if (visibleLogin) await windows.closeClient();
+      else {
+        if (hide || closeClient) await windows.conceal();
+        if (releaseAfterLaunch) await windows.park();
+      }
       result.gameStarted = true;
-      status('Game opened', { needsAttention: false });
+      signedInStatus('Game opened');
       return result;
     } catch (err) {
-      if (hide) await windows.conceal().catch((guardError) => log(`window guard: ${guardError.message}`));
+      reportGuard();
+      if (nativeFormUsed && !nativeAuthenticationComplete && !nativeAttentionPending && !signal?.aborted) {
+        try { await authState(); }
+        catch { log('could not recover the native sign-in verification window'); }
+      }
+      const pendingNativeAttention = nativeAttentionPending && !signal?.aborted;
+      if (hide && !pendingNativeAttention) await windows.conceal().catch((guardError) => log(`window guard: ${guardError.message}`));
+      if (pendingNativeAttention) {
+        err.needsAttention = true;
+        err.nativeClient = true;
+      }
       err.sessionRejected = result.sessionRejected;
       throw err;
     }

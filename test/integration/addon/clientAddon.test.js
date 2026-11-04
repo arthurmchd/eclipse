@@ -9,6 +9,28 @@ const { ADDON_DIR: directory } = require('../../../src/paths');
 const source = (file) => fs.readFileSync(path.join(directory, file), 'utf8');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
+test('full management requests stay in the Riot main process and permit only fixed commands', async () => {
+  const f = await mainFixture({ response: { ok: true, value: { embedded: true } } });
+  const invoke = vm.runInContext("globalThis[Symbol.for('riot-account-manager.manager-request.v1')]", f.context);
+  assert.equal(typeof invoke, 'function');
+  await invoke('saveAccount', [{ username: 'fixture-user', password: 'fixture-password' }]);
+  assert.equal(f.calls[0].options.path, '/v1/manage');
+  assert.equal(f.calls[0].options.headers.Origin, undefined);
+  assert.deepEqual(JSON.parse(f.calls[0].body), { method: 'saveAccount', args: [{ username: 'fixture-user', password: 'fixture-password' }] });
+  await invoke('pickClientPath', []);
+  assert.equal(f.calls[1].options.timeout, 300000);
+  await assert.rejects(invoke('execute', []), /Invalid account command/);
+  await assert.rejects(invoke('init', ['a', 'b', 'c']), /Invalid account command/);
+  assert.equal(f.calls.length, 2);
+  assert.equal(f.handlers.has('ram-client:manage'), false);
+});
+
+test('full manager accepts a bounded account history larger than the quick selector limit', async () => {
+  const f = await mainFixture({ response: { ok: true, value: { history: 'x'.repeat(600 * 1024) } } });
+  const invoke = vm.runInContext("globalThis[Symbol.for('riot-account-manager.manager-request.v1')]", f.context);
+  assert.equal((await invoke('init', [])).value.history.length, 600 * 1024);
+});
+
 async function mainFixture({ config = {}, token = 'a'.repeat(64), response = {}, statusCode = 200, rawResponse, encrypted = true } = {}) {
   const handlers = new Map(), calls = [];
   const frame = { url: 'http://127.0.0.1:31245/' };
@@ -237,4 +259,24 @@ test('login panel hides and stops polling when its login form is hidden or trans
   assert.equal(f.intervals.size, 1);
   f.events.get('beforeunload')();
   assert.equal(f.intervals.size, 0);
+});
+
+test('the account workspace remains accessible after the Riot login form disappears', async () => {
+  const f = rendererFixture();
+  await flush();
+  let openings = 0;
+  f.window.riotAccountManager.openManager = async () => { openings++; return { ok: true }; };
+  f.document.querySelectorAll = () => [];
+  f.scan();
+  const quick = f.created.find((item) => item.id === 'ram-login-account-panel-v1');
+  const launcher = f.created.find((item) => item.id === 'ram-account-workspace-launcher-v1');
+  assert.equal(quick.hidden, true);
+  assert.equal(launcher.hidden, false);
+  assert.equal(f.intervals.size, 0);
+  const button = launcher.shadow.children.find((item) => item.tagName === 'button');
+  assert.equal(button.textContent, 'Contas');
+  await button.listeners.click();
+  assert.equal(openings, 1);
+  f.scan();
+  assert.equal(f.created.filter((item) => item.id === launcher.id).length, 1);
 });

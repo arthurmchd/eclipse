@@ -46,7 +46,7 @@ sequenceDiagram
 4. **Autentica.** Login direto pela API local com HTTPS e o certificado da instalação Riot. Um contexto ausente ou em `invalid_request` é limpo e inicializado antes da primeira submissão de senha. API indisponível ou CAPTCHA antes da senha permitem usar a interface nativa escondida.
 5. **Acompanha.** Erros, demora, 2FA ou CAPTCHA não abrem o cliente sozinhos. O painel habilita **Show Riot Client**, que abre a janela do desafio. Depois da autenticação, o monitor volta a ocultá-la.
 6. **Abre o jogo.** Só depois de verificar a conta. O sucesso exige uma **janela visível do jogo** (para LoL/TFT, o lobby do League), não apenas um processo.
-7. **Mantém oculto.** O monitor continua ativo enquanto o app estiver aberto e esconde janelas recriadas do Riot. Jogos e Vanguard ficam fora do filtro. Ao fechar o app, as janelas voltam ao estado original.
+7. **Mantém oculto.** O monitor continua ativo enquanto o app estiver aberto e esconde janelas recriadas do Riot. Se precisar reiniciar, entrega os snapshots ao substituto sem restaurar a aparência entre eles. Jogos e Vanguard ficam fora do filtro. Ao fechar o app, as janelas voltam ao estado original, inclusive após falha do monitor ([[ADR-008 Recuperação visual sem reexibir o Riot]]).
 
 ## Regras que não podem quebrar
 

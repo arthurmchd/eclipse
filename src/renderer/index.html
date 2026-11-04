@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; img-src 'self' data: https://raw.communitydragon.org https://media.valorant-api.com; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; connect-src 'none'">
-  <title>Riot Account Manager</title>
+  <title>Contas — Riot Client</title>
   <link rel="stylesheet" href="../../node_modules/@fontsource/inter/400.css">
   <link rel="stylesheet" href="../../node_modules/@fontsource/inter/600.css">
   <link rel="stylesheet" href="../../node_modules/@fontsource/inter/700.css">
@@ -23,7 +23,7 @@
         <path d="M16 2 28 9v14L16 30 4 23V9z" fill="none" stroke="currentColor" stroke-width="2"/>
         <path d="M11 10h7.5a4 4 0 0 1 0 8H15l6 5h-4.5l-5.5-5v5H11z" fill="currentColor"/>
       </svg>
-      <span>RIOT ACCOUNTS</span>
+      <span>MINHAS CONTAS</span>
     </div>
     <nav class="game-tabs" role="tablist">
       <button role="tab" data-game="lol">
@@ -39,6 +39,10 @@
         VALORANT
       </button>
     </nav>
+    <button type="button" class="return-client" id="return-to-riot" title="Voltar ao Riot (Esc)" hidden>
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4-6 6 6 6M3 10h15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Voltar ao Riot
+    </button>
   </header>
 
   <aside class="sidebar">
@@ -239,10 +243,13 @@
         </fieldset>
         <fieldset class="fieldset">
           <legend>Behaviour</legend>
-          <label class="check"><input type="checkbox" name="hideRiotClient"> Sign in with the Riot Client hidden (no automatic popups)</label>
-          <small class="hint">If Riot needs a security check, the launch status will let you show the client to complete it.</small>
-          <label class="check"><input type="checkbox" name="closeRiotClient"> Keep the Riot Client hidden while the game runs</label>
-          <label class="check"><input type="checkbox" name="minimizeOnLaunch"> Minimize this app once the game starts</label>
+          <div id="window-behaviour" class="window-behaviour">
+            <label class="check"><input type="checkbox" name="hideRiotClient"> Sign in with the Riot Client hidden (no automatic popups)</label>
+            <small class="hint">If Riot needs a security check, the launch status will let you show the client to complete it.</small>
+            <label class="check"><input type="checkbox" name="closeRiotClient"> Keep the Riot Client hidden while the game runs</label>
+            <label class="check"><input type="checkbox" name="minimizeOnLaunch"> Minimize this app once the game starts</label>
+          </div>
+          <p class="hint" id="integrated-behaviour" hidden>O Riot fica em segundo plano durante o login e a abertura do jogo. Se precisar concluir uma verificação, use Show Riot Client.</p>
           <label class="check"><input type="checkbox" name="streamerMode"> Streamer mode (blur usernames)</label>
           <div class="field-row">
             <button type="button" class="btn btn-ghost btn-sm" id="show-riot-client">Show Riot Client</button>

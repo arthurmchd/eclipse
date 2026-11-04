@@ -17,21 +17,30 @@ Este vault é o cérebro do projeto. O código não tem comentários: o **porqu�
 ## Arquitetura
 
 - [[Fluxo de login]]: o que acontece entre o clique em Play e o jogo aberto
-- [[Integração com o Riot Client]]: o painel MINHAS CONTAS dentro da tela de login do Riot
+- [[Integração com o Riot Client]]: seleção e gerenciamento completo de contas dentro da janela Riot
 - [[Armazenamento e dados]]: `data.json`, backups, sessões salvas e logs
 - [[Segurança e privacidade]]: todas as regras que protegem senhas, tokens e sessões
 
 ## Módulos
 
+Modo padrão: [[riotOverlay]] · [[riotWindowObserver]].
+Interface compacta: [[cards]].
+
 | Camada | Notas |
 |---|---|
-| Aplicação | [[main]] · [[preload]] · [[paths]] · [[store]] · [[signInService]] · [[rankApi]] |
+| Aplicação | [[main]] · [[preload]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[rankApi]] |
 | Riot | [[riotClient]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotTransport]] · [[riotProcess]] |
 | Windows | [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[windowsDpapi]] |
-| Integração | [[privateClient]] · [[hostEntry]] · [[privateHost]] · [[privateHostCore]] · [[privateRendererCore]] · [[addons]] · [[bridgeServer]] · [[bootstrapChannel]] · [[backend]] · [[asar]] · [[status]] · [[Scripts de integração]] |
+| Integração | [[privateClient]] · [[hostEntry]] · [[privateHost]] · [[privateHostCore]] · [[privateRendererCore]] · [[managerHost]] · [[manager-preload]] · [[addons]] · [[bridgeServer]] · [[bootstrapChannel]] · [[backend]] · [[asar]] · [[status]] · [[Scripts de integração]] |
 | Interface | [[renderer]] |
 
 ## Decisões
+
+- [[ADR-009 Sobreposição no cliente oficial]]
+- [[ADR-010 Login visível com progresso]]
+- [[ADR-011 Cartões sobre a arte do Riot]]
+- [[ADR-012 Sobreposição presa à janela do Riot]]
+- [[ADR-010 Login visível com progresso]]
 
 - [[ADR-001 Cópia privada da interface do Riot]]
 - [[ADR-002 Segredos protegidos pelo DPAPI]]
@@ -39,6 +48,8 @@ Este vault é o cérebro do projeto. O código não tem comentários: o **porqu�
 - [[ADR-004 Monitor persistente de janelas]]
 - [[ADR-005 Código sem comentários e conhecimento no vault]]
 - [[ADR-006 Estrutura de pastas por camada]]
+- [[ADR-007 Interface completa dentro do Riot Client]]
+- [[ADR-008 Recuperação visual sem reexibir o Riot]]
 - [[Estudo - Comparação com o Rose]]
 
 ## Guias
