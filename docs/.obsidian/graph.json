@@ -1,0 +1,11 @@
+{
+  "colorGroups": [
+    { "query": "path:\"03 Módulos/Aplicação\"", "color": { "a": 1, "rgb": 13154150 } },
+    { "query": "path:\"03 Módulos/Riot e Windows\"", "color": { "a": 1, "rgb": 2729427 } },
+    { "query": "path:\"03 Módulos/Integração\"", "color": { "a": 1, "rgb": 10181046 } },
+    { "query": "path:\"03 Módulos/Interface\"", "color": { "a": 1, "rgb": 15105570 } },
+    { "query": "path:\"04 Decisões\"", "color": { "a": 1, "rgb": 15277667 } }
+  ],
+  "showTags": false,
+  "showAttachments": false
+}

@@ -1,0 +1,9 @@
+{
+  "alwaysUpdateLinks": true,
+  "newLinkFormat": "shortest",
+  "useMarkdownLinks": false,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "06 Roadmap",
+  "attachmentFolderPath": "_anexos",
+  "showFrontmatter": true
+}

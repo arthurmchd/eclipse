@@ -1,0 +1,121 @@
+const LANGUAGES = ['pt', 'en'];
+const DEFAULT_LANGUAGE = 'pt';
+
+const MESSAGES = [
+  ['Sign-in cancelled', 'Login cancelado'],
+  ['Sign-in failed', 'O login falhou'],
+  ['Preparing sign-in…', 'Preparando o login…'],
+  ['Preparing the Riot Client sign-in…', 'Preparando o login no Riot Client…'],
+  ['Signing in…', 'Entrando na conta…'],
+  ['Closing Riot Client in the background…', 'Fechando o Riot Client em segundo plano…'],
+  ['Starting Riot services in the background…', 'Iniciando os serviços da Riot em segundo plano…'],
+  ['Signing in with the saved session…', 'Entrando com a sessão salva…'],
+  ['Signing in in the background…', 'Entrando em segundo plano…'],
+  ['Finishing sign-in through the hidden Riot interface…', 'Concluindo o login pela interface oculta da Riot…'],
+  ['Signed in. Preparing the game…', 'Conta conectada. Preparando o jogo…'],
+  ['Starting VALORANT in the background…', 'Abrindo o VALORANT em segundo plano…'],
+  ['Starting League of Legends in the background…', 'Abrindo o League of Legends em segundo plano…'],
+  ['Waiting for the VALORANT update to finish…', 'Aguardando a atualização do VALORANT terminar…'],
+  ['Waiting for the League of Legends update to finish…', 'Aguardando a atualização do League of Legends terminar…'],
+  ['Game opened', 'Jogo aberto'],
+  ['Riot Client opened', 'Riot Client aberto'],
+  ['Riot needs your 2FA code. Use Show Riot Client to enter it', 'A Riot pede seu código de 2FA. Digite-o na tela da Riot'],
+  ['Riot needs a security check. Use Show Riot Client to complete it', 'A Riot pede uma verificação de segurança. Conclua-a na tela da Riot'],
+  ['Sign-in is taking longer. Use Show Riot Client if Riot needs your attention', 'O login está demorando. Confira a tela da Riot caso ela precise de você'],
+  ['The game is taking longer to open or updating. Use Show Riot Client for details', 'O jogo está demorando para abrir ou está atualizando. Confira o Riot Client'],
+  ['Sign-in timed out waiting for your attention. Complete the pending step in Riot Client, then try Play again', 'O login expirou esperando sua ação. Conclua a etapa pendente no Riot Client e tente Jogar de novo'],
+  ['Sign-in timed out. Use Show Riot Client in Settings to inspect it', 'O login expirou. Abra o Riot Client para ver o que aconteceu'],
+  ['Wrong username or password', 'Usuário ou senha incorretos'],
+  ['Too many attempts, wait a few minutes', 'Muitas tentativas, aguarde alguns minutos'],
+  ['Riot security check timed out. Use Show Riot Client in Settings to continue', 'A verificação de segurança da Riot expirou. Abra o Riot Client para continuar'],
+  ['Riot could not complete sign-in. Open Riot Client to continue', 'A Riot não conseguiu concluir o login. Abra o Riot Client para continuar'],
+  ['Riot could not initialize sign-in. Open Riot Client to continue', 'A Riot não conseguiu iniciar o login. Abra o Riot Client para continuar'],
+  ['Riot could not confirm the sign-in session. Open Riot Client to continue', 'A Riot não conseguiu confirmar a sessão. Abra o Riot Client para continuar'],
+  ['Riot needs your attention. Open Riot Client to continue', 'A Riot precisa da sua atenção. Abra o Riot Client para continuar'],
+  ['The signed-in Riot ID does not match the selected account. Check the Riot ID saved in this app', 'O Riot ID conectado não é o da conta escolhida. Confira o Riot ID salvo no Eclipse'],
+  ['Could not verify the signed-in account', 'Não foi possível confirmar a conta conectada'],
+  ['Could not sign out the previous account', 'Não foi possível sair da conta anterior'],
+  ['The game update did not finish in time. Open Riot Client to check the update', 'A atualização do jogo não terminou a tempo. Abra o Riot Client para conferir'],
+  ['The game did not open. Use Show Riot Client in Settings to check updates or installation', 'O jogo não abriu. Abra o Riot Client para conferir atualizações ou a instalação'],
+  ['The game did not open. Use Show Riot Client to inspect it', 'O jogo não abriu. Abra o Riot Client para ver o que aconteceu'],
+  ['The Riot Client did not finish signing in. Use Show Riot Client to inspect it', 'O Riot Client não terminou de entrar na conta. Abra-o para ver o que aconteceu'],
+  ['The Riot Client did not start. Use Show Riot Client in Settings to inspect it', 'O Riot Client não iniciou. Abra-o para ver o que aconteceu'],
+  ['The Riot Client did not start', 'O Riot Client não iniciou'],
+  ['The Riot Client window did not open', 'A janela do Riot Client não abriu'],
+  ['The Riot Client sign-in screen did not load. Finish signing in there', 'A tela de login do Riot Client não carregou. Termine o login por lá'],
+  ['The Riot Client sign-in form did not respond', 'O formulário de login do Riot Client não respondeu'],
+  ['The Riot background sign-in service returned an invalid response', 'O serviço de login da Riot devolveu uma resposta inválida'],
+  ['The Riot authentication service returned an invalid response', 'O serviço de autenticação da Riot devolveu uma resposta inválida'],
+  ['The Riot background service did not become ready', 'O serviço da Riot em segundo plano não ficou pronto'],
+  ['The local Riot service could not complete the request', 'O serviço local da Riot não concluiu o pedido'],
+  ['Could not contact the Riot authentication service', 'Não foi possível falar com o serviço de autenticação da Riot'],
+  ['Could not start the Riot Client. Check its path and Windows permissions', 'Não foi possível iniciar o Riot Client. Confira o caminho e as permissões do Windows'],
+  ['Could not restart the Riot Client with its interface', 'Não foi possível reabrir o Riot Client com a interface'],
+  ['Could not close the Riot Client', 'Não foi possível fechar o Riot Client'],
+  ['Could not bring the Riot Client to the front', 'Não foi possível trazer o Riot Client para a frente'],
+  ['Could not check running Riot games. No accounts were switched', 'Não foi possível verificar os jogos abertos. Nenhuma conta foi trocada'],
+  ['Close League of Legends or VALORANT before switching from the Riot login screen', 'Feche o League of Legends ou o VALORANT antes de trocar de conta pela tela de login da Riot'],
+  ['Riot Client not found. Set its path in Settings', 'Riot Client não encontrado. Informe o caminho nas Configurações'],
+  ['Account not found', 'Conta não encontrada'],
+  ['Add the username and password first', 'Adicione o usuário e a senha primeiro'],
+  ['Account credentials changed. Start sign-in again', 'Os dados da conta mudaram. Comece o login de novo'],
+  ['A sign-in is already in progress', 'Já há um login em andamento'],
+  ['Select a supported game', 'Escolha um jogo compatível'],
+  ['The background window guard is shutting down', 'O monitor de janelas em segundo plano está sendo encerrado'],
+  ['The background window guard has stopped', 'O monitor de janelas em segundo plano parou'],
+  ['Windows encryption is not available', 'A criptografia do Windows não está disponível'],
+  ['The game is opening. Wait or cancel from the tray.', 'O jogo está sendo aberto. Aguarde ou cancele pela bandeja.'],
+  ['The game is opening in the background. Wait or use Cancel sign-in in the tray.', 'O jogo está sendo aberto em segundo plano. Aguarde ou use Cancelar login na bandeja.'],
+  ['Riot Client not found. Install the official client before starting Eclipse.', 'Riot Client não encontrado. Instale o cliente oficial antes de iniciar o gerenciador.'],
+  ['Could not follow the Riot window. Restart Eclipse.', 'Não foi possível acompanhar a janela do Riot. Reinicie o gerenciador.'],
+  ['Could not open the accounts in Riot.', 'Não foi possível abrir as contas no Riot.'],
+  ['Could not update ranks. Check the API keys in Settings', 'Não foi possível atualizar os elos. Confira as chaves de API nas Configurações'],
+  ['Prepare the private copy to open the accounts inside Riot.', 'Prepare a cópia privada para abrir as contas dentro do Riot.'],
+  ['The local accounts connection could not be started.', 'A conexão local das contas não pôde ser iniciada.'],
+];
+
+const PATTERNS = [
+  [/^The background window guard stopped(?: \((.+)\))?\. Try Play again$/, /^O monitor de janelas em segundo plano parou(?: \((.+)\))?\. Tente Jogar de novo$/,
+    (reason) => [`The background window guard stopped${reason ? ` (${reason})` : ''}. Try Play again`, `O monitor de janelas em segundo plano parou${reason ? ` (${reason})` : ''}. Tente Jogar de novo`]],
+  [/^Riot sign-in error: (.+)$/, /^Erro de login da Riot: (.+)$/, (code) => [`Riot sign-in error: ${code}`, `Erro de login da Riot: ${code}`]],
+  [/^Riot Client window script failed: (.+)$/, /^O script da janela do Riot Client falhou: (.+)$/, (code) => [`Riot Client window script failed: ${code}`, `O script da janela do Riot Client falhou: ${code}`]],
+];
+
+const MAIN_TEXT = {
+  pt: {
+    trayAccounts: 'Contas no Riot', trayOpenRiot: 'Abrir Riot Client', trayCancel: 'Cancelar login', trayQuit: 'Sair',
+    gameFailed: 'Não foi possível abrir o jogo', needsAttention: 'O login precisa de sua atenção',
+    openFailed: 'Não foi possível abrir a interface integrada.',
+    openFailedDetail: 'Encerre a instância antiga após atualizar o projeto. Confira a preparação da cópia privada da interface Riot.',
+    understood: 'Entendi',
+  },
+  en: {
+    trayAccounts: 'Accounts in Riot', trayOpenRiot: 'Open Riot Client', trayCancel: 'Cancel sign-in', trayQuit: 'Quit',
+    gameFailed: 'Could not open the game', needsAttention: 'The sign-in needs your attention',
+    openFailed: 'Could not open the integrated interface.',
+    openFailedDetail: 'Quit the old instance after updating the project. Check the preparation of the private copy of the Riot interface.',
+    understood: 'OK',
+  },
+};
+
+function normalizeLanguage(value) {
+  return LANGUAGES.includes(value) ? value : DEFAULT_LANGUAGE;
+}
+
+function localize(text, language) {
+  if (typeof text !== 'string') return text;
+  const target = normalizeLanguage(language) === 'en' ? 0 : 1;
+  const entry = MESSAGES.find((pair) => pair[0] === text || pair[1] === text);
+  if (entry) return entry[target];
+  for (const [english, portuguese, build] of PATTERNS) {
+    const match = text.match(english) || text.match(portuguese);
+    if (match) return build(match[1])[target];
+  }
+  return text;
+}
+
+function mainText(language) {
+  return MAIN_TEXT[normalizeLanguage(language)];
+}
+
+module.exports = { LANGUAGES, DEFAULT_LANGUAGE, MESSAGES, normalizeLanguage, localize, mainText };
