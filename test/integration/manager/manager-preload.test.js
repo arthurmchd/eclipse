@@ -22,8 +22,13 @@ test('the preload exposes fixed account methods and preserves their argument sha
   assert.deepEqual(await f.api.saveAccount({ password: 'synthetic-only' }), { method: 'saveAccount', args: [{ password: 'synthetic-only' }] });
   await f.api.copy('example', 'password');
   await f.api.closeManager();
+  await f.api.minimizeRiot('close');
+  await f.api.closeRiot();
+  await f.api.revealRiot();
+  assert.equal(f.api.setModal, undefined);
   assert.deepEqual(f.calls.map((call) => call.slice(1)), [
     ['saveAccount', [{ password: 'synthetic-only' }]], ['copy', ['example', 'password']], ['closeManager', []],
+    ['windowAction', ['minimize']], ['windowAction', ['close']], ['windowAction', ['reveal']],
   ]);
   f.unload();
 });

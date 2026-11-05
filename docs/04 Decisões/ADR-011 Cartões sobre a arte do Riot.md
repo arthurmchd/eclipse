@@ -2,6 +2,10 @@
 
 Data: 2026-10-28. Status: aceita.
 
+Revisão de 2026-11-04, fundo próprio: o usuário pediu tirar a arte da Riot do fundo. A página dos [[cards]] e a view do [[riotOverlay]] usam branco `#f2f2f2`, um pouco mais suave que o `#fcfcfc` da coluna de login. A arte só aparece com as contas ocultas. O título desta decisão ficou histórico.
+
+Revisão de 2026-11-04 ([[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]): a reserva da faixa direita para os controles nativos acabou. A região cobre a arte inteira e os [[cards]] desenham cópias de minimizar, fechar e perfil nas mesmas posições. As revisões abaixo descrevem a geometria anterior.
+
 Revisão de encaixe de 2026-11-04: o usuário pediu a barra superior encostada no topo sem ampliar sua largura, e o rodapé até as bordas inferior e direita do Riot. O observador passa a medir a área cliente por `GetClientRect` e `ClientToScreen`, excluindo bordas externas invisíveis do Windows. A janela cobre a área de arte inteira; sua região nativa é a união de dois retângulos: coluna principal com reserva direita e rodapé completo de 104 DIP. `setShape` volta apenas para essa delimitação contínua, sem recortes individuais em volta dos ícones. A mesma reserva direita é aplicada ao cabeçalho e à lista no CSS; o rodapé usa altura fixa de 104 px. Isso mantém os controles nativos acessíveis acima do rodapé. A coluna de login continua fora da sobreposição.
 
 Refinamento de 2026-11-04 após aprovação do alinhamento: removido o véu branco do fundo geral, que passa a ser totalmente transparente. Cartões e rodapé preservam suas superfícies claras. Removidos título, subtítulo e aviso geral de estatísticas. A geometria permanece a mesma da revisão abaixo.

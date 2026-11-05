@@ -1,4 +1,6 @@
-# Riot Account Manager
+# Eclipse
+
+Gerenciador de contas Riot (antes chamado Riot Account Manager; a pasta do projeto e a de dados continuam `riot-account-manager`).
 
 Gerenciamento de contas em uma sobreposição que acompanha o Riot Client oficial: cadastro, edição, configurações, elos e abertura de League of Legends, Teamfight Tactics e VALORANT. O serviço fica na bandeja; você abre o Riot pelo atalho normal.
 

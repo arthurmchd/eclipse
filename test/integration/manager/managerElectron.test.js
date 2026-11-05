@@ -23,6 +23,15 @@ for (const compact of [false, true]) test(`Electron renders ${compact ? 'Riot ac
     const bothQueues=queueNames==='Solo/Duo|Flex'&&!card.querySelector('.avatar')&&card.querySelector('.account-head').firstElementChild.matches('.name')&&card.querySelectorAll('.queue')[1].textContent.includes('Sem classificação')&&!document.querySelector('#queue');
     document.querySelector('[data-account="fixture-second"]').click();
     const lolPlay=getComputedStyle(document.querySelector('#play')).backgroundColor;
+    const iconSpots=()=>Array.from(document.querySelectorAll('button[data-game]'),button=>Math.round(button.getBoundingClientRect().left)).join(',');
+    const lolSpots=iconSpots();
+    document.querySelector('[data-game="val"]').click();
+    const fixedIcons=iconSpots()===lolSpots;
+    document.querySelector('[data-account="fixture-account"]').click();
+    const fixedAcrossAccounts=iconSpots()===lolSpots;
+    document.querySelector('[data-account="fixture-second"]').click();
+    document.querySelector('[data-game="riot"]').click();
+    const riotMode=document.querySelector('#games').firstElementChild.dataset.game==='riot'&&document.body.dataset.theme==='riot'&&document.querySelector('#play').textContent.trim().startsWith('Entrar')&&document.querySelector('#selected-game').textContent.startsWith('Riot Client')&&document.querySelector('.account .queue-name').textContent==='Competitivo'&&iconSpots()===lolSpots&&getComputedStyle(document.querySelector('#play')).backgroundColor==='rgb(213, 50, 53)';
     document.querySelector('[data-game="val"]').click();
     const themed=document.body.dataset.theme==='val'&&getComputedStyle(document.querySelector('#play')).backgroundColor!==lolPlay&&getComputedStyle(document.querySelector('.launch-bar')).borderTopColor===getComputedStyle(document.querySelector('[data-game="val"]')).borderBottomColor;
     const selectedCorrect=document.querySelector('#selected-name').textContent.includes('Second');
@@ -30,20 +39,40 @@ for (const compact of [false, true]) test(`Electron renders ${compact ? 'Riot ac
     for(let count=0;count<100&&document.querySelector('#play').disabled;count++)await new Promise(resolve=>setTimeout(resolve,50));
     const launchComplete=!document.querySelector('#play').disabled;
     const list=document.querySelector('#cards').getBoundingClientRect(),footer=document.querySelector('.launch-bar').getBoundingClientRect();
-    const gutter=Math.min(Math.max(96,Math.ceil(innerWidth*104/1136)),innerWidth-1);
-    if(list.top<2||list.right>innerWidth-gutter+0.1||footer.right!==innerWidth||footer.bottom!==innerHeight||footer.height!==104)throw new Error('panel exceeds client bounds or covers native controls');
+    if(list.top<2||list.right>innerWidth+0.1||footer.right!==innerWidth||footer.bottom!==innerHeight||footer.height!==104)throw new Error('panel exceeds client bounds');
+    const u=innerWidth/1136,near=(a,b)=>Math.abs(a-b)<0.6,box=selector=>document.querySelector(selector).getBoundingClientRect();
+    const hit=(selector,b)=>Boolean(document.elementFromPoint(b.left+b.width/2,b.top+b.height/2)?.closest(selector));
+    const minimizeBox=box('#riot-minimize'),closeBox=box('#riot-close'),profileBox=box('#riot-profile');
+    const riotControls=near(closeBox.right,innerWidth)&&near(closeBox.top,0)&&near(closeBox.width,32*u)&&near(closeBox.height,24*u)&&near(minimizeBox.right,innerWidth-32*u)&&near(minimizeBox.top,0)&&near(minimizeBox.width,32*u)&&near(profileBox.width,48*u+2)&&near(profileBox.height,48*u+2)&&near(profileBox.top,32*u-1)&&near(profileBox.right,innerWidth-16*u+1)&&hit('#riot-minimize',minimizeBox)&&hit('#riot-close',closeBox)&&hit('#riot-profile',profileBox)&&document.querySelector('#riot-minimize').getAttribute('aria-label')==='Minimizar'&&document.querySelector('#riot-close').getAttribute('aria-label')==='Fechar'&&document.querySelector('#riot-profile').title==='Perfil da Riot: oculta as contas';
+    document.querySelector('#riot-minimize').click();
+    document.querySelector('#riot-close').click();
+    document.querySelector('#riot-profile').click();
     const gameIcons=Array.from(document.querySelectorAll('button[data-game]'));
     const selection=document.querySelector('.selection').getBoundingClientRect();
-    const footerGames=!document.querySelector('.toolbar')&&gameIcons.length===2&&gameIcons.every(button=>button.closest('.launch-bar')&&button.getBoundingClientRect().right<=selection.left&&button.getAttribute('aria-label')&&button.querySelector('img').complete&&button.querySelector('img').naturalWidth>0&&!button.textContent.trim());
-    const footerActions=Boolean(document.querySelector('.launch-bar #settings')&&document.querySelector('.launch-bar #refresh'))&&document.querySelector('#refresh').textContent.includes('2 contas');
+    const footerGames=!document.querySelector('.toolbar')&&gameIcons.length===3&&gameIcons.every(button=>button.closest('.launch-bar')&&button.getBoundingClientRect().right<=selection.left&&button.getAttribute('aria-label')&&button.querySelector('img').complete&&button.querySelector('img').naturalWidth>0&&!button.textContent.trim());
+    const footerActions=Boolean(document.querySelector('.launch-bar #settings')&&document.querySelector('.launch-bar #refresh'))&&document.querySelector('#refresh').textContent.trim()==='↻'&&!document.querySelector('#refresh').contains(document.querySelector('#count'))&&document.querySelector('.footer-tools .refresh-info').textContent.includes('2 contas')&&fixedIcons&&fixedAcrossAccounts;
     const addCard=document.querySelector('#cards > .add-card:last-child');
+    const settle=()=>new Promise(resolve=>setTimeout(resolve,80));
     addCard.click();
     const addOpens=document.querySelector('#account-dialog').open&&document.querySelector('#account-title').textContent==='Adicionar conta';
+    await settle();
     document.querySelector('#account-dialog').close();
+    await settle();
     document.querySelector('#settings').click();
+    await settle();
     const staySignedIn=document.querySelector('#settings-dialog').open&&document.querySelector('#settings-form').elements.staySignedIn.checked===true&&!document.querySelector('#cancel')&&document.querySelector('#status').hidden;
     document.querySelector('#settings-dialog').close();
-    return {embedded:value.embedded,accounts:value.accounts.length,hasGenericIPC:typeof window.api.invoke!=='undefined',cards:document.querySelectorAll('.account').length,footerGames,footerActions,addOpens,bothQueues,themed,staySignedIn,hasLevel:card.textContent.includes('247'),hasWins:card.textContent.includes('68'),hasWinrate:card.textContent.includes('62%'),transparent:getComputedStyle(document.body).backgroundColor==='rgba(0, 0, 0, 0)'&&getComputedStyle(document.body).backgroundImage==='none'&&getComputedStyle(document.querySelector('.launch-bar')).backgroundColor==='rgb(252, 252, 252)',singlePlay:document.querySelectorAll('#play').length===1,noTft:!document.querySelector('[data-game=tft]'),selectedCorrect,launchComplete};
+    await settle();
+    document.querySelector('#settings').click();
+    await settle();
+    const settingsForm=document.querySelector('#settings-form');
+    const portugueseDefault=document.documentElement.lang==='pt-BR'&&settingsForm.elements.language.value==='pt'&&document.querySelector('#settings-dialog h2').textContent==='Configurações';
+    settingsForm.elements.language.value='en';
+    settingsForm.requestSubmit();
+    for(let count=0;count<40&&document.documentElement.lang!=='en';count++)await settle();
+    await settle();
+    const english=portugueseDefault&&document.documentElement.lang==='en'&&document.title==='Accounts'&&!document.querySelector('#settings-dialog').open&&document.querySelector('#count').textContent==='2 accounts'&&document.querySelector('#play').textContent.trim().startsWith('Play')&&document.querySelector('.account .queue-name').textContent==='Competitive'&&document.querySelector('#settings').title==='Settings'&&document.querySelector('#settings-dialog h2').textContent==='Settings'&&document.querySelector('#account-dialog [data-t=riotId]').textContent==='Account name (Riot ID)'&&document.querySelector('#account-dialog input[name=riotId]').placeholder==='Name#BR1'&&document.querySelector('#riot-minimize').getAttribute('aria-label')==='Minimize'&&document.querySelector('#riot-close').getAttribute('aria-label')==='Close'&&document.querySelector('#riot-profile').title==='Riot profile: hides the accounts';
+    return {english,riotControls,embedded:value.embedded,accounts:value.accounts.length,hasGenericIPC:typeof window.api.invoke!=='undefined',cards:document.querySelectorAll('.account').length,footerGames,riotMode,footerActions,addOpens,bothQueues,themed,staySignedIn,hasLevel:card.textContent.includes('247'),hasWins:card.textContent.includes('68'),hasWinrate:card.textContent.includes('62%'),backdrop:getComputedStyle(document.documentElement).backgroundColor==='rgb(242, 242, 242)'&&getComputedStyle(document.body).backgroundColor==='rgb(242, 242, 242)'&&getComputedStyle(document.body).backgroundImage==='none'&&getComputedStyle(document.querySelector('.launch-bar')).backgroundColor==='rgb(252, 252, 252)',singlePlay:document.querySelectorAll('#play').length===1,noTft:!document.querySelector('[data-game=tft]'),selectedCorrect,launchComplete};
   })` : `window.api.init().then(async value=>{
     for(let count=0;count<100&&!document.querySelector('.card');count++)await new Promise(resolve=>setTimeout(resolve,50));
     const back=document.querySelector('#return-to-riot');
@@ -69,8 +98,10 @@ app.whenReady().then(async()=>{
     const data={accounts:[{id:'fixture-account',gameName:'Example',tagLine:'BR1',username:'fixture-user',region:'br1',hasPassword:true,stats:{lol:{level:247,solo:{tier:'DIAMOND',division:'II',wins:68,losses:42,lp:62}}}}],settings:{refreshMinutes:0},regions:{br1:{label:'BR'}},valRegions:['br'],version:'fixture',clientFound:true,nativeIntegration:{active:true},embedded:true,eventCursor:0};
     if(${compact})data.accounts.push({...data.accounts[0],id:'fixture-second',gameName:'Second'});
     let launch=null;
-    host=createManagerHost({rendererFile:${JSON.stringify(rendererFile)},preloadFile:${JSON.stringify(MANAGER_PRELOAD_FILE)},request:async(method,args)=>{
+    const actions=[],saved=[];
+    host=createManagerHost({onWindowAction:async action=>{actions.push(action);return true;},rendererFile:${JSON.stringify(rendererFile)},preloadFile:${JSON.stringify(MANAGER_PRELOAD_FILE)},request:async(method,args)=>{
       if(method==='signIn'){launch=args;return {ok:true,value:{ok:true,operationId:'fixture-launch'}};}
+      if(method==='saveSettings'){saved.push(args[0]);data.settings={...data.settings,...args[0]};return {ok:true,value:data.settings};}
       return {ok:true,value:method==='init'?data:method==='events'?{events:[],cursor:0}:method==='operation'?{id:'fixture-launch',status:'succeeded'}:method==='runningGames'?{}:null};
     }});
     stage='open';
@@ -80,7 +111,7 @@ app.whenReady().then(async()=>{
     view.webContents.setBackgroundThrottling(false);
     stage='preload-api';
     const value=await view.webContents.executeJavaScript(${JSON.stringify(browserProbe)});
-    fs.writeFileSync(${JSON.stringify(resultFile)},JSON.stringify({ok:true,...value,...(${compact}?{launch}:{}),windows:BrowserWindow.getAllWindows().length}));
+    fs.writeFileSync(${JSON.stringify(resultFile)},JSON.stringify({ok:true,...value,...(${compact}?{launch,actions,saved}:{}),windows:BrowserWindow.getAllWindows().length}));
     host.dispose();
     window.destroy();
     app.exit(0);
@@ -104,6 +135,6 @@ app.whenReady().then(async()=>{
     });
   });
   assert.deepEqual(JSON.parse(fs.readFileSync(resultFile, 'utf8')), compact
-    ? { ok: true, embedded: true, accounts: 2, hasGenericIPC: false, cards: 2, footerGames: true, footerActions: true, addOpens: true, bothQueues: true, themed: true, staySignedIn: true, hasLevel: true, hasWins: true, hasWinrate: true, transparent: true, singlePlay: true, noTft: true, selectedCorrect: true, launchComplete: true, launch: ['fixture-second', 'val'], windows: 1 }
+    ? { ok: true, english: true, riotControls: true, embedded: true, accounts: 2, hasGenericIPC: false, cards: 2, footerGames: true, riotMode: true, footerActions: true, addOpens: true, bothQueues: true, themed: true, staySignedIn: true, hasLevel: true, hasWins: true, hasWinrate: true, backdrop: true, singlePlay: true, noTft: true, selectedCorrect: true, launchComplete: true, launch: ['fixture-second', 'val'], actions: ['minimize', 'close', 'reveal'], saved: [{ refreshMinutes: 0, staySignedIn: true, language: 'en' }], windows: 1 }
     : { ok: true, embedded: true, accounts: 1, canClose: true, hasGenericIPC: false, cards: 1, canReturn: true, windowSettingsHidden: true, windows: 1 });
 });

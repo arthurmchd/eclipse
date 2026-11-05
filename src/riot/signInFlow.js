@@ -15,7 +15,7 @@ function createSignInFlow(io) {
 
   return async function signIn({ account, session, hasSavedSession, game, clientPath, hide = true, closeClient = true, dryRun = false, releaseAfterLaunch = false, visibleLogin = false, remember = true, status = () => {}, log = () => {}, onClosed = () => {}, signal }) {
     if (visibleLogin) hide = false;
-    if (!['lol', 'tft', 'val'].includes(game)) throw new Error('Select a supported game');
+    if (!['lol', 'tft', 'val', 'riot'].includes(game)) throw new Error('Select a supported game');
     const exe = detectClientPath(clientPath);
     if (!exe) throw new Error('Riot Client not found. Set its path in Settings');
     let guardArmed = false;
@@ -46,7 +46,7 @@ function createSignInFlow(io) {
       }
       return null;
     };
-    const result = { riotId: null, gameStarted: false, session: null, usedSavedSession: false, reusedCurrentSession: false, sessionRejected: false };
+    const result = { riotId: null, gameStarted: false, clientOpened: false, session: null, usedSavedSession: false, reusedCurrentSession: false, sessionRejected: false };
     let manualAttention = false;
     let attentionText = '';
     let nativeFormUsed = false;
@@ -95,6 +95,14 @@ function createSignInFlow(io) {
         }
         return false;
       }, timeoutMs, 700);
+    }
+    async function keepSession() {
+      result.session = remember ? await wait(async () => {
+        const yaml = readSettingsYaml();
+        return hasPersistedLogin(yaml) ? yaml : null;
+      }, 6000) : null;
+      log(!remember ? 'stay signed in is off; no session was kept' : result.session ? 'session available for next launch' : 'no remembered login was written');
+      check();
     }
     function isHumanStep(state) {
       return state?.type === 'multifactor' || state?.error === 'captcha_not_allowed' || /captcha|challenge/i.test(state?.type || '');
@@ -242,6 +250,14 @@ function createSignInFlow(io) {
       result.riotId = await wait(activeRiotId, 8000);
       if (!result.riotId) throw new Error('Could not verify the signed-in account');
       if (!sameRiotId(result.riotId, account)) throw new Error('The signed-in Riot ID does not match the selected account. Check the Riot ID saved in this app');
+      if (game === 'riot') {
+        check();
+        await keepSession();
+        await windows.reveal();
+        result.clientOpened = true;
+        signedInStatus('Riot Client opened');
+        return result;
+      }
       signedInStatus(game === 'val' ? 'Starting VALORANT in the background…' : 'Starting League of Legends in the background…');
       const processGame = game === 'val' ? 'val' : 'lol';
       const isGameReady = async () => (await runningGames())[processGame] && await windows.gameWindow(game);
@@ -279,12 +295,7 @@ function createSignInFlow(io) {
       }
       if (!ready) throw new Error('The game did not open. Use Show Riot Client in Settings to check updates or installation');
       check();
-      result.session = remember ? await wait(async () => {
-        const yaml = readSettingsYaml();
-        return hasPersistedLogin(yaml) ? yaml : null;
-      }, 6000) : null;
-      log(!remember ? 'stay signed in is off; no session was kept' : result.session ? 'session available for next launch' : 'no remembered login was written');
-      check();
+      await keepSession();
       if (visibleLogin) await windows.closeClient();
       else {
         if (hide || closeClient) await windows.conceal();

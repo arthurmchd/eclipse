@@ -42,6 +42,7 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 
 ## Invariantes e decisões
 
+- **Sucesso sem jogo só para `riot`.** Desde 2026-11-04, `riot` é aceito junto de `lol`, `tft` e `val`. A operação só termina `succeeded` com `gameStarted`, ou, para `riot`, com `clientOpened` (texto "Riot Client opened", resposta `{ ok: true, clientOpened: true }`). `clientOpened` num jogo não conta como sucesso. Sem jogo aberto, `lastPlayed` e `lastGame` não mudam; sessão, conta atual e Riot ID são gravados normalmente. Ver [[signInFlow]].
 - **`remember` vem de `settings.staySignedIn`** (ausente conta como ligado). A operação pública ganhou `signedIn`, que começa `false` e vira `true` no primeiro status com `signedIn` do [[signInFlow]]; nunca volta a `false` na mesma operação. Adicionado em 2026-11-04.
 - **Opção `visibleLogin`.** Ativada pelo main no modo sobreposto; repassa a opção ao fluxo e força `hide: false`. O modo privado mantém seu contrato anterior. Publica estado da operação para o carregamento sobreposto.
 
@@ -66,6 +67,7 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 - **Recuperação após timeout.** Cada `status` redefine `needsAttention` e `nativeClient`. Uma falha preserva somente as flags explícitas devolvidas pelo erro do fluxo, sem deduzir verificação pendente de avisos genéricos. Sucesso e cancelamento limpam ambas. A operação terminada libera o mutex, mas mantém a recuperação da verificação nativa disponível.
 - **Progresso tardio não reabre operação.** Status recebido após o fim é ignorado; não pode apagar a recuperação pendente nem substituir a mensagem final.
 - **Estado é cópia.** `getState` devolve cópia; mudar o objeto recebido não afeta a operação.
+- **Texto traduzido só na saída.** A opção `translate(texto)` (padrão: devolve igual) é aplicada aos textos publicados: `text` e `error` da operação em `operationUpdated` e `getState`, `text` do `status` e `error` da resposta. A operação guardada e o log continuam em inglês, e `getState` traduz na hora de ler, então mudar o idioma no meio de um login já vale para a próxima leitura. Se `translate` falhar ou não devolver texto, sai o original. O [[main]] passa o `localize` do [[language]]. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
 
 ## Testes
 

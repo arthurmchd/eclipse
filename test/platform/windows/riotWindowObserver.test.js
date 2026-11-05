@@ -2,14 +2,18 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { PassThrough } = require('node:stream');
+const { execFile } = require('node:child_process');
+const os = require('node:os');
+const path = require('node:path');
+const { windowsHelper } = require('../../../src/paths');
 const { createRiotWindowObserver, validTarget } = require('../../../src/platform/windows/riotWindowObserver');
 
 test('observer validates metadata, handles fragmented messages, hides on timeout and terminates its own helper', () => {
   const child = new EventEmitter();
   Object.assign(child, { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), kill() { this.killed = true; } });
   const states = [], errors = [];
-  let tick, time = 0;
-  const observer = createRiotWindowObserver({ spawn: (_exe, _args, options) => { assert.equal(options.windowsHide, true); return child; }, onState: state => states.push(state), onError: error => errors.push(error.message), now: () => time, setInterval: fn => { tick = fn; return 1; }, clearInterval() {} });
+  let tick, release, time = 0;
+  const observer = createRiotWindowObserver({ spawn: (_exe, _args, options) => { assert.equal(options.windowsHide, true); return child; }, onState: state => states.push(state), onError: error => errors.push(error.message), now: () => time, setInterval: fn => { tick = fn; return 1; }, clearInterval() {}, setTimeout: (fn, ms) => { assert.equal(ms, 1000); release = fn; return 2; } });
   observer.start('C:/Riot/RiotClientServices.exe');
   const target = { id: '123', x: -100, y: 10, width: 1000, height: 800 };
   const message = JSON.stringify({ target });
@@ -23,14 +27,35 @@ test('observer validates metadata, handles fragmented messages, hides on timeout
   time = 4000; tick();
   assert.equal(states.at(-1), null);
   observer.stop();
+  assert.equal(child.stdin.writableEnded, true);
+  assert.equal(child.killed, undefined);
+  release();
   assert.equal(child.killed, true);
   child.emit('close');
   assert.equal(errors.length, 1);
 });
 
+test('observer helper puts cards that fell beneath the Riot window back right above it, using only its own test windows', { skip: process.platform !== 'win32', timeout: 60000 }, async () => {
+  const selfTest = () => new Promise((resolve, reject) => {
+    const child = execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', windowsHelper('riotWindowObserver.ps1')], {
+      windowsHide: true, encoding: 'utf8', timeout: 15000, maxBuffer: 65536,
+    }, (error, stdout) => error && error.code !== 1 ? reject(error) : resolve({ code: error?.code || 0, output: stdout.trim() }));
+    child.stdin.on('error', reject);
+    child.stdin.end(JSON.stringify({ action: 'self-test' }) + '\n');
+  });
+  let result;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    result = await selfTest();
+    if (result.code === 0) break;
+  }
+  assert.deepEqual(result, { code: 0, output: 'ok' });
+});
+
 test('a minimized window keeps its last area and needs an explicit flag', () => {
   const target = { id: '123', x: 10, y: 20, width: 1000, height: 800 };
   assert.ok(validTarget(target));
+  for (const corner of [0, 8, 12, 64]) assert.ok(validTarget({ ...target, corner }));
+  for (const corner of [-1, 65, 7.5, '8', null]) assert.ok(!validTarget({ ...target, corner }));
   assert.ok(validTarget({ ...target, minimized: true }));
   for (const minimized of [false, 'true', 1, null]) assert.ok(!validTarget({ ...target, minimized }));
   assert.ok(!validTarget({ id: '123', minimized: true }));
@@ -41,7 +66,7 @@ test('observer sends only a numeric overlay handle to the helper', () => {
   for (const handle of ['4660', '12; rm', 4660, undefined]) {
     const child = new EventEmitter();
     let written = '';
-    Object.assign(child, { stdin: { on() {}, end(text) { written = text; } }, stdout: new PassThrough(), stderr: new PassThrough(), kill() {} });
+    Object.assign(child, { stdin: { on() {}, write(text) { written += text; } }, stdout: new PassThrough(), stderr: new PassThrough(), kill() {} });
     const observer = createRiotWindowObserver({ spawn: () => child, ownerPid: 77, onState() {}, setInterval: () => 1, clearInterval() {} });
     observer.start('C:/Riot/RiotClientServices.exe', handle);
     requests.push(JSON.parse(written));
@@ -49,4 +74,60 @@ test('observer sends only a numeric overlay handle to the helper', () => {
   }
   assert.deepEqual(requests.map((request) => request.overlayWindow), ['4660', null, null, null]);
   assert.deepEqual(requests[0], { ownerPid: 77, clientPath: 'C:/Riot/RiotClientServices.exe', overlayWindow: '4660' });
+});
+
+test('observer forwards only the minimize and close commands, one line each, and only while running', () => {
+  const child = new EventEmitter();
+  const stdin = new PassThrough();
+  let written = '';
+  stdin.on('data', (chunk) => { written += chunk; });
+  Object.assign(child, { stdin, stdout: new PassThrough(), stderr: new PassThrough(), kill() {} });
+  const observer = createRiotWindowObserver({ spawn: () => child, ownerPid: 77, onState() {}, setInterval: () => 1, clearInterval() {} });
+  assert.equal(observer.command('minimize'), false);
+  observer.start('C:/Riot/RiotClientServices.exe');
+  const request = written;
+  for (const name of ['minimize', 'close']) assert.equal(observer.command(name), true);
+  for (const name of ['quit', 'minimize\nclose', '', null, { name: 'close' }]) assert.equal(observer.command(name), false);
+  assert.equal(written.slice(request.length), 'minimize\nclose\n');
+  assert.equal(JSON.parse(request).ownerPid, 77);
+  observer.stop();
+  assert.equal(observer.command('close'), false);
+  assert.equal(written.slice(request.length), 'minimize\nclose\n');
+});
+
+test('the real helper keeps reporting after commands and leaves windows alone when no official Riot window exists', { skip: process.platform !== 'win32', timeout: 30000 }, async () => {
+  const states = [], errors = [];
+  let observer;
+  try {
+    await new Promise((resolve, reject) => {
+      let commanded = false;
+      const deadline = setTimeout(() => reject(new Error('the helper stopped reporting')), 25000);
+      observer = createRiotWindowObserver({
+        onState(state) {
+          states.push(state);
+          if (!commanded) {
+            commanded = true;
+            for (const name of ['minimize', 'close']) assert.equal(observer.command(name), true);
+          } else if (states.length >= 4) { clearTimeout(deadline); resolve(); }
+        },
+        onError(error) { errors.push(error.message); clearTimeout(deadline); reject(error); },
+      });
+      observer.start(path.join(os.tmpdir(), 'eclipse-no-riot', 'RiotClientServices.exe'));
+    });
+  } finally { observer?.stop(); }
+  assert.deepEqual(errors, []);
+  assert.ok(states.every((state) => state === null));
+});
+
+test('the real helper ends on its own when the manager closes its input', { skip: process.platform !== 'win32', timeout: 30000 }, async () => {
+  const result = await new Promise((resolve, reject) => {
+    const child = execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', windowsHelper('riotWindowObserver.ps1')], {
+      windowsHide: true, encoding: 'utf8', timeout: 25000, maxBuffer: 65536,
+    }, (error, stdout) => error && typeof error.code !== 'number' ? reject(error) : resolve({ code: error?.code || 0, lines: stdout.trim().split(/\r?\n/) }));
+    child.stdin.on('error', reject);
+    child.stdin.end(JSON.stringify({ ownerPid: process.pid, clientPath: path.join(os.tmpdir(), 'eclipse-no-riot', 'RiotClientServices.exe'), overlayWindow: null }) + '\n');
+  });
+  assert.equal(result.code, 0);
+  assert.ok(result.lines.length >= 1);
+  assert.ok(result.lines.every((line) => line === '{"target":null}'));
 });

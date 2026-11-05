@@ -1,4 +1,4 @@
-# Riot Account Manager
+# Eclipse (Riot Account Manager)
 
 App Electron para Windows que gerencia várias contas Riot, faz login pelo serviço local do Riot Client e mostra elos. Leia `docs/00 Início.md` no começo de qualquer tarefa que não seja trivial.
 

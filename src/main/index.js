@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { app, clipboard, shell, dialog, Tray, Menu, nativeImage } = require('electron');
-const { APP_ICON } = require('../paths');
+const { APP_ICON, APP_TRAY_ICON } = require('../paths');
 const { Store } = require('../core/store');
 const { REGIONS, VAL_REGIONS, refreshAccount } = require('../core/rankApi');
 const riotClient = require('../riot/riotClient');
@@ -11,14 +11,23 @@ const { createClientBridge } = require('../integration/bridgeServer');
 const { createPrivateClient, inspectPrivateClient } = require('../integration/privateClient');
 const { protectString } = require('../platform/windows/windowsDpapi');
 const { createRiotOverlay } = require('../integration/overlay/riotOverlay');
+const { localize, mainText, normalizeLanguage } = require('../core/language');
 
+const APP_NAME = 'Eclipse';
 const overlayMode = !process.argv.includes('--private-client');
+if (overlayMode) {
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+  app.commandLine.appendSwitch('wm-window-animations-disabled');
+}
 let store, launchService, managerService, clientBridge, privateClient, tray, overlay;
 let nativeIntegration = { active: false, mode: 'private' };
 let refreshing = null, refreshTimer = null, integrationStarting = null, riotOpening = null;
 let startupComplete = false, quitting = false;
 const events = createManagerEvents();
 const send = (channel, payload) => events.publish(channel, payload);
+const language = () => normalizeLanguage(store?.data?.settings?.language);
+const words = () => mainText(language());
+const say = (text) => localize(text, language());
 
 function signInLog(line) {
   try {
@@ -90,12 +99,13 @@ async function nativeChallengePending() {
   return !['auth', 'authenticated'].includes(state?.type) || Boolean(state?.error);
 }
 function notifyFailure(error) {
-  const reason = typeof error?.message === 'string' ? error.message : 'Não foi possível abrir as contas no Riot.';
+  const reason = typeof error?.message === 'string' ? error.message : 'Could not open the accounts in Riot.';
   signInLog(reason);
+  const text = words();
   dialog.showMessageBox({
-    type: 'error', title: 'Contas no Riot', message: 'Não foi possível abrir a interface integrada.',
-    detail: reason + '\n\nEncerre a instância antiga após atualizar o projeto. Confira a preparação da cópia privada da interface Riot.',
-    buttons: ['Entendi'], noLink: true,
+    type: 'error', title: APP_NAME, message: text.openFailed,
+    detail: say(reason) + '\n\n' + text.openFailedDetail,
+    buttons: [text.understood], noLink: true,
   }).catch(() => {});
 }
 async function ensureClientIntegration() {
@@ -104,7 +114,7 @@ async function ensureClientIntegration() {
   integrationStarting = (async () => {
     const prepared = inspectPrivateClient(riotClient.detectClientPath(store.data.settings.riotClientPath));
     nativeIntegration = { active: prepared.active, mode: 'private', version: prepared.version, reason: prepared.reason };
-    if (!nativeIntegration.active) throw new Error(prepared.reason || 'Prepare a cópia privada para abrir as contas dentro do Riot.');
+    if (!nativeIntegration.active) throw new Error(prepared.reason || 'Prepare the private copy to open the accounts inside Riot.');
     let bridge;
     try {
       bridge = createClientBridge({
@@ -119,7 +129,7 @@ async function ensureClientIntegration() {
       clientBridge = bridge;
     } catch {
       await bridge?.stop().catch(() => {});
-      nativeIntegration = { ...nativeIntegration, active: false, reason: 'A conexão local das contas não pôde ser iniciada.' };
+      nativeIntegration = { ...nativeIntegration, active: false, reason: 'The local accounts connection could not be started.' };
       throw new Error(nativeIntegration.reason);
     }
     return nativeIntegration;
@@ -132,7 +142,7 @@ async function openRiot({ accounts = false, reportFailure = true } = {}) {
     try {
       if (overlayMode) {
         const operation = launchService.getState();
-        if (operation?.status === 'running' && !operation.needsAttention) throw new Error('O jogo está sendo aberto. Aguarde ou cancele pela bandeja.');
+        if (operation?.status === 'running' && !operation.needsAttention) throw new Error('The game is opening. Wait or cancel from the tray.');
         await riotClient.openClient(store.data.settings.riotClientPath);
         if (accounts && !operation?.needsAttention) await overlay.open();
         return { ok: true };
@@ -143,7 +153,7 @@ async function openRiot({ accounts = false, reportFailure = true } = {}) {
         return { ok: true };
       }
       const operation = launchService.getState();
-      if (operation?.status === 'running' && !operation.needsAttention) throw new Error('O jogo está sendo aberto em segundo plano. Aguarde ou use Cancelar login na bandeja.');
+      if (operation?.status === 'running' && !operation.needsAttention) throw new Error('The game is opening in the background. Wait or use Cancel sign-in in the tray.');
       await ensureClientIntegration();
       const clientPath = riotClient.detectClientPath(store.data.settings.riotClientPath);
       if (accounts) await privateClient.openManager(clientPath);
@@ -151,24 +161,35 @@ async function openRiot({ accounts = false, reportFailure = true } = {}) {
       return { ok: true };
     } catch (error) {
       if (reportFailure) notifyFailure(error);
-      return { ok: false, error: error.message };
+      return { ok: false, error: say(error.message) };
     }
   })();
   try { return await riotOpening; } finally { riotOpening = null; }
 }
-async function createTray() {
-  let icon;
-  try { icon = await app.getFileIcon(process.execPath, { size: 'small' }); }
-  catch { icon = nativeImage.createFromPath(APP_ICON); }
-  tray = new Tray(icon);
-  tray.setToolTip('Riot Client — Contas');
+function buildTrayMenu() {
+  if (!tray || tray.isDestroyed?.()) return;
+  const text = words();
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Contas no Riot', click: () => openRiot({ accounts: true }) },
-    { label: 'Abrir Riot Client', click: () => openRiot() },
-    { label: 'Cancelar login', click: () => launchService.cancel() },
+    { label: text.trayAccounts, click: () => openRiot({ accounts: true }) },
+    { label: text.trayOpenRiot, click: () => openRiot() },
+    { label: text.trayCancel, click: () => launchService.cancel() },
     { type: 'separator' },
-    { label: 'Sair', click: () => app.quit() },
+    { label: text.trayQuit, click: () => app.quit() },
   ]));
+}
+function languageChanged() {
+  buildTrayMenu();
+  overlay?.setLanguage(language());
+}
+async function createTray() {
+  let icon = nativeImage.createFromPath(APP_TRAY_ICON);
+  if (icon.isEmpty()) {
+    try { icon = await app.getFileIcon(process.execPath, { size: 'small' }); }
+    catch { icon = nativeImage.createFromPath(APP_ICON); }
+  }
+  tray = new Tray(icon);
+  tray.setToolTip(APP_NAME);
+  buildTrayMenu();
   tray.on('double-click', () => openRiot({ accounts: true }));
   tray.on('balloon-click', () => openRiot({ accounts: true }));
 }
@@ -186,19 +207,21 @@ if (!app.requestSingleInstanceLock()) {
         if (operation.status === 'running') privateClient?.hide();
         overlay?.setBlocked(operation.status === 'running');
         overlay?.setOperation(operation);
-        if (operation.status === 'failed') tray?.displayBalloon({ title: 'Não foi possível abrir o jogo', content: operation.text.slice(0, 240), noSound: true });
+        if (operation.status === 'failed') tray?.displayBalloon({ title: words().gameFailed, content: operation.text.slice(0, 240), noSound: true });
       },
       status: (payload) => {
         send('sign-in-status', payload);
-        if (payload.needsAttention) tray?.displayBalloon({ title: 'O login precisa de sua atenção', content: payload.text, noSound: true });
+        if (payload.needsAttention) tray?.displayBalloon({ title: words().needsAttention, content: payload.text, noSound: true });
       },
       accountUpdated: (account) => { if (account) send('account-updated', account); },
+      translate: say,
       releaseAfterLaunch: overlayMode,
       visibleLogin: overlayMode,
     });
     managerService = createManagerService({
       store, launchService, riotClient, clipboard, shell, dialog, events, refreshAll, scheduleRefresh,
       showRiotClient: () => openRiot({ reportFailure: false }),
+      settingsChanged: languageChanged,
       initContext: () => ({
         regions: REGIONS, valRegions: VAL_REGIONS, version: app.getVersion(),
         lastRefresh: store.data.lastRefresh, nextRefresh: nextRefreshAt(),
@@ -211,11 +234,13 @@ if (!app.requestSingleInstanceLock()) {
       nativeIntegration = { active: true, mode: 'overlay' };
       overlay = createRiotOverlay({
         readAuthenticationState: signal => riotClient.readLoginScreenState(signal),
+        closeClient: () => riotClient.closeClient(),
         request: async (method, args) => ({ ok: true, value: await managerService.dispatch(method, args) }),
-        onError: (error) => { signInLog(error.message); tray?.displayBalloon({ title: 'Contas no Riot', content: error.message.slice(0, 240), noSound: true }); },
+        onError: (error) => { signInLog(error.message); tray?.displayBalloon({ title: APP_NAME, content: say(error.message).slice(0, 240), noSound: true }); },
       });
+      overlay.setLanguage(language());
       const clientPath = riotClient.detectClientPath(store.data.settings.riotClientPath);
-      if (!clientPath) throw new Error('Riot Client não encontrado. Instale o cliente oficial antes de iniciar o gerenciador.');
+      if (!clientPath) throw new Error('Riot Client not found. Install the official client before starting Eclipse.');
       await overlay.start(clientPath);
     }
     startupComplete = true;
@@ -223,7 +248,7 @@ if (!app.requestSingleInstanceLock()) {
     const next = nextRefreshAt();
     if (next && Date.parse(next) <= Date.now() + 1000 && store.data.accounts.length) refreshAll().catch(() => {});
     else scheduleRefresh();
-  }).catch((error) => { dialog.showErrorBox('Contas no Riot', error.message); app.quit(); });
+  }).catch((error) => { dialog.showErrorBox(APP_NAME, say(error.message)); app.quit(); });
   app.on('before-quit', (event) => {
     if (quitting) return;
     event.preventDefault();

@@ -3,7 +3,9 @@ tipo: índice
 tags: [moc]
 ---
 
-# Riot Account Manager
+# Eclipse
+
+Nome do app desde 2026-11-04 (antes Riot Account Manager). A pasta do projeto, o `name` do `package.json` e a pasta de dados continuam `riot-account-manager`; ver [[main]].
 
 Este vault é o cérebro do projeto. O código não tem comentários: o **porquê** de cada decisão, as regras de segurança e o mapa dos módulos ficam aqui. Antes de mudar um módulo, leia a nota dele; depois de mudar, atualize a nota.
 
@@ -23,13 +25,13 @@ Este vault é o cérebro do projeto. O código não tem comentários: o **porqu�
 
 ## Módulos
 
-Modo padrão: [[riotOverlay]] · [[riotWindowObserver]].
+Modo padrão: [[riotOverlay]] · [[overlayToggle]] · [[riotWindowObserver]].
 Interface compacta: [[cards]].
 
 | Camada | Notas |
 |---|---|
-| Aplicação | [[main]] · [[preload]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[rankApi]] |
-| Riot | [[riotClient]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotTransport]] · [[riotProcess]] |
+| Aplicação | [[main]] · [[preload]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[language]] · [[rankApi]] |
+| Riot | [[riotClient]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
 | Windows | [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[windowsDpapi]] |
 | Integração | [[privateClient]] · [[hostEntry]] · [[privateHost]] · [[privateHostCore]] · [[privateRendererCore]] · [[managerHost]] · [[manager-preload]] · [[addons]] · [[bridgeServer]] · [[bootstrapChannel]] · [[backend]] · [[asar]] · [[status]] · [[Scripts de integração]] |
 | Interface | [[renderer]] |
@@ -40,6 +42,10 @@ Interface compacta: [[cards]].
 - [[ADR-010 Login visível com progresso]]
 - [[ADR-011 Cartões sobre a arte do Riot]]
 - [[ADR-012 Sobreposição presa à janela do Riot]]
+- [[ADR-013 Caixa para ocultar as contas na coluna de login]]
+- [[ADR-014 Interface em português e inglês]]
+- [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]
+- [[ADR-016 Riot sem animação de minimizar e cartões com os cantos dela]]
 - [[ADR-010 Login visível com progresso]]
 
 - [[ADR-001 Cópia privada da interface do Riot]]

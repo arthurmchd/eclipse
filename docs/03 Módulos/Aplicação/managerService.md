@@ -35,6 +35,7 @@ Comandos de `dispatch`: `init`, `events`, `operation`, `saveAccount`, `deleteAcc
 
 ## Invariantes e decisões
 
+- **`signIn` aceita `riot`.** Desde 2026-11-04, além de `lol`, `tft` e `val`, para entrar na conta sem abrir jogo ([[signInFlow]]). Qualquer outro valor continua recusado com 400.
 - **`saveSettings` aceita `staySignedIn`** só como booleano, como as outras preferências de liga/desliga. Adicionado em 2026-11-04.
 - **Não aceita IPC genérico.** Métodos desconhecidos, quantidade incorreta de argumentos e objetos com chaves extras são recusados. Objetos contendo `__proto__`, `constructor` ou `prototype` também são recusados.
 - **Formato de conta fechado.** IDs usam o formato de sessão seguro; regiões precisam existir no contexto inicial; texto, credenciais, notas, temporadas e banimentos têm limites e tipos explícitos.
@@ -49,6 +50,7 @@ Comandos de `dispatch`: `init`, `events`, `operation`, `saveAccount`, `deleteAcc
 - **Reconexão explícita.** Cursor inválido é recusado; cursor que perdeu histórico informa `reset`, para a visualização reler o estado.
 - **Ações externas limitadas.** O seletor aceita somente um arquivo `.exe` de cliente Riot; abrir pasta usa o diretório do store; links exigem HTTPS sem usuário ou senha na URL.
 - **Uma fronteira para a interface completa.** A decisão está em [[ADR-007 Interface completa dentro do Riot Client]]. A ponte HTTP continua responsável por origem, token e tamanho de corpo.
+- **Idioma só `pt` ou `en`.** `saveSettings` aceita `language` apenas com um valor de `LANGUAGES` do [[language]]; o resto recusa com `Invalid setting`. Depois de salvar, chama `settingsChanged(configurações)`, que o [[main]] usa para refazer a bandeja e avisar a sobreposição. Uma falha nesse aviso não desfaz o salvamento. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
 
 ## Testes
 

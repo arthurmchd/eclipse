@@ -2,9 +2,10 @@ const { pathToFileURL } = require('node:url');
 const { MANAGER_RENDERER_FILE, MANAGER_PRELOAD_FILE } = require('../../paths');
 
 const CHANNEL = 'ram-manager:invoke';
+const WINDOW_ACTIONS = new Set(['minimize', 'close', 'reveal']);
 const METHODS = new Set(['init', 'saveAccount', 'deleteAccount', 'patchAccount', 'forgetSession', 'copy', 'refresh', 'runningGames', 'signIn', 'showRiotClient', 'cancelSignIn', 'saveSettings', 'pickClientPath', 'openDataFolder', 'events', 'operation', 'openExternal']);
 
-function createManagerHost({ electron = require('electron'), request, rendererFile = MANAGER_RENDERER_FILE, preloadFile = MANAGER_PRELOAD_FILE, topInset = 38, onClose = () => {}, backgroundColor = '#05080d' } = {}) {
+function createManagerHost({ electron = require('electron'), request, rendererFile = MANAGER_RENDERER_FILE, preloadFile = MANAGER_PRELOAD_FILE, topInset = 38, leftInset = () => 0, onClose = () => {}, onWindowAction = async () => false, backgroundColor = '#05080d' } = {}) {
   if (typeof request !== 'function') throw new Error('The embedded account view requires a local service');
   const { WebContentsView, ipcMain } = electron;
   const expectedUrl = pathToFileURL(rendererFile).href;
@@ -23,7 +24,8 @@ function createManagerHost({ electron = require('electron'), request, rendererFi
     if (!view || !parent || parent.isDestroyed()) return;
     const [width, height] = parent.getContentSize();
     const inset = Math.min(Math.max(0, topInset), Math.max(0, height - 1));
-    view.setBounds({ x: 0, y: inset, width: Math.max(1, width), height: Math.max(1, height - inset) });
+    const left = Math.min(Math.max(0, Math.round(leftInset(width)) || 0), Math.max(0, width - 1));
+    view.setBounds({ x: left, y: inset, width: Math.max(1, width - left), height: Math.max(1, height - inset) });
   }
 
   function close() {
@@ -46,6 +48,9 @@ function createManagerHost({ electron = require('electron'), request, rendererFi
   const handler = async (event, method, args) => {
     if (!trusted(event)) throw new Error('The account controls are only available in their embedded view');
     if (method === 'closeManager' && Array.isArray(args) && args.length === 0) { close(); onClose(); return { ok: true }; }
+    if (method === 'windowAction' && Array.isArray(args) && args.length === 1 && WINDOW_ACTIONS.has(args[0])) {
+      try { return { ok: (await onWindowAction(args[0])) === true }; } catch { return { ok: false }; }
+    }
     if (!METHODS.has(method) || !Array.isArray(args) || args.length > 4) throw new Error('Invalid account command');
     try {
       if (Buffer.byteLength(JSON.stringify(args)) > 32768) throw new Error();
@@ -110,4 +115,4 @@ function createManagerHost({ electron = require('electron'), request, rendererFi
   };
 }
 
-module.exports = { createManagerHost, CHANNEL };
+module.exports = { createManagerHost, CHANNEL, WINDOW_ACTIONS };

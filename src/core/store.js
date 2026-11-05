@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
   streamerMode: false,
   staySignedIn: true,
   riotClientPath: '',
+  language: 'pt',
 };
 
 const BACKUP_ACCOUNT_FIELDS = [
@@ -255,6 +256,7 @@ class Store {
       streamerMode: s.streamerMode,
       staySignedIn: s.staySignedIn !== false,
       riotClientPath: s.riotClientPath,
+      language: s.language === 'en' ? 'en' : 'pt',
       riotApiKeyMasked: mask(s.riotApiKey),
       riotTftApiKeyMasked: mask(s.riotTftApiKey),
       henrikApiKeyMasked: mask(s.henrikApiKey),
@@ -263,7 +265,7 @@ class Store {
 
   updateSettings(input) {
     const s = this.data.settings;
-    for (const k of ['refreshMinutes', 'minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode', 'staySignedIn', 'riotClientPath']) {
+    for (const k of ['refreshMinutes', 'minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode', 'staySignedIn', 'riotClientPath', 'language']) {
       if (input[k] !== undefined) s[k] = input[k];
     }
     if (input.riotApiKey !== undefined) s.riotApiKey = encrypt(input.riotApiKey.trim());

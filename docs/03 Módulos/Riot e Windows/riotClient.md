@@ -31,12 +31,13 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 | `showClient()` | função async | `openClient` com o último caminho usado ou o detectado. |
 | `openClient(clientPath)` | função async | Revela as janelas Riot. Se não há janela do cliente, abre a interface visível. |
 | `ensureBackgroundClient(clientPath)` | função async | Oculta janelas (`hide`), inicia o backend `--headless` se não roda e espera até 45 s pelo estado de sessão. Retorna o caminho. |
+| `closeClient()` | função async | Fecha o Riot como o botão X da Riot, pelo [[riotAppControls]]. Devolve `'background'` ou `'quit'`. Usado só pela cópia do X nos [[cards]]. |
 | `dispose()` | função async | `windows.stop()`. |
 | `readAuthenticationState(signal)` | função async | Estado sanitizado de `riotAuthentication.sessionState(signal)`, usado para recuperar verificação pendente e controlar a visibilidade dos cartões. Sinal opcional cancela a leitura. |
 
 ## Dependências
 
-- Usa: [[signInFlow]], [[riotTransport]], [[riotAuthentication]], [[riotProcess]], [[windowController]], [[windowsEnvironment]], [[paths]] (`windowsHelper('login.ps1')`), [[login.ps1]].
+- Usa: [[signInFlow]], [[riotTransport]], [[riotAuthentication]], [[riotAppControls]], [[riotProcess]], [[windowController]], [[windowsEnvironment]], [[paths]] (`windowsHelper('login.ps1')`), [[login.ps1]].
 - Usado por: [[main]] (IPC "show-riot-client", `saveLeavingSession`, `ensureBackend` do [[privateClient]], encerramento) e [[signInService]] (`signIn`, `runningGames`).
 
 ## Estado do módulo

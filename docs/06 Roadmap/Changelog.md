@@ -7,6 +7,101 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-04 · Cartões aparecem de uma vez ao restaurar a Riot
+
+- Pedido do usuário: depois de minimizar, ao abrir a Riot de novo a arte aparecia por menos de 1 s antes dos cartões; por Alt+Tab, não. Revisão em [[ADR-016 Riot sem animação de minimizar e cartões com os cantos dela]].
+- Causa medida com uma janela de teste e leitura do pixel na tela: numa janela Electron transparente, o Chromium faz a janela surgir aos poucos, em cerca de 200 ms, a cada `show`.
+- [[main]]: o modo sobreposto liga `wm-window-animations-disabled`; a janela aparece no primeiro quadro e a região continua recortando.
+- Primeira tentativa, desfeita no mesmo dia: janela opaca. Aparecia no primeiro quadro, mas o Electron ignora a região ao pintar janela opaca e a coluna de login ficou preta na Riot real.
+- Não foi conferido com a Riot real.
+
+## 2026-11-04 · Sem arte ao minimizar e pontas no formato da Riot
+
+- Pedido do usuário: ver a arte da Riot só ao ocultar as contas (ela aparecia rapidamente ao minimizar) e manter o fundo novo dentro da janela da Riot. Decisão em [[ADR-016 Riot sem animação de minimizar e cartões com os cantos dela]].
+- [[riotWindowObserver]]: o helper desliga a animação de minimizar da janela da Riot enquanto a acompanha e a devolve ao trocar de janela, ao fechar a entrada ou ao fim do processo dono. `stop` agora fecha a entrada e só mata o helper depois de 1 s. Cada retrato leva `corner`, o raio dos cantos da janela.
+- [[riotOverlay]]: a região tira das pontas direitas o arredondado da Riot (4, 3, 2 e 1 px a 100%). Causa medida na Riot aberta, só leitura: cantos `DWMWCP_ROUND`; a sobreposição tinha cantos retos.
+- Descartado: o helper mostrar os cartões ao restaurar. Testado com Electron, a janela mostrada por fora não volta a desenhar.
+- Testes novos: autoteste do helper com a animação e o raio, helper real saindo sozinho ao fechar a entrada, `corner` validado, parada em duas etapas, recorte das pontas sem passar do arredondado e região refeita quando o raio muda. Não foi conferido com a Riot real.
+
+## 2026-11-04 · Fundo branco no lugar da arte do Riot
+
+- Pedido do usuário: tirar a arte da Riot do fundo dos cartões e usar um branco um pouco mais suave que o da Riot. Revisão em [[ADR-011 Cartões sobre a arte do Riot]].
+- [[cards]]: `html` e `body` com `#f2f2f2` (a coluna de login da Riot é `#fcfcfc`). As cópias de minimizar e fechar passaram para traço `#636363` sem sombra; o fechar fica com traço branco sobre o vermelho ao passar o mouse.
+- [[riotOverlay]]: a view dos cartões abre com o mesmo `#f2f2f2`, sem mostrar a arte durante o carregamento.
+- Com o fundo opaco, os controles nativos não aparecem mais por baixo das cópias. Com as contas ocultas, a arte da Riot volta.
+- Teste do [[riotWindowObserver]]: o autoteste de ordem das janelas falhava às vezes com a suíte inteira rodando, por janelas de outros testes entrando no meio. Agora tenta até 3 vezes.
+
+## 2026-11-04 · Cartões na arte inteira, com cópias dos controles do Riot
+
+- Pedido do usuário: usar toda a área do Riot Client menos a coluna de login, sem perder minimizar, fechar e o botão do perfil, que ficariam embaixo da janela do Eclipse. O recorte antigo foi achado estranho. Decisão em [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]].
+- [[riotOverlay]]: a região normal passou a ser a caixa mais a arte inteira. A região própria de diálogo e o aviso `setModal` saíram.
+- [[cards]]: cópias em SVG de minimizar, fechar e perfil nas posições da Riot, em unidades de `100vw / 1136`, comparadas pixel a pixel com a captura do usuário. A lista usa a largura toda; avisos ainda deixam espaço para o perfil.
+- Minimizar: comando `minimize` ao helper do [[riotWindowObserver]], que agora mantém o stdin aberto e só age na janela oficial já conferida.
+- Fechar: módulo novo [[riotAppControls]] repete a escolha do X da Riot (segundo plano ou sair) pelo serviço local; ao sair, ou se o serviço falhar, o helper fecha a janela.
+- Perfil: oculta as contas e marca a caixa ([[overlayToggle]] ganhou `setHidden`), deixando o botão real da Riot livre. Escolha do usuário.
+- [[managerHost]] e [[manager-preload]]: `windowAction` com `minimize`, `close` ou `reveal` no lugar de `setModal`.
+- Testes novos: helper real recebendo comandos sem tocar janelas, autoteste minimizando e fechando janelas de teste, decisão de fechamento, ações na sobreposição, caixa marcada pelo main e cópias no teste Electron dos cartões. Não foi conferido com a Riot real aberta.
+- Limites: a faixa de arrastar da Riot no topo da arte fica coberta, e traço e X aparecem um pouco mais marcados porque os nativos continuam por baixo da página transparente.
+
+## 2026-11-04 · Eclipse em português e inglês
+
+- Pedido do usuário: escolher entre inglês e português nas Configurações, com o Eclipse todo nas duas línguas e português como padrão. Decisão em [[ADR-014 Interface em português e inglês]].
+- [[store]] guarda `language` (padrão `pt`); [[managerService]] aceita só `pt` ou `en` e avisa o [[main]] ao salvar.
+- Módulo novo [[language]]: catálogo inglês/português das mensagens do login e do main, e textos da bandeja e dos diálogos. [[signInService]] traduz só o que publica (opção `translate`); o `sign-in.log` continua em inglês.
+- [[main]]: bandeja, balões e caixas de erro no idioma salvo; o menu da bandeja muda na hora.
+- [[cards]]: seletor de idioma no topo das Configurações e todos os textos em `cardsText.js`, inclusive elos (em inglês, nomes da Riot, LP e W/L; em português, VALORANT agora traduzido).
+- [[overlayToggle]] e [[riotOverlay]]: "Ocultar contas" vira "Hide accounts" em inglês.
+- Fora do escopo: renderer legado do modo privado, textos injetados na cópia privada da Riot e scripts `.bat`.
+- Testes novos no catálogo, no store, nos serviços, no main, na caixa e no teste Electron dos cartões. Não foi conferido com a Riot aberta.
+
+## 2026-11-04 · Ícone da Riot para só entrar na conta
+
+- Pedido do usuário: um ícone da Riot à esquerda do League; com ele selecionado, o botão principal entra na conta escolhida e deixa o Riot Client aberto, sem abrir jogo.
+- [[signInFlow]] aceita `riot`: faz o login e a conferência do Riot ID de sempre, guarda a sessão, mostra o cliente e para. [[signInService]] e [[managerService]] aceitam `riot`; o sucesso é `clientOpened`, sem marcar jogo jogado.
+- [[cards]]: ícone `riot.png`, tema vermelho da Riot, botão "Entrar" e cartões com os elos do último jogo escolhido.
+- Testes novos no fluxo, nos serviços e no teste Electron dos cartões. Não foi exercitado com contas reais.
+
+## 2026-11-04 · O app passa a se chamar Eclipse
+
+- Pedido do usuário: o projeto agora se chama Eclipse, com a imagem enviada como ícone. A dica da bandeja e os títulos de avisos, erros e balões dizem "Eclipse" ([[main]]).
+- Ícone novo em `src/renderer/assets/icon.png` e `icon.ico` (fundo branco removido); a bandeja usa o `.ico` ([[paths]]).
+- O `name` do `package.json`, a pasta do projeto e a pasta de dados continuam `riot-account-manager`, para não perder as contas salvas.
+
+## 2026-11-04 · Caixa "Ocultar contas" com o visual da Riot
+
+- O usuário pediu a caixa mais parecida com a original em tamanho, arredondamento e cor. [[overlayToggle]] agora usa os valores do CSS da tela de login da Riot (quadrado de 16 px, cantos de 20%, cinza translúcido, vermelho `#d53235` com o mesmo visto, Inter de 14 px) e ajusta peso e espaçamento do texto até a largura e a altura baterem com o "Stay signed in" numa captura.
+
+## 2026-11-04 · Caixa "Ocultar contas" ao lado do "Stay signed in"
+
+- Pedido do usuário: uma cópia da caixa "Stay signed in" da Riot, à direita dela, que esconde o gerenciador inteiro quando marcada e o traz de volta quando desmarcada. Começa sempre desmarcada.
+- [[ADR-013 Caixa para ocultar as contas na coluna de login]]: a janela da sobreposição passa a cobrir toda a área da Riot; os cartões ficam no mesmo lugar por um recuo à esquerda no [[managerHost]], e a caixa é uma segunda visualização ([[overlayToggle]]). Na coluna de login, só o retângulo da caixa pinta e recebe cliques.
+- Marcar tira os cartões da região de pintura e de cliques do [[riotOverlay]]; o estado fica só na memória.
+- Posição medida numa captura da tela de login do Riot Client v142 em 1536×864. Testes novos: geometria em seis tamanhos, IPC só com booleano e um teste com Electron real que clica na caixa.
+
+## 2026-11-04 · Fundo dos diálogos cobre a janela inteira
+
+- O fundo escurecido de Configurações e dos outros diálogos parava antes da faixa da direita, onde ficam os controles da Riot, porque a janela dos cartões não pinta nem captura cliques ali.
+- [[cards]] avisa por `setModal` quando um diálogo abre ou fecha; o [[managerHost]] trata o aviso localmente e o [[riotOverlay]] troca a região pela janela inteira enquanto o diálogo está aberto. Com um diálogo aberto, os botões da Riot naquela faixa ficam cobertos.
+- Testes novos no host, no preload, na sobreposição e no teste Electron real.
+
+## 2026-11-04 · Ícones de jogo fixos e atualizar só pelo ícone
+
+- Em [[cards]], a conta selecionada no rodapé tem largura fixa e corta o texto com reticências; os ícones do League e do VALORANT não mudam mais de lugar quando o nome do jogo ou da conta muda de tamanho.
+- O botão de atualizar é só o ícone ↻; "N contas · atualizado há X" virou texto ao lado, sem clique nem seleção.
+- O teste Electron confere a posição dos ícones ao trocar de jogo e de conta e que o contador fica fora do botão.
+
+## 2026-11-04 · Cartões desenhados ao restaurar a Riot
+
+- Com a Riot minimizada, abrir o gerenciador e restaurar a Riot não mostrava os cartões, só depois de minimizar e restaurar de novo. O registro de janelas mostrou os cartões visíveis e na frente da Riot, mas a tela tinha a arte da Riot no lugar deles: os cartões apareceram primeiro atrás da Riot, o Chromium os marcou como cobertos e não voltou a desenhá-los depois de virem para a frente.
+- O [[main]] desliga a detecção de oclusão do Chromium no modo sobreposto. Com uma Riot falsa em outro processo, a página dos cartões ficou `hidden` por mais de 3 s com a detecção ligada e `visible` com ela desligada.
+- Teste novo no início do app. A correção da entrada anterior (trazer os cartões para a frente) continua, mas sozinha não resolvia este caso.
+
+## 2026-11-04 · Cartões aparecem na primeira abertura da Riot
+
+- Com o gerenciador aberto antes da Riot, os cartões não apareciam na primeira abertura; só depois de minimizar e restaurar. (Leitura revista: o caso relatado era a Riot minimizada, não fechada; ver a entrada seguinte, mais nova.) A Riot abre primeiro uma janela pequena e depois a principal; os cartões ficavam presos à pequena e, ao passar para a principal, continuavam atrás dela.
+- O [[riotWindowObserver]] agora coloca os cartões logo acima da Riot sempre que eles estão visíveis e abaixo dela. Conferido com uma Riot falsa em Electron que abre do mesmo jeito.
+- Autoteste novo no helper do observador, rodado pela suíte; ele falha sem a correção.
+
 ## 2026-11-04 · Cartões voltam junto com a Riot
 
 - Ao restaurar a Riot minimizada, os cartões demoravam até perto de 1 s para voltar. A janela minimizada virava "sem janela", a sessão era zerada e os cartões esperavam a próxima leitura e uma nova consulta do login.

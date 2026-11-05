@@ -205,6 +205,37 @@ test('cancellation interrupts authentication polling and does not reveal the cli
   assert.equal(f.events.at(-1), 'conceal');
 });
 
+test('Riot Client only signs in, keeps the session and shows the client without requesting any game', async () => {
+  const f = fixture();
+  f.options.game = 'riot';
+  f.options.visibleLogin = true;
+  f.state.authorized = false;
+  f.io.runningGames = async () => ({});
+  f.io.openVisibleInterface = async () => f.events.push('visible-interface');
+  f.io.windows.closeClient = async () => f.events.push('close-client-window');
+  f.io.authenticate = async () => ({ supported: false });
+  const result = await f.run();
+  assert.equal(result.clientOpened, true);
+  assert.equal(result.gameStarted, false);
+  assert.equal(result.session, 'token:current');
+  assert.deepEqual(result.riotId, { gameName: 'Example', tagLine: 'BR1' });
+  for (const event of ['request-launch', 'game-window', 'close-client-window', 'conceal']) assert.equal(f.events.includes(event), false);
+  assert.equal(f.events.at(-1), 'reveal');
+  assert.equal(f.statuses.at(-1).text, 'Riot Client opened');
+  assert.equal(f.statuses.at(-1).signedIn, true);
+});
+
+test('Riot Client only never opens the client for a different signed-in account', async () => {
+  const f = fixture();
+  f.options.game = 'riot';
+  f.state.authorized = false;
+  f.io.runningGames = async () => ({});
+  f.io.authenticate = async () => ({ supported: false });
+  f.state.identity = { gameName: 'Someone', tagLine: 'ELSE' };
+  await assert.rejects(f.run(), /does not match/);
+  assert.equal(f.events.includes('request-launch'), false);
+});
+
 test('rejects unsupported products before touching client processes', async () => {
   const f = fixture();
   f.options.game = 'unrecognised';

@@ -1,12 +1,17 @@
 const crypto = require('crypto');
 
-function createSignInService({ store, riotClient, status = () => {}, operationUpdated = () => {}, accountUpdated = () => {}, log = () => {}, onClosed = () => {}, onLaunched = () => {}, releaseAfterLaunch = false, visibleLogin = false }) {
+function createSignInService({ store, riotClient, status = () => {}, operationUpdated = () => {}, accountUpdated = () => {}, log = () => {}, onClosed = () => {}, onLaunched = () => {}, releaseAfterLaunch = false, visibleLogin = false, translate = (text) => text }) {
   let operation = null;
   let controller = null;
   let pending = null;
 
+  const say = (text) => {
+    try { const value = translate(text); return typeof value === 'string' ? value : text; } catch { return text; }
+  };
+  const shown = (value) => ({ ...value, text: say(value.text), ...(value.error ? { error: say(value.error) } : {}) });
+
   function validate(id, game) {
-    if (!['lol', 'tft', 'val'].includes(game)) throw new Error('Select a supported game');
+    if (!['lol', 'tft', 'val', 'riot'].includes(game)) throw new Error('Select a supported game');
     const account = store.getAccount(id);
     if (!account) throw new Error('Account not found');
     if (!account.username || !account.password) throw new Error('Add the username and password first');
@@ -46,7 +51,7 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
     let finish;
     pending = new Promise((resolve) => { finish = resolve; });
     const completion = pending;
-    notify(operationUpdated, { ...current });
+    notify(operationUpdated, shown(current));
     setImmediate(async () => {
       let response;
       try {
@@ -76,8 +81,8 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
             const publicText = safeText(text);
             Object.assign(current, { text: publicText, needsAttention: Boolean(details.needsAttention), nativeClient: Boolean(details.nativeClient), signedIn: current.signedIn || details.signedIn === true });
             writeLog(publicText);
-            notify(status, { id, text: publicText, needsAttention: current.needsAttention, nativeClient: current.nativeClient });
-            notify(operationUpdated, { ...current });
+            notify(status, { id, text: say(publicText), needsAttention: current.needsAttention, nativeClient: current.nativeClient });
+            notify(operationUpdated, shown(current));
           },
           log: writeLog, onClosed,
         });
@@ -89,10 +94,11 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
           if (result.riotId?.gameName) Object.assign(fields, result.riotId);
           notify(accountUpdated, store.updateAccountFields(id, fields));
         }
-        if (!result.gameStarted) throw new Error('The game did not open. Use Show Riot Client to inspect it');
+        const clientOnly = game === 'riot' && result.clientOpened === true;
+        if (!result.gameStarted && !clientOnly) throw new Error(game === 'riot' ? 'The Riot Client did not finish signing in. Use Show Riot Client to inspect it' : 'The game did not open. Use Show Riot Client to inspect it');
         current.status = 'succeeded';
-        current.text = 'Game opened';
-        response = { ok: true, gameStarted: true };
+        current.text = clientOnly ? 'Riot Client opened' : 'Game opened';
+        response = clientOnly ? { ok: true, clientOpened: true } : { ok: true, gameStarted: true };
         notify(onLaunched, result);
       } catch (err) {
         if (err?.sessionRejected && store.getAccount(id)) {
@@ -107,7 +113,7 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
           error: safeText(err?.message), text: cancelled ? 'Sign-in cancelled' : safeText(err?.message),
         });
         writeLog(`sign-in ${current.status}: ${safeText(err?.message)}`);
-        response = { ok: false, error: current.text, cancelled };
+        response = { ok: false, error: say(current.text), cancelled };
       } finally {
         if (current.status !== 'failed') {
           current.needsAttention = false;
@@ -117,7 +123,7 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
         controller = null;
         pending = null;
         decryptedPassword = '';
-        notify(operationUpdated, { ...current });
+        notify(operationUpdated, shown(current));
         finish(response);
       }
     });
@@ -127,7 +133,7 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
   return {
     async signIn(id, game) {
       try { return await begin(id, game).completion; }
-      catch (err) { return { ok: false, error: typeof err?.message === 'string' ? err.message : 'Sign-in failed' }; }
+      catch (err) { return { ok: false, error: say(typeof err?.message === 'string' ? err.message : 'Sign-in failed') }; }
     },
     start(id, game) {
       return { ok: true, operationId: begin(id, game, { requireIdle: true }).operationId };
@@ -136,7 +142,7 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
       return { ok: true, operationId: begin(id, game, { forceHidden: true }).operationId };
     },
     cancel() { controller?.abort(); return { ok: true }; },
-    getState() { return operation ? { ...operation } : null; },
+    getState() { return operation ? shown(operation) : null; },
     isBusy() { return Boolean(pending); },
     activeAccountId() { return pending ? operation.accountId : null; },
   };

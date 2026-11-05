@@ -101,3 +101,14 @@ test('stay signed in is on by default and can be turned off', (t) => {
   assert.equal(store.updateSettings({ staySignedIn: false }).staySignedIn, false);
   assert.equal(store.data.settings.staySignedIn, false);
 });
+
+test('language is Portuguese by default and only switches when saved', (t) => {
+  const { store } = createStore(t);
+  assert.equal(store.data.settings.language, 'pt');
+  assert.equal(store.publicSettings().language, 'pt');
+  assert.equal(store.updateSettings({ refreshMinutes: 10 }).language, 'pt');
+  assert.equal(store.updateSettings({ language: 'en' }).language, 'en');
+  assert.equal(store.data.settings.language, 'en');
+  store.data.settings.language = 'fr';
+  assert.equal(store.publicSettings().language, 'pt');
+});

@@ -339,6 +339,30 @@ test('a launch that did not open the game is not reported as success', async () 
   assert.equal(fields.lastGame, undefined);
 });
 
+test('Riot Client only succeeds when the client is signed in, without recording a played game', async () => {
+  const f = fixture();
+  Object.assign(f.result, { gameStarted: false, clientOpened: true });
+  assert.deepEqual(await f.service.signIn('test-account', 'riot'), { ok: true, clientOpened: true });
+  assert.equal(f.received().game, 'riot');
+  const state = f.service.getState();
+  assert.equal(state.status, 'succeeded');
+  assert.equal(state.text, 'Riot Client opened');
+  assert.ok(f.calls.some(([name, id, session]) => name === 'save-session' && id === 'test-account' && session === 'private-session'));
+  assert.ok(f.calls.some(([name, id]) => name === 'set-current' && id === 'test-account'));
+  const fields = f.calls.find(([name]) => name === 'update')[2];
+  assert.equal(fields.lastPlayed, undefined);
+  assert.equal(fields.lastGame, undefined);
+
+  const unfinished = fixture();
+  Object.assign(unfinished.result, { gameStarted: false, clientOpened: false });
+  const response = await unfinished.service.signIn('test-account', 'riot');
+  assert.equal(response.ok, false);
+  assert.match(response.error, /Riot Client did not finish/);
+  const game = fixture();
+  Object.assign(game.result, { gameStarted: false, clientOpened: true });
+  assert.equal((await game.service.signIn('test-account', 'lol')).ok, false);
+});
+
 test('non-Error failures and asynchronous observers do not leave an operation pending', async () => {
   const fail = async () => { throw new Error('async observer unavailable'); };
   const f = fixture({ log: fail, status: fail });
@@ -367,4 +391,32 @@ test('stay signed in follows the setting and the signed-in stage is published on
   assert.deepEqual(received, [true, false]);
   const running = published.filter((operation) => operation.status === 'running').map((operation) => operation.signedIn);
   assert.deepEqual(running.slice(0, 4), [false, false, true, true]);
+});
+
+test('published texts follow the chosen language while the log stays in English', async () => {
+  const { localize } = require('../../src/core/language');
+  let language = 'pt';
+  const operations = [];
+  const f = fixture({ translate: (text) => localize(text, language), operationUpdated: (operation) => operations.push(operation) });
+  f.riotClient.signIn = async (options) => { options.status('Signing in in the background…', { needsAttention: false }); return f.result; };
+  assert.deepEqual(await f.service.signIn('test-account', 'lol'), { ok: true, gameStarted: true });
+  assert.equal(operations[0].text, 'Preparando o login…');
+  assert.deepEqual(f.statuses.map((status) => status.text), ['Entrando em segundo plano…']);
+  assert.equal(f.service.getState().text, 'Jogo aberto');
+  language = 'en';
+  assert.equal(f.service.getState().text, 'Game opened');
+  assert.ok(f.logs.includes('Signing in in the background…'));
+  assert.equal(f.logs.some((line) => /Entrando|Jogo aberto/.test(line)), false);
+
+  language = 'pt';
+  f.riotClient.signIn = async () => { throw new Error('Wrong username or password'); };
+  const failed = await f.service.signIn('test-account', 'lol');
+  assert.deepEqual(failed, { ok: false, error: 'Usuário ou senha incorretos', cancelled: false });
+  assert.equal(f.service.getState().error, 'Usuário ou senha incorretos');
+  assert.ok(f.logs.includes('sign-in failed: Wrong username or password'));
+  assert.deepEqual(await f.service.signIn('missing', 'lol'), { ok: false, error: 'Conta não encontrada' });
+
+  const broken = fixture({ translate: () => { throw new Error('no catalog'); } });
+  assert.deepEqual(await broken.service.signIn('test-account', 'lol'), { ok: true, gameStarted: true });
+  assert.equal(broken.service.getState().text, 'Game opened');
 });

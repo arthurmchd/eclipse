@@ -16,7 +16,7 @@ Expõe `window.api` por `contextBridge`, encaminha métodos nomeados ao IPC de [
 
 ## API pública
 
-`createManagerApi(options)` permite testes com `ipcRenderer`, relógio e temporizadores falsos. O preload expõe os métodos de contas (`init`, `saveAccount`, `deleteAccount`, `patchAccount`, `forgetSession`, `copy`), elos (`refresh`), login (`runningGames`, `signIn`, `showRiotClient`, `cancelSignIn`), configurações (`saveSettings`, `pickClientPath`, `openDataFolder`) e `closeManager`.
+`createManagerApi(options)` permite testes com `ipcRenderer`, relógio e temporizadores falsos. O preload expõe os métodos de contas (`init`, `saveAccount`, `deleteAccount`, `patchAccount`, `forgetSession`, `copy`), elos (`refresh`), login (`runningGames`, `signIn`, `showRiotClient`, `cancelSignIn`), configurações (`saveSettings`, `pickClientPath`, `openDataFolder`) `closeManager` e as ações das cópias dos controles do Riot: `minimizeRiot()`, `closeRiot()` e `revealRiot()`. Cada uma manda `windowAction` com um valor fixo e ignora argumentos (revisão de 2026-11-04, [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]; substituem `setModal`).
 
 As assinaturas públicas continuam `onAccountUpdated`, `onRefreshProgress`, `onNextRefresh`, `onSignInStatus` e `onSignInOperation`; cada uma devolve o cancelamento do listener.
 
@@ -38,7 +38,7 @@ As assinaturas públicas continuam `onAccountUpdated`, `onRefreshProgress`, `onN
 
 ## Testes
 
-Testes com IPC, relógio e temporizadores falsos verificam mapeamento das funções, eventos permitidos, avanço do cursor, espera de operação, prazo e descarte sem cancelar o serviço. Não autenticam contas reais.
+Testes com IPC, relógio e temporizadores falsos verificam mapeamento das funções (incluindo as três ações da janela do Riot com valor fixo e a ausência de `setModal`), eventos permitidos, avanço do cursor, espera de operação, prazo e descarte sem cancelar o serviço. Não autenticam contas reais.
 
 ## Pontos de atenção
 

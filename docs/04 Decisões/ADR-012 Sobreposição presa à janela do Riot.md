@@ -20,7 +20,7 @@ O pedido foi que o gerenciador ficasse "preso com fita" à janela da Riot.
 
 - **A janela da Riot passa a ser dona da sobreposição.** O helper do observador define o dono da janela da sobreposição (`GWLP_HWNDPARENT`) como a janela da Riot escolhida. A partir daí o Windows mantém a sobreposição logo acima da Riot na ordem das janelas, esconde as duas juntas ao minimizar e deixa outros programas cobrirem as duas. A sobreposição deixa de ser `alwaysOnTop`, não chama mais `moveTop` e não depende do foco: aparece sempre que a Riot está visível e na tela de login. Com a Riot minimizada, o gerenciador esconde a sobreposição ele mesmo e a mostra de novo quando a Riot é restaurada, sem refazer a sessão. Deixar o Windows trazer a sobreposição de volta junto com a dona foi testado e descartado: com a Riot real, a janela da Riot voltava sozinha logo depois de minimizar, sem desenhar nada (ver [[riotOverlay]]).
 - **A posição segue eventos do Windows.** O helper assina `EVENT_OBJECT_LOCATIONCHANGE` só do processo da Riot escolhida e envia a nova posição assim que a janela se move ou muda de tamanho. A leitura a cada 180 ms continua para descobrir a janela e como sinal de vida.
-- O helper só altera a janela da sobreposição, e só se ela pertencer ao processo do gerenciador. Nenhuma janela da Riot é modificada. Se não conseguir definir o dono, o helper encerra com erro e a sobreposição fica oculta.
+- O helper só altera a janela da sobreposição, e só se ela pertencer ao processo do gerenciador. Nenhuma janela da Riot é modificada. (Revisto em [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]: minimizar e fechar a janela da Riot a pedido do usuário. Revisto em [[ADR-016 Riot sem animação de minimizar e cartões com os cantos dela]]: a animação de minimizar da Riot fica desligada enquanto o helper a acompanha.) Se não conseguir definir o dono, o helper encerra com erro e a sobreposição fica oculta.
 
 ## Alternativas consideradas
 
@@ -30,6 +30,9 @@ O pedido foi que o gerenciador ficasse "preso com fita" à janela da Riot.
 
 ## Consequências
 
+- Desde a [[ADR-013 Caixa para ocultar as contas na coluna de login]], a janela cobre toda a área da Riot e, na coluna de login, só a caixa "Ocultar contas" pinta e recebe cliques.
+- (Substituído pela [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]: a região cobre sempre a arte inteira.) Com um diálogo dos cartões aberto, a região da janela cobre também a faixa dos controles nativos (ver [[riotOverlay]]); minimizar, fechar e perfil da Riot só voltam a receber cliques quando o diálogo fecha.
+- O modo sobreposto desliga a detecção de oclusão do Chromium (`CalculateNativeWinOcclusion`, ver [[main]]). Sem isso, cartões mostrados enquanto a Riot ainda os cobria não eram desenhados depois de ir para a frente.
 - Os cartões ficam visíveis junto com o Riot mesmo com outro programa em foco, e cobertos quando esse programa está por cima.
 - Ao arrastar, os cartões seguem a janela a cada evento de posição. Ainda pode haver um atraso de cerca de um quadro, porque são duas janelas separadas.
 - Uma relação de dono entre processos faz o Windows ligar as filas de entrada das duas janelas. Se a interface da Riot travar, a sobreposição pode travar junto até a janela da Riot fechar. Fechar a janela da Riot não destrói a sobreposição: ela só perde o dono (testado em 2026-11-04 com janelas de teste).

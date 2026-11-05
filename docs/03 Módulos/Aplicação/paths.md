@@ -29,7 +29,8 @@ Calcula caminhos absolutos uma vez, a partir da posição do próprio arquivo, e
 | `INTEGRATION_DATA_DIR` | constante | `.client-integration/` na raiz do projeto |
 | `PRIVATE_HOST_DIR` | constante | `.client-integration/private-v1/` |
 | `EMBEDDED_HOST_DIR` | constante | `.client-integration/private-v1/embedded-v1/`, cópia com o gerenciamento completo |
-| `APP_ICON` | constante | `src/renderer/assets/icon.png` |
+| `APP_ICON` | constante | `src/renderer/assets/icon.png`, ícone do Eclipse em 256 px |
+| `APP_TRAY_ICON` | constante | `src/renderer/assets/icon.ico`, o mesmo ícone em 16 a 256 px para a bandeja |
 | `MANAGER_RENDERER_FILE` | constante | `src/renderer/index.html`, carregado pela visualização dentro do Riot |
 | `MANAGER_PRELOAD_FILE` | constante | `src/integration/manager/manager-preload.js` |
 | `unpackedPath(file)` | função | Troca `app.asar` por `app.asar.unpacked` no caminho |
@@ -43,6 +44,7 @@ Calcula caminhos absolutos uma vez, a partir da posição do próprio arquivo, e
 ## Invariantes e decisões
 
 - `ACCOUNT_CARDS_FILE` aponta para `src/renderer/cards.html`, a interface compacta do modo sobreposto.
+- `OVERLAY_TOGGLE_FILE` e `OVERLAY_TOGGLE_PRELOAD_FILE` apontam para a página e o preload da caixa "Ocultar contas" ([[overlayToggle]]), em `src/integration/overlay/`.
 
 - `OVERLAY_RENDERER_FILE` e `OVERLAY_PRELOAD_FILE` centralizam os arquivos locais do botão de [[riotOverlay]]. O observador usa `windowsHelper('riotWindowObserver.ps1')`.
 
@@ -54,7 +56,7 @@ Arquivo novo, criado na reorganização de pastas ([[Estrutura de pastas]]). Nã
 - **Substitui caminhos espalhados.** Antes, `riotClient` e `windowController` montavam o caminho do `.ps1` com `__dirname` e o mesmo `.replace('app.asar', 'app.asar.unpacked')`. `privateClient`, o antigo `run-private-riot-host.js` e os scripts de preparo montavam `.client-integration/private-v1` cada um.
 - **Helpers fora do asar.** Os scripts PowerShell são executados por um processo externo, que precisa de um arquivo real no disco. `unpackedPath` aponta para a cópia em `app.asar.unpacked`. Rodando do código-fonte, sem asar, o caminho não muda.
 - **`.client-integration/` fica no projeto, não em `userData`.** Guarda cópias locais da interface da Riot, perfis, registros e resultados de testes. Está no `.gitignore` e não pode ser distribuída, porque contém recursos proprietários da instalação local. Ver [[Integração com o Riot Client]].
-- **Um ícone só.** `APP_ICON` serve como reserva da bandeja no [[main]], sem depender da janela independente removida.
+- **Ícone do Eclipse.** Desde 2026-11-04, `APP_TRAY_ICON` (`.ico` com 16, 24, 32, 48, 64, 128 e 256 px) é o ícone da bandeja no [[main]], para o Windows escolher o tamanho certo em cada escala. `APP_ICON` é o mesmo desenho em PNG de 256 px e fica como última reserva. A imagem foi enviada pelo usuário (fundo branco removido, recortada e centralizada); por parecer arte de jogo da Riot, serve para uso pessoal e não deve ir para uma distribuição pública do app.
 - **A visualização integrada usa caminhos centralizados.** [[managerHost]] recebe o HTML local e o preload dedicado pelas constantes deste módulo; a nova estrutura está em [[ADR-007 Interface completa dentro do Riot Client]].
 
 ## Testes

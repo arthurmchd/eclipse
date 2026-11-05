@@ -20,12 +20,14 @@ riot-account-manager/
 │   │   ├── store.js
 │   │   ├── signInService.js
 │   │   ├── managerService.js
+│   │   ├── language.js
 │   │   └── rankApi.js
 │   ├── riot/                           controle do Riot Client
 │   │   ├── riotClient.js
 │   │   ├── signInFlow.js
 │   │   ├── riotAuthentication.js
 │   │   ├── riotInterface.js
+│   │   ├── riotAppControls.js
 │   │   ├── riotTransport.js
 │   │   └── riotProcess.js
 │   ├── platform/windows/               específico do Windows

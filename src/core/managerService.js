@@ -1,3 +1,5 @@
+const { LANGUAGES } = require('./language');
+
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
 const CHANNELS = new Set(['account-updated', 'refresh-progress', 'next-refresh', 'sign-in-status', 'sign-in-operation']);
 const ACCOUNT_FIELDS = ['id', 'createdAt', 'gameName', 'tagLine', 'region', 'valRegion', 'username', 'note', 'lastSeason', 'ban', 'pinned', 'stats', 'lastPlayed', 'lastGame', 'hasPassword', 'hasSession'];
@@ -63,7 +65,7 @@ function createManagerEvents({ limit = 256, maxBytes = 768 * 1024 } = {}) {
   };
 }
 
-function createManagerService({ store, launchService, riotClient, clipboard, shell, dialog, refreshAll, scheduleRefresh, initContext, showRiotClient, events = createManagerEvents(), setTimer = setTimeout } = {}) {
+function createManagerService({ store, launchService, riotClient, clipboard, shell, dialog, refreshAll, scheduleRefresh, initContext, showRiotClient, settingsChanged = () => {}, events = createManagerEvents(), setTimer = setTimeout } = {}) {
   function account(id, editable = false) {
     if (typeof id !== 'string' || !ID.test(id)) throw failure('Invalid account identifier');
     const value = store.getAccount(id);
@@ -149,13 +151,13 @@ function createManagerService({ store, launchService, riotClient, clipboard, she
     runningGames() { return riotClient.runningGames(); },
     signIn(id, game) {
       account(id);
-      if (!['lol', 'tft', 'val'].includes(game)) throw failure('Select a supported game');
+      if (!['lol', 'tft', 'val', 'riot'].includes(game)) throw failure('Select a supported game');
       return launchService.startFromManager(id, game);
     },
     showRiotClient() { return showRiotClient(); },
     cancelSignIn() { return launchService.cancel(); },
     saveSettings(input) {
-      keys(input, ['refreshMinutes', 'minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode', 'staySignedIn', 'riotClientPath', 'riotApiKey', 'riotTftApiKey', 'henrikApiKey']);
+      keys(input, ['refreshMinutes', 'minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode', 'staySignedIn', 'riotClientPath', 'language', 'riotApiKey', 'riotTftApiKey', 'henrikApiKey']);
       const clean = {};
       for (const [key, value] of Object.entries(input)) {
         if (key === 'refreshMinutes') {
@@ -164,10 +166,14 @@ function createManagerService({ store, launchService, riotClient, clipboard, she
         } else if (['minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode', 'staySignedIn'].includes(key)) {
           if (typeof value !== 'boolean') throw failure('Invalid setting');
           clean[key] = value;
+        } else if (key === 'language') {
+          if (!LANGUAGES.includes(value)) throw failure('Invalid setting');
+          clean[key] = value;
         } else clean[key] = text(value, key === 'riotClientPath' ? 2048 : 4096);
       }
       const settings = store.updateSettings(clean);
       scheduleRefresh();
+      try { settingsChanged(settings); } catch {}
       return { ...settings, nextRefresh: initContext().nextRefresh, clientFound: Boolean(riotClient.detectClientPath(store.data.settings.riotClientPath)) };
     },
     async pickClientPath() {

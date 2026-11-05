@@ -4,7 +4,7 @@ const { createManagerService, createManagerEvents } = require('../../src/core/ma
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-function fixture() {
+function fixture(options = {}) {
   const calls = [], timers = [];
   const accounts = new Map([['account-1', { id: 'account-1', username: 'fixture-user', gameName: 'Example', tagLine: 'BR1', region: 'br1', password: 'fixture-encrypted', hasPassword: true, hasSession: true, stats: { lol: { rank: 'GOLD', token: 'fixture-token' } } }]]);
   let clipboardText = '', active = null;
@@ -49,6 +49,7 @@ function fixture() {
     showRiotClient: async () => ({ ok: true }),
     initContext: () => ({ regions: { br1: {} }, valRegions: ['br'], nextRefresh: '2026-10-27T12:00:00.000Z' }),
     setTimer(callback, delay) { timers.push({ callback, delay }); return { unref() {} }; },
+    ...options,
   });
   return { service, events, calls, accounts, settings, timers, clipboard, clipboardText: () => clipboardText, active: (id) => { active = id; } };
 }
@@ -146,6 +147,8 @@ test('embedded launch acknowledges immediately and exposes cancel, recovery and 
   assert.deepEqual(await f.service.dispatch('runningGames'), { lol: false, val: true });
   assert.deepEqual(await f.service.dispatch('cancelSignIn'), { ok: true });
   assert.deepEqual(await f.service.dispatch('showRiotClient'), { ok: true });
+  assert.deepEqual(await f.service.dispatch('signIn', ['account-1', 'riot']), { ok: true, operationId: 'operation-1' });
+  assert.deepEqual(f.calls.at(-1), ['sign-in', 'account-1', 'riot']);
   await assert.rejects(f.service.dispatch('signIn', ['account-1', 'other']), { status: 400 });
 });
 
@@ -187,4 +190,16 @@ test('event history strips secrets, keeps snapshots and signals overflow resynch
   const bounded = createManagerEvents({ maxBytes: 100 });
   bounded.publish('sign-in-status', { text: 'x'.repeat(200) });
   assert.deepEqual(bounded.read(0), { cursor: 1, reset: true, events: [] });
+});
+
+test('language is saved only as pt or en and announces the settings change', async () => {
+  const changed = [];
+  const f = fixture({ settingsChanged: (settings) => changed.push(settings.language) });
+  for (const language of ['fr', 'EN', '', 1, null, true]) await assert.rejects(f.service.dispatch('saveSettings', [{ language }]), /Invalid setting/);
+  assert.deepEqual(changed, []);
+  assert.equal((await f.service.dispatch('saveSettings', [{ language: 'en' }])).language, 'en');
+  assert.equal((await f.service.dispatch('saveSettings', [{ language: 'pt', refreshMinutes: 5 }])).language, 'pt');
+  assert.deepEqual(changed, ['en', 'pt']);
+  const failing = fixture({ settingsChanged: () => { throw new Error('tray unavailable'); } });
+  assert.equal((await failing.service.dispatch('saveSettings', [{ language: 'en' }])).language, 'en');
 });

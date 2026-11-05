@@ -8,6 +8,7 @@ const { createRiotTransport } = require('./riotTransport');
 const { launchClient } = require('./riotProcess');
 const { createInterfaceOpener } = require('./riotInterface');
 const { createRiotAuthentication } = require('./riotAuthentication');
+const { createRiotAppControls } = require('./riotAppControls');
 const { windowsHelper } = require('../paths');
 const windows = createWindowController();
 let selectedClientPath = null;
@@ -124,6 +125,7 @@ const sameRiotId = (a, b) =>
 
 const localApi = createRiotTransport({ clientPath: () => selectedClientPath || detectClientPath() });
 const authentication = createRiotAuthentication({ request: localApi });
+const appControls = createRiotAppControls({ request: localApi });
 
 async function sessionState() {
   try {
@@ -290,5 +292,6 @@ module.exports = {
   readAuthenticationState: signal => authentication.sessionState(signal),
   readLoginScreenState: signal => authentication.loginScreenState(signal),
   ensureBackgroundClient,
+  closeClient: () => appControls.close(),
   dispose: () => windows.stop(),
 };

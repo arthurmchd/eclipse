@@ -68,6 +68,7 @@ Exporta só a classe `Store`.
 - **Chave ilegível não trava as contas.** Uma chave que não pode ser descriptografada não pode impedir as contas de carregar. `publicSettings` registra o erro e mostra `(unreadable, paste it again)`.
 - **Máscara.** Primeiros 8 e últimos 4 caracteres da chave.
 - **Chaves em `updateSettings`.** `undefined` = não mexe, `''` = remove, outro valor = substitui (com `trim`).
+- **`language`** (padrão `'pt'`) guarda o idioma do Eclipse. `publicSettings` devolve `'en'` só quando o valor salvo é exatamente `'en'`; qualquer outro valor, inclusive dados antigos sem o campo, vira `'pt'`. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
 
 ## Testes
 
