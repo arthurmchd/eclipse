@@ -7,19 +7,22 @@ tags: [arquitetura, pastas]
 
 ```
 riot-account-manager/
-├── Abrir Riot com minhas contas.bat    atalho da interface integrada
+├── Abrir Riot com minhas contas.bat    instala na primeira vez e inicia o Eclipse
+├── Iniciar gerenciador de contas.bat   inicia o Eclipse (exige npm install)
 ├── CLAUDE.md                           instruções para agentes de IA
 ├── README.md
 ├── package.json                        main = src/main/index.js
 ├── docs/                               este vault do Obsidian
 ├── src/
 │   ├── paths.js                        único lugar que conhece o layout
-│   ├── main/                           serviços Electron sem janela própria
+│   ├── main/                           serviço Electron na bandeja
 │   │   └── index.js
 │   ├── core/                           regras da aplicação
 │   │   ├── store.js
 │   │   ├── signInService.js
 │   │   ├── managerService.js
+│   │   ├── sessionKeeper.js
+│   │   ├── riotWakeup.js
 │   │   ├── language.js
 │   │   └── rankApi.js
 │   ├── riot/                           controle do Riot Client
@@ -33,50 +36,42 @@ riot-account-manager/
 │   ├── platform/windows/               específico do Windows
 │   │   ├── windowController.js
 │   │   ├── windowGuard.ps1
+│   │   ├── riotWindowObserver.js
+│   │   ├── riotWindowObserver.ps1
 │   │   ├── login.ps1
-│   │   ├── windowsDpapi.js
 │   │   └── windowsEnvironment.js
-│   ├── integration/                    cópia privada da interface do Riot
-│   │   ├── privateClient.js
-│   │   ├── bridgeServer.js
-│   │   ├── bootstrapChannel.js
-│   │   ├── backend.js
-│   │   ├── asar.js
-│   │   ├── status.js
-│   │   ├── manager/                    visualização filha da janela Riot
+│   ├── integration/                    o que fica preso à janela oficial da Riot
+│   │   ├── asar.js                     leitura do app.asar oficial (só leitura)
+│   │   ├── backend.js                  lockfile e certificado da API local
+│   │   ├── manager/                    hospeda os cartões
 │   │   │   ├── managerHost.js
 │   │   │   └── manager-preload.js
-│   │   ├── host/                       processo do host privado
-│   │   │   ├── hostEntry.js
-│   │   │   ├── privateHost.js
-│   │   │   ├── privateHostCore.js
-│   │   │   └── privateRendererCore.js
-│   │   └── addon/                      código anexado ao app.asar do Riot
-│   │       ├── addon-main.js
-│   │       ├── addon-preload.js
-│   │       ├── addon-renderer.js
-│   │       └── preview.html
-│   └── renderer/                       interface completa dentro do Riot
-│       ├── index.html
-│       ├── app.js
+│   │   └── overlay/                    janelas sobre a Riot
+│   │       ├── riotOverlay.js
+│   │       ├── overlayToggle.js        caixa "Ocultar contas"
+│   │       ├── toggle.html / .css / .js, toggle-preload.js, toggle-check.svg
+│   │       ├── overlayCover.js         cobertura da coluna de login
+│   │       └── cover.html / .css
+│   └── renderer/                       os cartões
+│       ├── cards.html
+│       ├── cards.css
+│       ├── cards.js
+│       ├── cardsText.js
 │       ├── ranks.js
-│       ├── styles.css
 │       └── assets/
 ├── scripts/
-│   ├── dev/                            prévia no navegador e demo do painel
-│   ├── integration/                    preparar e testar a cópia privada
-│   └── legacy/                         experimento antigo de instalar no Riot
+│   └── dev/                            prévia dos cartões no navegador
 ├── test/                               espelha src/
-└── .client-integration/                fora do git: cópia do Riot, perfis, logs
+└── backups/                            fora do git: cópias do data.json
 ```
 
 ## Regras
 
 - **Testes espelham `src/`.** O teste de `src/riot/signInFlow.js` mora em `test/riot/signInFlow.test.js`.
 - **Caminhos só em `src/paths.js`.** Nenhum módulo calcula a raiz com `__dirname, '..', '..'`. Mover uma pasta exige mudar um arquivo.
-- **`.client-integration/` fica na raiz.** O manifesto da cópia privada guarda caminhos absolutos e o host só aceita arquivos dentro do projeto ([[privateHostCore]]). Mover essa pasta invalida a cópia preparada.
-- **Nomes dos arquivos do host não mudam à toa.** O diagnóstico de inicialização filtra rastros de pilha por `privateHost.js` e `privateHostCore.js` ([[privateClient]], [[hostEntry]]).
+- **Nada de escrever na instalação da Riot.** `asar.js` e `backend.js` só leem o `app.asar` e o lockfile oficiais ([[ADR-028 Modo antigo removido]]).
 - **Atalhos `.bat` ficam na raiz** porque são o ponto de entrada do usuário.
+- **`.client-integration/` é sobra do modo antigo.** Se existir na raiz, está fora do git e o código não a usa desde 2026-11-07. O usuário pode apagá-la; ela tem recursos proprietários da Riot e nunca pode ser distribuída.
 
 ## Mapa da reorganização (2026-10-26)
 
@@ -103,6 +98,6 @@ riot-account-manager/
 | `COMPARACAO-ROSE.md` | [[Estudo - Comparação com o Rose]] |
 | `GUIA-GITHUB.md` | [[Publicar no GitHub]] |
 
-O comando `npm run integration:prepare` (experimento legado) virou `npm run legacy:prepare-install`. Os demais comandos mantiveram o nome. Ver [[ADR-006 Estrutura de pastas por camada]].
+Ver [[ADR-006 Estrutura de pastas por camada]]. Na migração posterior para a janela única, `src/main/preload.js` e o atalho da janela independente saíram, e o preload dedicado passou a `src/integration/manager/manager-preload.js` ([[ADR-007 Interface completa dentro do Riot Client]]).
 
-Na migração posterior para a janela única, `src/main/preload.js` e o atalho da janela independente foram removidos. O preload dedicado passou a `src/integration/manager/manager-preload.js`, e o HTML/CSS/JS existente foi preservado para a visualização integrada. Ver [[ADR-007 Interface completa dentro do Riot Client]].
+Em 2026-11-07 saíram de vez `src/integration/host/`, `src/integration/addon/`, `privateClient.js`, `bridgeServer.js`, `bootstrapChannel.js`, `status.js`, o seletor antigo `overlay.html` / `.css` / `.js` e `overlay-preload.js`, `src/platform/windows/windowsDpapi.js`, a janela antiga em `src/renderer/` (`index.html`, `app.js`, `styles.css`), `scripts/dev/preview-riot-integration.js`, `scripts/integration/`, `scripts/legacy/` e os comandos `start:riot-login`, `start:private`, `preview:riot-login`, `integration:*` e `legacy:*`. O código está na tag `modo-antigo-final` ([[ADR-028 Modo antigo removido]]).

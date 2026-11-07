@@ -8,6 +8,8 @@ tags: [adr, arquitetura, interface]
 # ADR-009 Sobreposição no cliente oficial
 
 > Revisão de 2026-11-04: a sobreposição deixou de sumir ao trocar de programa e passou a ter a janela da Riot como dona. Ver [[ADR-012 Sobreposição presa à janela do Riot]].
+>
+> Revisão de 2026-11-07: a migração terminou. O modo anterior (`--private-client`) foi removido e a sobreposição é o único modo. Ver [[ADR-028 Modo antigo removido]].
 
 ## Contexto
 

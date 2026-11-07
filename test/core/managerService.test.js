@@ -5,12 +5,12 @@ const { createManagerService, createManagerEvents } = require('../../src/core/ma
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 function fixture(options = {}) {
-  const calls = [], timers = [];
+  const calls = [];
   const accounts = new Map([['account-1', { id: 'account-1', username: 'fixture-user', gameName: 'Example', tagLine: 'BR1', region: 'br1', password: 'fixture-encrypted', hasPassword: true, hasSession: true, stats: { lol: { rank: 'GOLD', token: 'fixture-token' } } }]]);
-  let clipboardText = '', active = null;
-  const settings = { refreshMinutes: 30, streamerMode: false, riotApiKeyMasked: 'RGAPI-fi…1234' };
+  let active = null;
+  const settings = { refreshMinutes: 30, riotApiKeyMasked: 'RGAPI-fi…1234' };
   const store = {
-    dir: 'C:/Fixture/Accounts', data: { settings },
+    data: { settings },
     getAccount: (id) => accounts.get(id),
     listAccounts: () => [...accounts.values()],
     publicAccount: (account) => account,
@@ -23,8 +23,6 @@ function fixture(options = {}) {
     },
     updateAccountFields(id, fields) { Object.assign(accounts.get(id), fields); return accounts.get(id); },
     deleteAccount: (id) => accounts.delete(id),
-    forgetSession(id) { accounts.get(id).hasSession = false; },
-    getPassword: () => 'fixture-plaintext',
     updateSettings(input) {
       calls.push(['settings', input]);
       for (const [key, value] of Object.entries(input)) if (!key.endsWith('ApiKey')) settings[key] = value;
@@ -38,26 +36,21 @@ function fixture(options = {}) {
     startFromManager(id, game) { calls.push(['sign-in', id, game]); return { ok: true, operationId: 'operation-1' }; },
     cancel() { calls.push(['cancel']); return { ok: true }; },
   };
-  const clipboard = { writeText: (value) => { clipboardText = value; }, readText: () => clipboardText, clear: () => { clipboardText = ''; } };
   const service = createManagerService({
-    store, launchService, clipboard, events,
-    riotClient: { runningGames: async () => ({ lol: false, val: true }), detectClientPath: () => 'C:/Fixture/RiotClientServices.exe' },
-    shell: { openPath: async (value) => calls.push(['folder', value]), openExternal: async (value) => calls.push(['url', value]) },
-    dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: ['C:/Fixture/RiotClientServices.exe'] }) },
+    store, launchService, events,
+    riotClient: { runningGames: async () => ({ lol: false, val: true }) },
+    shell: { openExternal: async (value) => calls.push(['url', value]) },
     refreshAll: async (ids) => calls.push(['refresh', ids]),
     scheduleRefresh: () => calls.push(['schedule']),
-    showRiotClient: async () => ({ ok: true }),
     initContext: () => ({ regions: { br1: {} }, valRegions: ['br'], nextRefresh: '2026-10-27T12:00:00.000Z' }),
-    setTimer(callback, delay) { timers.push({ callback, delay }); return { unref() {} }; },
     ...options,
   });
-  return { service, events, calls, accounts, settings, timers, clipboard, clipboardText: () => clipboardText, active: (id) => { active = id; } };
+  return { service, events, calls, accounts, settings, active: (id) => { active = id; } };
 }
 
-test('embedded initialization and operations retain account metadata without saved credentials', async () => {
+test('initialization and operations retain account metadata without saved credentials', async () => {
   const f = fixture();
   const data = await f.service.dispatch('init');
-  assert.equal(data.embedded, true);
   assert.equal(data.accounts[0].username, 'fixture-user');
   assert.equal(data.accounts[0].hasPassword, true);
   assert.equal(data.accounts[0].hasSession, true);
@@ -67,7 +60,7 @@ test('embedded initialization and operations retain account metadata without sav
   for (const value of ['fixture-encrypted', 'fixture-token', 'fixture-plaintext']) assert.equal(exposed.includes(value), false);
 });
 
-test('full editor creates, edits, patches, forgets sessions and deletes accounts', async () => {
+test('the account form creates, edits and deletes accounts', async () => {
   const f = fixture();
   const input = { gameName: 'New', tagLine: 'BR1', region: 'br1', valRegion: 'br', username: 'new-fixture-user', password: 'new-fixture-password', note: 'demo', lastSeason: { lol: 'Gold', tft: '', val: '' }, ban: null };
   const saved = await f.service.dispatch('saveAccount', [input]);
@@ -79,10 +72,6 @@ test('full editor creates, edits, patches, forgets sessions and deletes accounts
   const edited = await f.service.dispatch('saveAccount', [{ ...input, id: saved.id, password: undefined, gameName: 'Edited' }]);
   assert.equal(edited.gameName, 'Edited');
   assert.equal(Object.hasOwn(f.calls.findLast(([name]) => name === 'save')[1], 'password'), false);
-  const patched = await f.service.dispatch('patchAccount', [saved.id, { pinned: true, note: 'updated', ban: { game: 'lol', permanent: true, until: null } }]);
-  assert.equal(patched.pinned, true);
-  assert.equal(patched.ban.permanent, true);
-  assert.equal((await f.service.dispatch('forgetSession', ['account-1'])).hasSession, false);
   assert.equal(await f.service.dispatch('deleteAccount', [saved.id]), true);
   assert.equal(f.accounts.has(saved.id), false);
 });
@@ -94,59 +83,39 @@ test('management commands reject unknown fields, invalid values and active crede
     ['saveAccount', [{ ...input, region: 'unknown' }]],
     ['saveAccount', [{ ...input, password: undefined }]],
     ['saveAccount', [{ ...input, session: 'disallowed' }]],
-    ['patchAccount', ['account-1', { password: 'disallowed' }]],
-    ['patchAccount', ['account-1', { pinned: 'yes' }]],
-    ['patchAccount', ['account-1', { ban: { game: 'val', permanent: false, until: 'invalid' } }]],
+    ['saveAccount', [{ ...input, ban: { game: 'val', permanent: false, until: 'invalid' } }]],
     ['deleteAccount', ['../account-1']],
     ['saveSettings', [{ refreshMinutes: -1 }]],
     ['saveSettings', [{ unexpected: true }]],
     ['saveSettings', [{ staySignedIn: 'no' }]],
+    ...['streamerMode', 'hideRiotClient', 'closeRiotClient', 'minimizeOnLaunch'].map((key) => ['saveSettings', [{ [key]: true }]]),
+    ['patchAccount', ['account-1', { pinned: true }]], ['forgetSession', ['account-1']], ['copy', ['account-1', 'password']],
+    ['showRiotClient', []], ['pickClientPath', []], ['openDataFolder', []], ['closeManager', []],
     ['constructor', []], ['init', ['extra']], [['init'], []],
   ];
   for (const [method, args] of requests) await assert.rejects(f.service.dispatch(method, args), { status: 400 });
   f.active('account-1');
-  for (const [method, args] of [['deleteAccount', ['account-1']], ['forgetSession', ['account-1']], ['saveAccount', [{ ...input, id: 'account-1' }]]]) {
+  for (const [method, args] of [['deleteAccount', ['account-1']], ['saveAccount', [{ ...input, id: 'account-1' }]]]) {
     await assert.rejects(f.service.dispatch(method, args), { status: 409 });
   }
-  assert.equal((await f.service.dispatch('patchAccount', ['account-1', { pinned: true }])).pinned, true);
   assert.equal(f.calls.length, 0);
-});
-
-test('copy password stays in the native clipboard and clears only the same content', async () => {
-  const f = fixture();
-  assert.equal(await f.service.dispatch('copy', ['account-1', 'password']), true);
-  assert.equal(f.clipboardText(), 'fixture-plaintext');
-  assert.equal(f.timers[0].delay, 20000);
-  f.clipboard.writeText('something else');
-  f.timers[0].callback();
-  assert.equal(f.clipboardText(), 'something else');
-  await f.service.dispatch('copy', ['account-1', 'password']);
-  f.timers[1].callback();
-  assert.equal(f.clipboardText(), '');
-  await f.service.dispatch('copy', ['account-1', 'riotId']);
-  assert.equal(f.clipboardText(), 'Example#BR1');
 });
 
 test('settings return masked keys and restart the refresh schedule', async () => {
   const f = fixture();
-  const settings = await f.service.dispatch('saveSettings', [{ refreshMinutes: 15, streamerMode: true, staySignedIn: false, riotApiKey: 'fixture-key' }]);
-  assert.equal(settings.streamerMode, true);
+  const settings = await f.service.dispatch('saveSettings', [{ refreshMinutes: 15, staySignedIn: false, riotApiKey: 'fixture-key' }]);
   assert.equal(settings.staySignedIn, false);
-  assert.equal(settings.clientFound, true);
   assert.equal(settings.nextRefresh, '2026-10-27T12:00:00.000Z');
   assert.equal(settings.riotApiKey, undefined);
   assert.deepEqual(f.calls.map(([name]) => name), ['settings', 'schedule']);
-  assert.equal(await f.service.dispatch('pickClientPath'), 'C:/Fixture/RiotClientServices.exe');
-  assert.equal(await f.service.dispatch('openDataFolder'), true);
 });
 
-test('embedded launch acknowledges immediately and exposes cancel, recovery and game status', async () => {
+test('launch acknowledges immediately and exposes cancel, recovery and game status', async () => {
   const f = fixture();
   assert.deepEqual(await f.service.dispatch('signIn', ['account-1', 'tft']), { ok: true, operationId: 'operation-1' });
   assert.deepEqual(f.calls[0], ['sign-in', 'account-1', 'tft']);
   assert.deepEqual(await f.service.dispatch('runningGames'), { lol: false, val: true });
   assert.deepEqual(await f.service.dispatch('cancelSignIn'), { ok: true });
-  assert.deepEqual(await f.service.dispatch('showRiotClient'), { ok: true });
   assert.deepEqual(await f.service.dispatch('signIn', ['account-1', 'riot']), { ok: true, operationId: 'operation-1' });
   assert.deepEqual(f.calls.at(-1), ['sign-in', 'account-1', 'riot']);
   await assert.rejects(f.service.dispatch('signIn', ['account-1', 'other']), { status: 400 });

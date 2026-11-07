@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { pathToFileURL } = require('node:url');
 const { createManagerHost, CHANNEL } = require('../../../src/integration/manager/managerHost');
-const { MANAGER_RENDERER_FILE, MANAGER_PRELOAD_FILE } = require('../../../src/paths');
+const { ACCOUNT_CARDS_FILE, MANAGER_PRELOAD_FILE } = require('../../../src/paths');
 
 function fixture(t, request = async (method, args) => ({ ok: true, value: { method, args } }), options = {}) {
   const handlers = new Map(), views = [], requests = [];
@@ -48,14 +48,14 @@ test('the complete account interface is a secured child view inside the existing
   assert.deepEqual(await f.host.open(f.parent), { ready: true, embedded: true });
   assert.equal(f.views.length, 1);
   assert.equal(f.parent.contentView.children[0], f.views[0]);
-  assert.equal(f.views[0].webContents.file, MANAGER_RENDERER_FILE);
+  assert.equal(f.views[0].webContents.file, ACCOUNT_CARDS_FILE);
   assert.deepEqual(f.views[0].options.webPreferences, {
     preload: MANAGER_PRELOAD_FILE, contextIsolation: true, sandbox: true, nodeIntegration: false,
     webSecurity: true, partition: 'persist:ram-manager-panel',
   });
-  assert.deepEqual(f.views[0].bounds, { x: 0, y: 38, width: 1280, height: 762 });
+  assert.deepEqual(f.views[0].bounds, { x: 0, y: 0, width: 1280, height: 800 });
   f.resize(940, 710);
-  assert.deepEqual(f.views[0].bounds, { x: 0, y: 38, width: 940, height: 672 });
+  assert.deepEqual(f.views[0].bounds, { x: 0, y: 0, width: 940, height: 710 });
 });
 
 test('IPC is restricted to the embedded main frame and exact local file', async (t) => {
@@ -76,7 +76,7 @@ test('invalid commands and oversized payloads never reach the credential service
   const f = fixture(t);
   await f.host.open(f.parent);
   const handler = f.handlers.get(CHANNEL);
-  await assert.rejects(handler(f.event(), 'readPassword', []), /Invalid account command/);
+  for (const method of ['readPassword', 'closeManager', 'copy', 'patchAccount', 'forgetSession', 'showRiotClient', 'pickClientPath', 'openDataFolder']) await assert.rejects(handler(f.event(), method, []), /Invalid account command/);
   await assert.rejects(handler(f.event(), 'init', {}), /Invalid account command/);
   await assert.rejects(handler(f.event(), 'saveAccount', [{ note: 'x'.repeat(33000) }]), /Não foi possível/);
   assert.equal(f.requests.length, 0);
@@ -85,7 +85,7 @@ test('invalid commands and oversized payloads never reach the credential service
 test('closing the embedded interface preserves the same Riot window and view for reopening', async (t) => {
   const f = fixture(t);
   await f.host.open(f.parent);
-  assert.deepEqual(await f.handlers.get(CHANNEL)(f.event(), 'closeManager', []), { ok: true });
+  f.host.close();
   assert.equal(f.parent.contentView.children.length, 0);
   assert.equal(f.views[0].visible, false);
   assert.equal(f.views[0].webContents.closed, undefined);

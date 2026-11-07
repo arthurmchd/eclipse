@@ -7,6 +7,22 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-07 · Modo antigo removido
+
+- Item 17 da análise de remendos, a pedido do usuário. A tag local `modo-antigo-final` (`a4fe748`) guarda o último código com o modo antigo.
+- **Código removido:** a cópia privada e seu host (`privateClient`, `host/`, `bootstrapChannel`, `bridgeServer`, `status`), os addons, a janela antiga (`src/renderer/index.html`, `app.js`, `styles.css`), a página de sobreposição sem uso (`overlay.*`), `windowsDpapi`, `scripts/integration/`, `scripts/legacy/`, `scripts/dev/preview-riot-integration.js` e os testes deles.
+- **Comandos:** `package.json` fica com `start`, `test` e `preview`. O `.bat` inicia o Electron sem `--private-client`.
+- **Só leitura na instalação da Riot:** [[asar]] fica só com `openArchive`, e [[backend]] perde `verifyBackend`.
+- **API da view de contas menor** ([[managerService]], [[managerHost]], [[manager-preload]]): saem `patchAccount`, `forgetSession`, `copy`, `showRiotClient`, `pickClientPath`, `openDataFolder` e `closeManager`.
+- **Opções antigas limpas** ([[store]]): `minimizeOnLaunch`, `hideRiotClient`, `closeRiotClient` e `streamerMode` saem dos padrões e de um `data.json` antigo ao carregar.
+- **[[signInService]]:** `begin(id, game)` sem opções; o login visível nunca esconde a Riot e sempre a fecha depois do jogo. Saem `start` e a recusa com jogo aberto, que era do painel antigo; os [[cards]] já confirmam antes.
+- **[[riotClient]]:** saem `ensureBackgroundClient`, `showClient` e o export `readAuthenticationState`.
+- **[[main]]:** um modo só, sem ponte nem cópia privada. O aviso de falha da bandeja diz que não foi possível abrir as contas no Riot.
+- **Prévia:** `npm run preview` abre os cartões; o `mock-api.js` só tem o que eles usam.
+- **Vault:** 13 notas foram para `03 Módulos/Removidos/`; nota nova [[ranks]]; ADR-001 e ADR-007 substituídas; guias, arquitetura, [[Backlog]] e [[Glossário]] revistos. O agente `riot-update-checker` saiu.
+- `.client-integration/` e um `riot-client-bridge.json` antigo ficam onde estão, sem uso; o usuário pode apagá-los.
+- Decisão: [[ADR-028 Modo antigo removido]].
+
 ## 2026-11-07 · Saída pela Riot apaga a sessão guardada na hora
 
 - Item 6 da análise de remendos: uma conta que saía pela Riot (ou pelo "Sign Out" do League) só era descoberta no Jogar seguinte, com a Riot fechando, a sessão recusada e a Riot reabrindo.

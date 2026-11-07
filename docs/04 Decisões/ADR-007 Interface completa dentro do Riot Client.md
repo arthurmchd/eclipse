@@ -1,11 +1,13 @@
 ---
 tipo: decisão
-status: aceita
+status: substituída
 data: 2026-10-27
 tags: [adr, arquitetura, interface, segurança]
 ---
 
 # ADR-007 Interface completa dentro do Riot Client
+
+> Substituída em 2026-11-07 pela [[ADR-028 Modo antigo removido]]. A view de contas dentro da cópia privada saiu; os cartões sobre a Riot oficial ([[ADR-009 Sobreposição no cliente oficial]]) são a única interface.
 
 ## Contexto
 

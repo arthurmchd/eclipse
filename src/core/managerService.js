@@ -65,7 +65,7 @@ function createManagerEvents({ limit = 256, maxBytes = 768 * 1024 } = {}) {
   };
 }
 
-function createManagerService({ store, launchService, riotClient, clipboard, shell, dialog, refreshAll, scheduleRefresh, initContext, showRiotClient, settingsChanged = () => {}, events = createManagerEvents(), setTimer = setTimeout } = {}) {
+function createManagerService({ store, launchService, riotClient, shell, refreshAll, scheduleRefresh, initContext, settingsChanged = () => {}, events = createManagerEvents() } = {}) {
   function account(id, editable = false) {
     if (typeof id !== 'string' || !ID.test(id)) throw failure('Invalid account identifier');
     const value = store.getAccount(id);
@@ -93,7 +93,7 @@ function createManagerService({ store, launchService, riotClient, clipboard, she
 
   const handlers = {
     init() {
-      return { ...initContext(), embedded: true, accounts: store.listAccounts().map(publicAccount), settings: store.publicSettings(), operation: copyPublic(launchService.getState()), eventCursor: events.cursor() };
+      return { ...initContext(), accounts: store.listAccounts().map(publicAccount), settings: store.publicSettings(), operation: copyPublic(launchService.getState()), eventCursor: events.cursor() };
     },
     events(after = 0) { return events.read(after); },
     operation() { return copyPublic(launchService.getState()); },
@@ -115,31 +115,6 @@ function createManagerService({ store, launchService, riotClient, clipboard, she
       return saved;
     },
     deleteAccount(id) { account(id, true); store.deleteAccount(id); return true; },
-    patchAccount(id, input) {
-      account(id);
-      keys(input, ['note', 'ban', 'lastSeason', 'pinned']);
-      const clean = {};
-      if (Object.hasOwn(input, 'note')) clean.note = text(input.note, 500);
-      if (Object.hasOwn(input, 'ban')) clean.ban = ban(input.ban);
-      if (Object.hasOwn(input, 'lastSeason')) clean.lastSeason = seasons(input.lastSeason);
-      if (Object.hasOwn(input, 'pinned')) {
-        if (typeof input.pinned !== 'boolean') throw failure();
-        clean.pinned = input.pinned;
-      }
-      return publicAccount(store.updateAccountFields(id, clean));
-    },
-    forgetSession(id) { account(id, true); store.forgetSession(id); return publicAccount(store.publicAccount(store.getAccount(id))); },
-    copy(id, what) {
-      const value = account(id);
-      if (!['password', 'riotId', 'username'].includes(what)) throw failure('Invalid clipboard action');
-      const content = what === 'password' ? store.getPassword(id) : what === 'riotId' ? `${value.gameName}#${value.tagLine}` : value.username;
-      clipboard.writeText(content);
-      if (what === 'password') {
-        const timer = setTimer(() => { if (clipboard.readText() === content) clipboard.clear(); }, 20000);
-        timer?.unref?.();
-      }
-      return true;
-    },
     refresh(ids) {
       if (ids != null) {
         if (!Array.isArray(ids) || ids.length > 128) throw failure('Invalid refresh selection');
@@ -154,16 +129,15 @@ function createManagerService({ store, launchService, riotClient, clipboard, she
       if (!['lol', 'tft', 'val', 'riot'].includes(game)) throw failure('Select a supported game');
       return launchService.startFromManager(id, game);
     },
-    showRiotClient() { return showRiotClient(); },
     cancelSignIn() { return launchService.cancel(); },
     saveSettings(input) {
-      keys(input, ['refreshMinutes', 'minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode', 'staySignedIn', 'riotClientPath', 'language', 'riotApiKey', 'riotTftApiKey', 'henrikApiKey']);
+      keys(input, ['refreshMinutes', 'staySignedIn', 'riotClientPath', 'language', 'riotApiKey', 'riotTftApiKey', 'henrikApiKey']);
       const clean = {};
       for (const [key, value] of Object.entries(input)) {
         if (key === 'refreshMinutes') {
           if (!Number.isFinite(value) || value < 0 || value > 10080) throw failure('Invalid refresh interval');
           clean[key] = value;
-        } else if (['minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode', 'staySignedIn'].includes(key)) {
+        } else if (key === 'staySignedIn') {
           if (typeof value !== 'boolean') throw failure('Invalid setting');
           clean[key] = value;
         } else if (key === 'language') {
@@ -174,13 +148,8 @@ function createManagerService({ store, launchService, riotClient, clipboard, she
       const settings = store.updateSettings(clean);
       scheduleRefresh();
       try { settingsChanged(settings); } catch {}
-      return { ...settings, nextRefresh: initContext().nextRefresh, clientFound: Boolean(riotClient.detectClientPath(store.data.settings.riotClientPath)) };
+      return { ...settings, nextRefresh: initContext().nextRefresh };
     },
-    async pickClientPath() {
-      const result = await dialog.showOpenDialog({ title: 'Select RiotClientServices.exe', filters: [{ name: 'Riot Client', extensions: ['exe'] }], properties: ['openFile'] });
-      return result.canceled ? null : result.filePaths[0];
-    },
-    async openDataFolder() { await shell.openPath(store.dir); return true; },
     async openExternal(url) {
       text(url, 2048, true);
       let parsed;
@@ -190,7 +159,7 @@ function createManagerService({ store, launchService, riotClient, clipboard, she
       return true;
     },
   };
-  const counts = { init: [0, 0], events: [0, 1], operation: [0, 0], saveAccount: [1, 1], deleteAccount: [1, 1], patchAccount: [2, 2], forgetSession: [1, 1], copy: [2, 2], refresh: [0, 1], runningGames: [0, 0], signIn: [2, 2], showRiotClient: [0, 0], cancelSignIn: [0, 0], saveSettings: [1, 1], pickClientPath: [0, 0], openDataFolder: [0, 0], openExternal: [1, 1] };
+  const counts = { init: [0, 0], events: [0, 1], operation: [0, 0], saveAccount: [1, 1], deleteAccount: [1, 1], refresh: [0, 1], runningGames: [0, 0], signIn: [2, 2], cancelSignIn: [0, 0], saveSettings: [1, 1], openExternal: [1, 1] };
   return {
     events,
     async dispatch(method, args = []) {

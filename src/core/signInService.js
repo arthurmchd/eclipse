@@ -18,7 +18,7 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
     return account;
   }
 
-  function begin(id, game, { requireIdle = false, forceHidden = false } = {}) {
+  function begin(id, game) {
     if (pending) throw new Error('A sign-in is already in progress');
     const account = validate(id, game);
     const selected = { username: account.username, gameName: account.gameName, tagLine: account.tagLine };
@@ -56,11 +56,6 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
       let response;
       try {
         if (attempt.signal.aborted) throw new Error('Sign-in cancelled');
-        if (requireIdle) {
-          const running = await riotClient.runningGames();
-          if (running.lol || running.val) throw new Error('Close League of Legends or VALORANT before switching from the Riot login screen');
-        }
-        if (attempt.signal.aborted) throw new Error('Sign-in cancelled');
         const latest = store.getAccount(id);
         if (!latest || latest.username !== selected.username || latest.password !== encryptedPassword) throw new Error('Account credentials changed. Start sign-in again');
         writeLog(`--- sign in (${game})`);
@@ -70,8 +65,8 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
           session: () => store.loadSession(id), game,
           hasSavedSession: store.hasSession(id),
           clientPath: store.data.settings.riotClientPath,
-          hide: visibleLogin ? false : requireIdle || forceHidden ? true : store.data.settings.hideRiotClient,
-          closeClient: requireIdle || forceHidden ? true : store.data.settings.closeRiotClient,
+          hide: !visibleLogin,
+          closeClient: true,
           signal: attempt.signal,
           releaseAfterLaunch,
           visibleLogin,
@@ -140,11 +135,8 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
       try { return await begin(id, game).completion; }
       catch (err) { return { ok: false, error: say(typeof err?.message === 'string' ? err.message : 'Sign-in failed') }; }
     },
-    start(id, game) {
-      return { ok: true, operationId: begin(id, game, { requireIdle: true }).operationId };
-    },
     startFromManager(id, game) {
-      return { ok: true, operationId: begin(id, game, { forceHidden: true }).operationId };
+      return { ok: true, operationId: begin(id, game).operationId };
     },
     cancel() { controller?.abort(); return { ok: true }; },
     getState() { return operation ? shown(operation) : null; },

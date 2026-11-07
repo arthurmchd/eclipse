@@ -46,7 +46,6 @@ const MESSAGES = [
   ['The Riot Client sign-in form did not respond', 'O formulário de login do Riot Client não respondeu'],
   ['The Riot background sign-in service returned an invalid response', 'O serviço de login da Riot devolveu uma resposta inválida'],
   ['The Riot authentication service returned an invalid response', 'O serviço de autenticação da Riot devolveu uma resposta inválida'],
-  ['The Riot background service did not become ready', 'O serviço da Riot em segundo plano não ficou pronto'],
   ['The local Riot service could not complete the request', 'O serviço local da Riot não concluiu o pedido'],
   ['Could not contact the Riot authentication service', 'Não foi possível falar com o serviço de autenticação da Riot'],
   ['Could not start the Riot Client. Check its path and Windows permissions', 'Não foi possível iniciar o Riot Client. Confira o caminho e as permissões do Windows'],
@@ -55,7 +54,6 @@ const MESSAGES = [
   ['Could not update the Riot Client settings file', 'Não foi possível atualizar o arquivo de configurações do Riot Client'],
   ['Could not bring the Riot Client to the front', 'Não foi possível trazer o Riot Client para a frente'],
   ['Could not check running Riot games. No accounts were switched', 'Não foi possível verificar os jogos abertos. Nenhuma conta foi trocada'],
-  ['Close League of Legends or VALORANT before switching from the Riot login screen', 'Feche o League of Legends ou o VALORANT antes de trocar de conta pela tela de login da Riot'],
   ['Riot Client not found. Set its path in Settings', 'Riot Client não encontrado. Informe o caminho nas Configurações'],
   ['Account not found', 'Conta não encontrada'],
   ['Add the username and password first', 'Adicione o usuário e a senha primeiro'],
@@ -66,13 +64,10 @@ const MESSAGES = [
   ['The background window guard has stopped', 'O monitor de janelas em segundo plano parou'],
   ['Windows encryption is not available', 'A criptografia do Windows não está disponível'],
   ['The game is opening. Wait or cancel from the tray.', 'O jogo está sendo aberto. Aguarde ou cancele pela bandeja.'],
-  ['The game is opening in the background. Wait or use Cancel sign-in in the tray.', 'O jogo está sendo aberto em segundo plano. Aguarde ou use Cancelar login na bandeja.'],
   ['Riot Client not found. Install the official client before starting Eclipse.', 'Riot Client não encontrado. Instale o cliente oficial antes de iniciar o gerenciador.'],
   ['Could not follow the Riot window. Restart Eclipse.', 'Não foi possível acompanhar a janela do Riot. Reinicie o gerenciador.'],
   ['Could not open the accounts in Riot.', 'Não foi possível abrir as contas no Riot.'],
   ['Could not update ranks. Check the API keys in Settings', 'Não foi possível atualizar os elos. Confira as chaves de API nas Configurações'],
-  ['Prepare the private copy to open the accounts inside Riot.', 'Prepare a cópia privada para abrir as contas dentro do Riot.'],
-  ['The local accounts connection could not be started.', 'A conexão local das contas não pôde ser iniciada.'],
 ];
 
 const PATTERNS = [
@@ -86,15 +81,15 @@ const MAIN_TEXT = {
   pt: {
     trayAccounts: 'Contas no Riot', trayOpenRiot: 'Abrir Riot Client', trayCancel: 'Cancelar login', trayQuit: 'Sair',
     gameFailed: 'Não foi possível abrir o jogo', needsAttention: 'O login precisa de sua atenção',
-    openFailed: 'Não foi possível abrir a interface integrada.',
-    openFailedDetail: 'Encerre a instância antiga após atualizar o projeto. Confira a preparação da cópia privada da interface Riot.',
+    openFailed: 'Não foi possível abrir as contas no Riot.',
+    openFailedDetail: 'Tente de novo pelo ícone da bandeja. Se continuar, confira se o Riot Client está instalado.',
     understood: 'Entendi',
   },
   en: {
     trayAccounts: 'Accounts in Riot', trayOpenRiot: 'Open Riot Client', trayCancel: 'Cancel sign-in', trayQuit: 'Quit',
     gameFailed: 'Could not open the game', needsAttention: 'The sign-in needs your attention',
-    openFailed: 'Could not open the integrated interface.',
-    openFailedDetail: 'Quit the old instance after updating the project. Check the preparation of the private copy of the Riot interface.',
+    openFailed: 'Could not open the accounts in Riot.',
+    openFailedDetail: 'Try again from the tray icon. If it keeps failing, check that Riot Client is installed.',
     understood: 'OK',
   },
 };

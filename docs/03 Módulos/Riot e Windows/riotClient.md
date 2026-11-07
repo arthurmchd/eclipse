@@ -43,18 +43,17 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 | `authorization()` | função async | `'yes'`, `'no'` ou `'unknown'` (`authorizationOf`). Exportada desde 2026-11-07 para o [[sessionKeeper]] confirmar uma saída pela Riot só com `'no'`. |
 | `quitClient()` | função async | Pede à Riot a saída normal (`POST /process-control/v1/process/quit`), a mesma do menu "Sair". Erro vira `null`. Exportada desde 2026-11-06 para o [[sessionKeeper]]. |
 | `sameRiotId(a, b)` | função | Compara `gameName` e `tagLine` sem diferenciar maiúsculas. Exige `gameName` nos dois. |
-| `showClient()` | função async | `openClient` com o último caminho usado ou o detectado. |
 | `startClient(clientPath)` | função async | Inicia a Riot com a interface só se nenhum processo dela estiver rodando. Libera as janelas guardadas, confere de novo e inicia. Devolve `true` se iniciou e `false` se a Riot já rodava. Sem caminho, lança "Riot Client not found". Desde 2026-11-06, para o [[sessionKeeper]]. |
 | `openClient(clientPath)` | função async | Revela as janelas Riot. Se não há janela do cliente, abre a interface visível. |
-| `ensureBackgroundClient(clientPath)` | função async | Oculta janelas (`hide`), inicia o backend `--headless` se não roda e espera até 45 s pelo estado de sessão. Retorna o caminho. |
 | `closeClient()` | função async | Fecha o Riot como o botão X da Riot, pelo [[riotAppControls]]. Devolve `'background'` ou `'quit'`. Usado só pela cópia do X nos [[cards]]. |
 | `dispose()` | função async | `windows.stop()`. |
-| `readAuthenticationState(signal)` | função async | Estado sanitizado de `riotAuthentication.sessionState(signal)`, usado para recuperar verificação pendente e controlar a visibilidade dos cartões. Sinal opcional cancela a leitura. |
+| `readLoginScreenState(signal)` | função async | Estado sanitizado da tela de login (`riotAuthentication.loginScreenState`), usado só para a visibilidade dos cartões. Sinal opcional cancela a leitura. |
 
 ## Dependências
 
 - Usa: [[signInFlow]], [[riotTransport]], [[riotAuthentication]], [[riotAppControls]], [[riotProcess]], [[windowController]], [[windowsEnvironment]], [[paths]] (`windowsHelper('login.ps1')`), [[login.ps1]].
-- Usado por: [[main]] (IPC "show-riot-client", `saveLeavingSession`, `ensureBackend` do [[privateClient]], encerramento) e [[signInService]] (`signIn`, `runningGames`).
+- Usado por: [[main]] (`openClient`, `closeClient`, `readLoginScreenState`, `saveLeavingSession`, encerramento), [[signInService]] (`signIn`), [[managerService]] (`runningGames`), [[sessionKeeper]] e [[riotWakeup]].
+- **API sem o modo antigo.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saíram `ensureBackgroundClient` (só a cópia privada o usava), `showClient` e o export `readAuthenticationState`. O [[signInFlow]] continua recebendo `readAuthenticationState` pelo `io` interno.
 
 ## Estado do módulo
 
@@ -107,10 +106,10 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 ## Invariantes e decisões
 - `openClient` usa o mesmo abridor quando os serviços já rodam sem interface; pede a janela ao backend antes de considerar outro início. Executar novamente apenas o exe não garantia uma janela.
 
-- Para [[ADR-010 Login visível com progresso]], fornece `openVisibleInterface` ao fluxo usando o abridor existente e `closeGames` restrito aos processos de jogos, sem reiniciar a interface Riot. A confirmação de fechar jogos permanece no renderer antes da operação.
+- Para [[ADR-010 Login visível com progresso]], fornece `openVisibleInterface` ao fluxo usando o abridor existente e `closeGames` restrito aos processos de jogos, sem reiniciar a interface Riot. A confirmação de fechar jogos permanece nos [[cards]] antes da operação.
 
 - **A API local é a fonte do estado de login.** Porta e senha estão no lockfile do cliente.
-- **Recuperação consulta somente metadados públicos.** `readAuthenticationState` reaproveita a normalização de [[riotAuthentication]], sem expor tokens ou credenciais. Erros de consulta são propagados para o [[main]] preservar a tela existente em vez de reiniciar o contexto.
+- **Estado só com metadados públicos.** `readLoginScreenState` e o `readAuthenticationState` do `io` reaproveitam a normalização de [[riotAuthentication]], sem expor tokens ou credenciais.
 - **Troca de conta pelo "Stay signed in".** Depois que uma conta entra uma vez com a opção marcada, o `RiotGamesPrivateSettings.yaml` guarda esse login. O app mantém uma cópia por conta e a devolve antes de iniciar o cliente. O cliente então entra sozinho, sem janela nem digitação. Se a cópia falta ou expirou, as credenciais são enviadas pela API direta ou digitadas no formulário oculto.
 - **`clientWindow` olha só a interface.** `RiotClientServices.exe` roda em segundo plano sem janela. Por isso `clientWindow` considera só `Riot Client.exe` e `RiotClientUx.exe`.
 - **Dois formatos de login lembrado.** Um `refresh_token` em `psl.authorization.riot-client` (Riot Client v141) ou um cookie `"ssid"` (versões antigas).
@@ -155,7 +154,7 @@ Sem cobertura: `sameRiotId`, `detectClientPath`, `watchSettings`, `runWindowScri
 - **Ramo morto.** `error:focus` nunca é emitido pelo [[login.ps1]] atual.
 - **YAML editado por linhas.** `stripPersistedLogin` para na primeira linha em branco dentro do bloco, aceita qualquer chave `riot-client:` recuada e devolve o texto com `\n` (CRLF vira LF). Um formato novo exige revisão: [[Atualização do Riot Client]].
 - **Corpo de resposta no log.** `requestLaunch` grava trechos das respostas do Riot no `sign-in.log`. Ver [[Segurança e privacidade]].
-- **Jogos fechados à força.** `closeEverything` usa `taskkill /F` nos jogos. A confirmação do usuário fica fora deste módulo: os [[cards]] e a janela antiga ([[renderer]]) perguntam antes de trocar de conta com um jogo aberto, e o caminho do addon recusa com mensagem ([[signInService]]). Conferido em 2026-11-06.
+- **Jogos fechados à força.** `closeEverything` usa `taskkill /F` nos jogos. A confirmação do usuário fica fora deste módulo: os [[cards]] perguntam antes de trocar de conta com um jogo aberto. Conferido em 2026-11-06; a janela antiga e o caminho do addon saíram em 2026-11-07.
 - **Caminhos fixos em `C:`.** Outra unidade depende do `RiotClientInstalls.json` ou do caminho nas configurações.
 - **`selectedClientPath` é estado global.** O último caminho detectado vale para todas as chamadas seguintes da API local.
 - **Identidade no `id_token`.** Conferido no Riot real em 2026-11-06 (em memória, sem mostrar valores): o `id_token` traz `sub` e `acct`. Se a Riot mudar o formato, `persistedSubject` e `persistedRiotId` devolvem `null` e o [[sessionKeeper]] deixa o login no arquivo da Riot.

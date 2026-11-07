@@ -5,28 +5,28 @@ tags: [visão-geral]
 
 # Visão geral
 
-Painel para Windows que entra em várias contas da Riot com um clique: **League of Legends**, **Teamfight Tactics** e **VALORANT**, mostrando o elo de cada conta com os emblemas oficiais de cada jogo.
+Painel para Windows que entra em várias contas da Riot com um clique: **League of Legends** (e o TFT, que roda no mesmo cliente) e **VALORANT**, mostrando o elo de cada conta com os emblemas oficiais de cada jogo.
 
 ## Problema que resolve
 
-Quem tem várias contas precisa sair, digitar usuário e senha e esperar o Riot Client a cada troca. O app guarda as contas criptografadas, reaproveita a sessão que o próprio Riot salvou ("Manter conectado") e pede a abertura do jogo pelo serviço local do Riot, com as janelas do cliente escondidas.
+Quem tem várias contas precisa sair, digitar usuário e senha e esperar o Riot Client a cada troca. O app guarda as contas criptografadas, preenche o formulário da Riot na primeira entrada de cada conta, guarda a sessão de cada uma ("Manter login") e, das próximas vezes, entra em segundo plano e pede a abertura do jogo pelo serviço local do Riot.
 
-## Interface unificada
+## Cartões sobre a Riot
 
-O aplicativo abre uma cópia privada da interface Riot. **Contas** abre o gerenciamento completo dentro dessa mesma janela: cadastro, edição, filtros, elos, configurações e progresso. O seletor rápido **MINHAS CONTAS** continua disponível no formulário de login. O serviço fica em segundo plano, sem janela independente.
-
-O acesso completo também funciona quando a Riot já está conectada, sem sair da sessão apenas para gerenciar contas. A arquitetura está em [[ADR-007 Interface completa dentro do Riot Client]] e o uso em [[Integração com o Riot Client]].
+O Eclipse roda na bandeja e desenha os cartões de contas sobre a arte à direita da janela oficial da Riot, presos a ela ([[ADR-009 Sobreposição no cliente oficial]]). A coluna de login da Riot continua dela; a caixa "Ocultar contas" mostra a arte de volta. Não há janela própria do gerenciador nem cópia da interface da Riot: o modo antigo, com a cópia privada, saiu em 2026-11-07 ([[ADR-028 Modo antigo removido]]). O uso está em [[Como usar]] e a arquitetura em [[Integração com o Riot Client]].
 
 ## Recursos
 
-- Abas LoL / TFT / VALORANT, cada uma com o visual do seu cliente
-- Filas: Solo/Duo e Flex (LoL), Ranked e Double Up (TFT), Competitive (VALORANT)
-- Distribuição de elos na barra lateral, com filtro por elo
-- Busca (Ctrl+F), filtro de região, ordenação por elo, nome, nível, última partida ou win rate, grade ou lista
-- Banimento com contagem regressiva, elo da temporada passada, nota livre, fixar no topo
-- Copiar usuário e senha; a senha sai da área de transferência depois de 20 s
-- Modo streamer: borra os nomes de usuário
-- Atalhos: Ctrl+N nova conta, Ctrl+1/2/3 troca de jogo, F5 atualiza elos, duplo clique edita
+- Ícones de jogo no rodapé: Riot (só entrar), League e VALORANT, cada um com as cores e o botão Jogar do seu cliente
+- Cartão do League com banner, ícone de perfil e Solo/Duo e Flex lado a lado; em Mestre ou acima, quanto falta para o corte de Grão-Mestre ou Desafiante
+- Cartão do VALORANT com a arte do cartão de jogador e o elo Competitivo
+- Adicionar conta pelo **+** do rodapé; editar e remover pelo menu ⋯ do cartão
+- ⚙ Configurações: idioma (português ou inglês), **Manter login**, chaves de API e intervalo de atualização dos elos
+- ↻ atualiza os elos; o rodapé mostra quantas contas existem e quando foram atualizadas
+- Jogar vira Cancelar durante o login
+- Cópias dos botões de minimizar e fechar da Riot, desenhadas sobre os originais
+
+O elo do TFT ainda é consultado ([[rankApi]]), mas não aparece nos cartões.
 
 ## Fontes de dados
 
@@ -43,7 +43,7 @@ Ver [[rankApi]].
 - Não contorna CAPTCHA nem 2FA ([[ADR-003 Sem contornar CAPTCHA ou 2FA]])
 - Não mexe nos processos dos jogos nem no Vanguard
 - Não entra em filas nem inicia partidas
-- Não altera a instalação do Riot Client ([[ADR-001 Cópia privada da interface do Riot]])
+- Não altera a instalação do Riot Client: só lê o lockfile e o certificado dela ([[ADR-028 Modo antigo removido]])
 
 Automatizar o Riot Client é zona cinzenta nos termos da Riot. O risco é do usuário. Ver [[Limitações conhecidas]].
 

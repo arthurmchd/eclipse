@@ -411,16 +411,6 @@ const startClient = createClientStarter({
   select: (exe) => { selectedClientPath = exe; },
 });
 
-async function ensureBackgroundClient(clientPath) {
-  const exe = detectClientPath(clientPath);
-  if (!exe) throw new Error('Riot Client not found. Set its path in Settings');
-  selectedClientPath = exe;
-  await windows.hide();
-  if (!(await runningGames()).client) await launchProduct(exe);
-  if (!(await waitFor(sessionState, 45000))) throw new Error('The Riot background service did not become ready');
-  return exe;
-}
-
 async function requestLaunch(game, log) {
   const base = `/product-launcher/v1/products/${PRODUCTS[game]}/patchlines/live`;
   const eligibility = await localApi('GET', `${base}/eligibility`).catch(() => null);
@@ -464,12 +454,9 @@ module.exports = {
   isAuthorized,
   authorization,
   quitClient: () => localApi('POST', QUIT).catch(() => null),
-  showClient: () => openClient(selectedClientPath || detectClientPath()),
   startClient,
   openClient,
-  readAuthenticationState: signal => authentication.sessionState(signal),
   readLoginScreenState: signal => authentication.loginScreenState(signal),
-  ensureBackgroundClient,
   closeClient: () => appControls.close(),
   dispose: () => windows.stop(),
 };

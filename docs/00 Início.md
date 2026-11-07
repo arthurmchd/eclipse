@@ -19,22 +19,23 @@ Este vault é o cérebro do projeto. O código não tem comentários: o **porqu�
 ## Arquitetura
 
 - [[Fluxo de login]]: o que acontece entre o clique em Play e o jogo aberto
-- [[Integração com o Riot Client]]: seleção e gerenciamento completo de contas dentro da janela Riot
+- [[Integração com o Riot Client]]: os cartões de contas sobre a janela oficial da Riot
 - [[Armazenamento e dados]]: `data.json`, backups, sessões salvas e logs
 - [[Segurança e privacidade]]: todas as regras que protegem senhas, tokens e sessões
 
 ## Módulos
 
-Modo padrão: [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[riotWindowObserver]].
-Interface compacta: [[cards]].
+Um modo só desde 2026-11-07 ([[ADR-028 Modo antigo removido]]): os [[cards]] sobre a Riot oficial, por [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[riotWindowObserver]].
 
 | Camada | Notas |
 |---|---|
-| Aplicação | [[main]] · [[preload]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] |
+| Aplicação | [[main]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] |
 | Riot | [[riotClient]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
-| Windows | [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[windowsDpapi]] |
-| Integração | [[privateClient]] · [[hostEntry]] · [[privateHost]] · [[privateHostCore]] · [[privateRendererCore]] · [[managerHost]] · [[manager-preload]] · [[addons]] · [[bridgeServer]] · [[bootstrapChannel]] · [[backend]] · [[asar]] · [[status]] · [[Scripts de integração]] |
-| Interface | [[renderer]] |
+| Windows | [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[riotWindowObserver]] |
+| Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] |
+| Interface | [[cards]] |
+
+Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como histórico.
 
 ## Decisões
 
@@ -57,14 +58,15 @@ Interface compacta: [[cards]].
 - [[ADR-025 Caixa some junto com o formulário da Riot]]
 - [[ADR-026 Riot fechada depois do jogo reabre na tela de login]]
 - [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]
+- [[ADR-028 Modo antigo removido]]
 
-- [[ADR-001 Cópia privada da interface do Riot]]
+- [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]
 - [[ADR-003 Sem contornar CAPTCHA ou 2FA]]
 - [[ADR-004 Monitor persistente de janelas]]
 - [[ADR-005 Código sem comentários e conhecimento no vault]]
 - [[ADR-006 Estrutura de pastas por camada]]
-- [[ADR-007 Interface completa dentro do Riot Client]]
+- [[ADR-007 Interface completa dentro do Riot Client]] (substituída)
 - [[ADR-008 Recuperação visual sem reexibir o Riot]]
 - [[Estudo - Comparação com o Rose]]
 

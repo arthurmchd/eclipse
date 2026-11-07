@@ -47,5 +47,5 @@ Repete a decisão do botão de fechar da Riot: mandar o cliente para o segundo p
 
 ## Pontos de atenção
 
-- Os caminhos e a regra vêm da versão da interface da Riot lida em 2026-11-04. Se uma atualização mudar o `UxService.quit`, a cópia pode divergir; confira junto com o agente `riot-update-checker`.
+- Os caminhos e a regra vêm da versão da interface da Riot lida em 2026-11-04. Se uma atualização mudar o `UxService.quit`, a cópia pode divergir; confira ao seguir [[Atualização do Riot Client]].
 - Não foi conferido com a Riot real aberta.

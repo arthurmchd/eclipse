@@ -26,8 +26,8 @@ Modos:
 
 | Chamada | Argumentos | `windowsHide` | Quem usa |
 |---|---|---|---|
-| padrão | `--headless` | `true` | Reinício no [[signInFlow]], `ensureBackgroundClient` |
-| `visible: true` | nenhum | `false` | `openClient` (Show Riot Client) |
+| padrão | `--headless` | `true` | Reinício no [[signInFlow]] |
+| `visible: true` | nenhum | `false` | `openClient` (Abrir Riot Client na bandeja) |
 | `interfaceRequired: true` | nenhum | `true`, salvo `visible` | `typeCredentials` (formulário nativo) |
 
 Opções do `spawn`: `detached: true`, `stdio: 'ignore'`, `env: environmentForRiot()`. No evento `spawn`, chama `child.unref()` e resolve.

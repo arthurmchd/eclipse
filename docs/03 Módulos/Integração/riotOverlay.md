@@ -56,7 +56,7 @@ Hospeda os cartões de contas em [[managerHost]] sobre a área de arte da janela
 - Fechar ou perder dados do observador oculta a sobreposição. Minimizar a Riot oculta com `hide`, sem zerar a sessão. Perder foco não oculta mais (desde 2026-11-04). Ao voltar, os cartões aparecem automaticamente se o cliente ainda estiver no login.
 - A view usa as proteções IPC de [[managerHost]]: remetente, frame principal e URL local exata. Não há leitura de credenciais ou conteúdo da interface nativa.
 - Fechar a janela sobreposta não encerra o serviço. Parar destrói somente a própria janela e observador.
-- Decisão: [[ADR-009 Sobreposição no cliente oficial]]. Sem arquivos Riot alterados, sem plugin Pengu e sem ponte HTTP no modo padrão.
+- Decisão: [[ADR-009 Sobreposição no cliente oficial]]. Sem arquivos Riot alterados, sem plugin Pengu e sem ponte HTTP. Único modo desde 2026-11-07 ([[ADR-028 Modo antigo removido]]).
 - **Idioma da caixa.** Revisão de 2026-11-04: `setLanguage(idioma)` guarda `pt` ou `en` (pode ser chamado antes de `start`), cria a caixa do [[overlayToggle]] com esse idioma e repassa mudanças a ela. Os cartões leem o idioma das configurações por conta própria ([[cards]]).
 
 ## Testes

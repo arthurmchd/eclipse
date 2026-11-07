@@ -1,11 +1,13 @@
 ---
 tipo: decisão
-status: aceita
+status: substituída
 data: 2026-10-26
 tags: [adr, integração]
 ---
 
 # ADR-001 Cópia privada da interface do Riot
+
+> Substituída em 2026-11-07 pela [[ADR-028 Modo antigo removido]]. A cópia privada saiu do código; o último commit com ela tem a tag `modo-antigo-final`.
 
 ## Contexto
 

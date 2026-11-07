@@ -14,7 +14,7 @@ O app guarda senhas de várias contas, chaves de API e sessões Riot que dão ac
 ## Decisão
 
 - Dados em repouso (senhas, chaves, sessões): `safeStorage` do Electron, que no Windows usa o DPAPI do usuário ([[store]]).
-- Tokens entre processos: DPAPI direto por um auxiliar PowerShell ([[windowsDpapi]]), porque o `safeStorage` pode depender de uma chave do perfil e o host privado tem perfil próprio de propósito.
+- Tokens entre processos: DPAPI direto por um auxiliar PowerShell ([[windowsDpapi]]), porque o `safeStorage` pode depender de uma chave do perfil e o host privado tem perfil próprio de propósito. Removido em 2026-11-07 junto com o host privado ([[ADR-028 Modo antigo removido]]); não há mais tokens entre processos.
 
 ## Alternativas consideradas
 

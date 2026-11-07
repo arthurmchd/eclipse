@@ -18,7 +18,7 @@ function fixture(overrides = {}) {
   let received;
   const result = { gameStarted: true, riotId: { gameName: 'Example', tagLine: 'BR1' }, session: 'private-session', sessionRejected: false };
   const store = {
-    data: { settings: { riotClientPath: 'C:/Example/RiotClientServices.exe', hideRiotClient: true, closeRiotClient: true } },
+    data: { settings: { riotClientPath: 'C:/Example/RiotClientServices.exe' } },
     getAccount: (id) => accounts.get(id),
     getPassword: (id) => { calls.push(['get-password', id]); return 'decrypted-secret'; },
     loadSession: (id) => { calls.push(['load-session', id]); return 'remembered-session'; },
@@ -71,12 +71,12 @@ test('GUI sign-in waits for completion and passes decrypted credentials only to 
   for (const secret of ['private-login', 'encrypted-secret', 'decrypted-secret', 'private-session']) assert.equal(exposed.includes(secret), false);
 });
 
-test('bridge start returns immediately and its operation survives disappearance of a UI', async () => {
+test('the cards start returns immediately and its operation survives disappearance of a UI', async () => {
   const f = fixture();
   const hold = deferred();
   let called = false;
   f.riotClient.signIn = async () => { called = true; return hold.promise; };
-  const accepted = f.service.start('test-account', 'tft');
+  const accepted = f.service.startFromManager('test-account', 'tft');
   assert.equal(accepted.ok, true);
   assert.equal(accepted.operationId, f.service.getState().id);
   assert.equal(f.service.getState().operationId, accepted.operationId);
@@ -88,12 +88,12 @@ test('bridge start returns immediately and its operation survives disappearance 
   assert.equal((await settle(f.service)).status, 'succeeded');
 });
 
-test('GUI and bridge requests share a mutex', async () => {
+test('waiting and immediate requests share a mutex', async () => {
   const f = fixture();
   const hold = deferred();
   f.riotClient.signIn = async () => hold.promise;
   const pending = f.service.signIn('test-account', 'lol');
-  assert.throws(() => f.service.start('test-account', 'val'), /already in progress/);
+  assert.throws(() => f.service.startFromManager('test-account', 'val'), /already in progress/);
   assert.equal((await f.service.signIn('test-account', 'tft')).ok, false);
   await flush();
   hold.resolve(f.result);
@@ -101,53 +101,36 @@ test('GUI and bridge requests share a mutex', async () => {
   assert.equal(f.service.isBusy(), false);
 });
 
-for (const runningGame of ['lol', 'val']) {
-  test(`Riot-login integration refuses a switch while ${runningGame} is running`, async () => {
-    const f = fixture();
-    f.riotClient.runningGames = async () => ({ [runningGame]: true });
-    f.service.start('test-account', 'lol');
-    const state = await settle(f.service);
-    assert.equal(state.status, 'failed');
-    assert.match(state.error, /Close League of Legends or VALORANT/);
-    assert.equal(f.calls.some(([name]) => name === 'get-password' || name === 'sign-in'), false);
-  });
-}
-
-test('GUI launch keeps its existing confirmation responsibility', async () => {
+test('the service never checks running games, because the cards confirm before signing in', async () => {
   const f = fixture();
-  f.riotClient.runningGames = async () => { throw new Error('GUI should have already confirmed switching'); };
+  f.riotClient.runningGames = async () => { throw new Error('The cards should have already confirmed switching'); };
   assert.equal((await f.service.signIn('test-account', 'val')).ok, true);
+  f.service.startFromManager('test-account', 'lol');
+  assert.equal((await settle(f.service)).status, 'succeeded');
 });
 
-test('integrated launch always keeps the client hidden despite old visible-client preferences', async () => {
+test('a hidden login hides the Riot and closes it after the game opens', async () => {
   const f = fixture();
-  f.store.data.settings.hideRiotClient = false;
-  f.store.data.settings.closeRiotClient = false;
   f.store.hasSession = () => false;
-  f.service.start('test-account', 'lol');
+  f.service.startFromManager('test-account', 'lol');
   await settle(f.service);
   assert.equal(f.received().hide, true);
   assert.equal(f.received().closeClient, true);
   assert.equal(f.received().hasSavedSession, false);
-  assert.equal(f.store.data.settings.hideRiotClient, false);
-  assert.equal(f.store.data.settings.closeRiotClient, false);
 });
 
-test('normal manager preserves explicit visible-client preferences', async () => {
-  const f = fixture();
-  f.store.data.settings.hideRiotClient = false;
-  f.store.data.settings.closeRiotClient = false;
+test('a visible login never hides the Riot and still closes it after the game opens', async () => {
+  const f = fixture({ visibleLogin: true });
   await f.service.signIn('test-account', 'lol');
   assert.equal(f.received().hide, false);
-  assert.equal(f.received().closeClient, false);
+  assert.equal(f.received().closeClient, true);
+  assert.equal(f.received().visibleLogin, true);
 });
 
-test('embedded manager acknowledges immediately, keeps Riot hidden and preserves the game confirmation', async () => {
+test('the cards start acknowledges immediately, keeps Riot hidden and leaves the game confirmation to the cards', async () => {
   const f = fixture();
   const hold = deferred();
-  f.store.data.settings.hideRiotClient = false;
-  f.store.data.settings.closeRiotClient = false;
-  f.riotClient.runningGames = async () => { throw new Error('The embedded UI already confirmed the switch'); };
+  f.riotClient.runningGames = async () => { throw new Error('The cards already confirmed the switch'); };
   f.riotClient.signIn = async (options) => { f.calls.push(['embedded-options', options]); return hold.promise; };
   const accepted = f.service.startFromManager('test-account', 'val');
   assert.equal(accepted.ok, true);
@@ -160,12 +143,11 @@ test('embedded manager acknowledges immediately, keeps Riot hidden and preserves
   assert.throws(() => f.service.startFromManager('test-account', 'lol'), /already in progress/);
   hold.resolve(f.result);
   assert.equal((await settle(f.service)).status, 'succeeded');
-  assert.equal(f.store.data.settings.hideRiotClient, false);
 });
 
 test('cancellation before scheduled execution performs no client or credential work', async () => {
   const f = fixture();
-  f.service.start('test-account', 'lol');
+  f.service.startFromManager('test-account', 'lol');
   assert.deepEqual(f.service.cancel(), { ok: true });
   const state = await settle(f.service);
   assert.equal(state.status, 'cancelled');
@@ -343,8 +325,8 @@ test('client errors and progress cannot expose the decrypted password or usernam
 
 test('unsupported games and incomplete accounts never start an operation', async () => {
   const f = fixture();
-  assert.throws(() => f.service.start('test-account', 'unknown'), /supported game/);
-  assert.throws(() => f.service.start('missing-account', 'lol'), /not found/);
+  assert.throws(() => f.service.startFromManager('test-account', 'unknown'), /supported game/);
+  assert.throws(() => f.service.startFromManager('missing-account', 'lol'), /not found/);
   f.accounts.get('test-account').password = '';
   assert.equal((await f.service.signIn('test-account', 'lol')).ok, false);
   assert.equal(f.service.getState(), null);

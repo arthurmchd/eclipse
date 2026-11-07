@@ -5,7 +5,7 @@ if not exist "node_modules\electron\dist\electron.exe" (
   call npm install || goto :error
   node node_modules\electron\install.js || goto :error
 )
-start "" "node_modules\electron\dist\electron.exe" . --riot-login
+start "" "node_modules\electron\dist\electron.exe" .
 exit /b 0
 
 :error

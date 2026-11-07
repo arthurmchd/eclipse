@@ -10,7 +10,7 @@ Ordenado por prioridade. Use o template [[Tarefa]] para detalhar um item antes d
 
 ## Validar no Riot real
 
-- **Recuperação do monitor de janelas.** O login abortava quando o monitor caía logo depois do preenchimento nativo (três falhas reais em 2026-10-26). O [[windowController]] agora reergue o monitor e grava o motivo no `sign-in.log`. Falta: (1) confirmar que o jogo abre numa tentativa real; (2) ler o código registrado ("window guard restarted after …"). Se for sempre o mesmo (por exemplo `window-style-timeout`), tratar a causa no [[windowGuard.ps1]] em vez de depender da recuperação.
+- **Recuperação do monitor de janelas.** Fora de uso desde 2026-11-07: só o login escondido do modo antigo armava o monitor que esconde a Riot, e o login visível não o arma ([[ADR-028 Modo antigo removido]]). A recuperação continua no [[windowController]].
 
 - **Caixa "Stay signed in" na v142.** Até 2026-11-06 o [[login.ps1]] usava as cores da v141 e lia a grade fora da área cliente, 7 px à esquerda do centro da caixa: a caixa marcada nunca era reconhecida e os logins visíveis registravam `remember:unknown`. Corrigido em 2026-11-06 e conferido numa réplica do formulário. Falta, num login visível real: (1) ver `remember:on` ou `remember:off` no `sign-in.log`; (2) com "Manter login" desligado, ver a caixa da Riot desmarcada antes de entrar, já que o clique para desmarcar nunca foi exercitado.
 - **Jogo desatualizado: confirmar no Riot real.** O 424 `launch_failed_product_not_up_to_date` visto em 2026-11-04 12:36 agora faz o [[signInFlow]] esperar a atualização e repetir o pedido a cada 15 s (até 20 min). Coberto por testes; falta ver no `sign-in.log` um login real em que o jogo estava desatualizado e abriu depois da atualização.
@@ -60,10 +60,10 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 6. **Tratado na migração da interface:** o [[main]] só publica `account-updated` quando a atualização devolve uma conta. Conta removida durante o refresh não gera evento nulo.
 7. **`refreshAll(ids)` ignora `ids` se já houver refresh.** Conta recém-salva só ganha elo no ciclo seguinte ([[main]]).
 8. **`onClosed` sem proteção.** Em [[signInService]], `onClosed` é repassado direto, sem o `notify` que protege os outros callbacks. Uma exceção em `saveLeavingSession` aborta o login com o Riot já fechado.
-9. **`closeClient` não fecha o cliente.** Em [[signInFlow]], a opção só chama `conceal()`. Decidir: renomear a preferência ou implementar o fechamento.
+9. **Resolvido em 2026-11-07:** a preferência `closeRiotClient` saiu, e o login visível sempre fecha a janela da Riot depois que o jogo abre. A opção `closeClient` do [[signInFlow]] só vale no ramo escondido, que o app não usa ([[ADR-028 Modo antigo removido]]).
 10. **Corpo de resposta no log.** `requestLaunch` em [[riotClient]] grava até 300 caracteres das respostas de abertura do jogo no `sign-in.log`. Risco baixo, mas contraria "só valores fixos no log" ([[Segurança e privacidade]]).
-11. **Erros sem toast na interface.** `submitSettings`, `deleteAccount` e as ações do menu (`pin`, `unban`, `forget`, `delete`) em [[renderer]] não tratam rejeição; recusas como "Wait for sign-in to finish…" somem.
-12. **`hostEntry` sem `return` após `app.exit(1)`.** Sem o argumento do pipe, a linha seguinte ainda roda com `flag` indefinido ([[hostEntry]]).
+11. **Saiu com a janela antiga em 2026-11-07.** Era sobre rejeições sem aviso na janela antiga ([[renderer]]); os [[cards]] não têm essas ações de menu.
+12. **Saiu com o modo antigo em 2026-11-07.** O [[hostEntry]] foi removido.
 13. **Tratado na migração da interface:** [[managerService]] centraliza métodos, quantidade de argumentos, formatos de conta, tipos de configurações e campos de patch; [[managerHost]] valida o remetente IPC isolado.
 
 ## Investigar
@@ -74,16 +74,16 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 ## Estrutura
 
 14. **Reavaliar depois da migração:** o [[main]] deixou de criar a janela e os handlers da interface; a validação de contas foi extraída para [[managerService]] e a UI para [[managerHost]]/[[manager-preload]]. O harness de inicialização foi atualizado. Separar a bandeja ou o agendamento só se a complexidade voltar a justificar.
-15. **Dividir `src/renderer/app.js`** (≈840 linhas) em ES modules: `state`, `format`, `render/cards`, `render/sidebar`, `modals`, `actions`, `shortcuts`. Sem testes hoje; verificar pela prévia no navegador.
+15. **Saiu com a janela antiga em 2026-11-07.** O `src/renderer/app.js` foi removido.
 16. **Lint e formatação.** ESLint (flat config) e Prettier como `devDependencies`, com `npm run lint` e uma regra que barre comentários novos.
-17. **Limpar código morto.** `SUPPORTED_VERSION` e `UNSAFE_STARTUP_LOG` não usados em [[privateHostCore]]; ramo `error:focus` em [[riotClient]]; ramo "The game did not start" em [[renderer]]; `dryRun` só usado em testes ([[signInFlow]]).
-18. **Remover o experimento legado** (`scripts/legacy/`, [[status]] e os testes associados) se ele não for mais retomado.
-19. **Mock da prévia fora de sincronia.** `scripts/dev/mock-api.js` não define `onSignInOperation`.
+17. **Limpar código morto.** O que era do modo antigo saiu em 2026-11-07 ([[ADR-028 Modo antigo removido]]). Resta: ramo `error:focus` em [[riotClient]]; `dryRun` só usado em testes; os ramos com `hide` do [[signInFlow]], que o app não usa desde que o login é sempre visível; `signIn` do [[signInService]], sem chamador no app.
+18. **Feito em 2026-11-07.** O experimento legado, a cópia privada e a janela antiga saíram ([[ADR-028 Modo antigo removido]]). O código está na tag `modo-antigo-final`.
+19. **Resolvido.** `scripts/dev/mock-api.js` define `onSignInOperation`; desde 2026-11-07 ele só tem o que os cartões usam.
 
 ## Produto
 
-20. **Instalador e atualização.** Instalador assinado, versionamento do formato de `data.json` e atualização controlada. Os auxiliares PowerShell precisam ficar fora do `app.asar` (já suportado por `unpackedPath` em [[paths]]); `.client-integration/` também precisaria sair de dentro do pacote.
-21. **Validar o fluxo integrado com contas reais**: sessão nova, sessão expirada e 2FA ([[Integração com o Riot Client]]).
+20. **Instalador e atualização.** Instalador assinado, versionamento do formato de `data.json` e atualização controlada. Os auxiliares PowerShell precisam ficar fora do `app.asar` (já suportado por `unpackedPath` em [[paths]]).
+21. **Validar o fluxo dos cartões com contas reais**: sessão nova, sessão expirada e 2FA ([[Integração com o Riot Client]]).
 
 ## Ferramentas de desenvolvimento
 

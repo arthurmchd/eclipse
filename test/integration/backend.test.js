@@ -2,9 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { EventEmitter } = require('node:events');
-const { encodeHeader } = require('../../src/integration/asar');
-const { parseBackendLockfile, readBackend, readBackendCertificate, verifyBackend } = require('../../src/integration/backend');
+const { encodeHeader } = require('./asarFixture');
+const { parseBackendLockfile, readBackend, readBackendCertificate } = require('../../src/integration/backend');
 
 const token = 'synthetic-backend-token-only';
 
@@ -50,60 +49,4 @@ test('backend certificate comes from the supplied fixture archive and not a glob
   const header = { files: { dist: { files: { main: { files: { 'root.pem': { size: certificate.length, offset: '0' } } } } } } };
   fs.writeFileSync(path.join(resources, 'app.asar'), Buffer.concat([encodeHeader(header), certificate]));
   assert.deepEqual(readBackendCertificate(path.join(directory, 'RiotClientServices.exe')), certificate);
-});
-
-function transport() {
-  const req = new EventEmitter();
-  req.ended = false;
-  req.destroyed = false;
-  req.end = () => { req.ended = true; };
-  req.destroy = () => { req.destroyed = true; };
-  const calls = [];
-  let respond;
-  const request = (options, callback) => { calls.push(options); respond = callback; return req; };
-  function response(statusCode) {
-    const value = new EventEmitter();
-    value.statusCode = statusCode;
-    value.resume = () => { value.resumed = true; };
-    respond(value);
-    return value;
-  }
-  return { req, calls, request, response };
-}
-
-test('backend verification retains HTTPS certificate and hostname validation on loopback', async () => {
-  const io = transport();
-  const ca = Buffer.from('synthetic certificate');
-  const pending = verifyBackend({ port: 54321, pid: 1234, token }, ca, { request: io.request, timeoutMs: 3210 });
-  assert.deepEqual(io.calls, [{
-    hostname: '127.0.0.1', port: 54321, method: 'GET', path: '/rso-auth/v1/session',
-    auth: `riot:${token}`, ca, rejectUnauthorized: true, timeout: 3210,
-  }]);
-  assert.equal(io.req.ended, true);
-  const response = io.response(200);
-  assert.equal(response.resumed, true);
-  response.emit('end');
-  assert.equal(await pending, true);
-});
-
-test('non-success backend responses fail without returning the session response', async () => {
-  const io = transport();
-  const failure = assert.rejects(verifyBackend({ port: 54321, token }, Buffer.from('CA'), { request: io.request }), /^Error: Could not verify the Riot background service over HTTPS$/);
-  io.response(401).emit('end');
-  await failure;
-});
-
-test('backend transport errors do not leak vendor diagnostics or the connection token', async () => {
-  const io = transport();
-  const failure = assert.rejects(verifyBackend({ port: 54321, token }, Buffer.from('CA'), { request: io.request }), /^Error: Could not verify the Riot background service over HTTPS$/);
-  io.req.emit('error', new Error(`synthetic transport details ${token}`));
-  await failure;
-});
-
-test('backend verification timeout destroys its request and rejects', async () => {
-  const io = transport();
-  const failure = assert.rejects(verifyBackend({ port: 54321, token }, Buffer.from('CA'), { request: io.request }), /Could not verify/);
-  io.req.emit('timeout');
-  await failure;
-  assert.equal(io.req.destroyed, true);
 });

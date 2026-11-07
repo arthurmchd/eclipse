@@ -1,11 +1,11 @@
 const { pathToFileURL } = require('node:url');
-const { MANAGER_RENDERER_FILE, MANAGER_PRELOAD_FILE } = require('../../paths');
+const { ACCOUNT_CARDS_FILE, MANAGER_PRELOAD_FILE } = require('../../paths');
 
 const CHANNEL = 'ram-manager:invoke';
 const WINDOW_ACTIONS = new Set(['minimize', 'close']);
-const METHODS = new Set(['init', 'saveAccount', 'deleteAccount', 'patchAccount', 'forgetSession', 'copy', 'refresh', 'runningGames', 'signIn', 'showRiotClient', 'cancelSignIn', 'saveSettings', 'pickClientPath', 'openDataFolder', 'events', 'operation', 'openExternal']);
+const METHODS = new Set(['init', 'saveAccount', 'deleteAccount', 'refresh', 'runningGames', 'signIn', 'cancelSignIn', 'saveSettings', 'events', 'operation', 'openExternal']);
 
-function createManagerHost({ electron = require('electron'), request, rendererFile = MANAGER_RENDERER_FILE, preloadFile = MANAGER_PRELOAD_FILE, topInset = 38, leftInset = () => 0, onClose = () => {}, onWindowAction = async () => false, backgroundColor = '#05080d' } = {}) {
+function createManagerHost({ electron = require('electron'), request, rendererFile = ACCOUNT_CARDS_FILE, preloadFile = MANAGER_PRELOAD_FILE, topInset = 0, leftInset = () => 0, onWindowAction = async () => false, backgroundColor = '#05080d' } = {}) {
   if (typeof request !== 'function') throw new Error('The embedded account view requires a local service');
   const { WebContentsView, ipcMain } = electron;
   const expectedUrl = pathToFileURL(rendererFile).href;
@@ -47,7 +47,6 @@ function createManagerHost({ electron = require('electron'), request, rendererFi
 
   const handler = async (event, method, args) => {
     if (!trusted(event)) throw new Error('The account controls are only available in their embedded view');
-    if (method === 'closeManager' && Array.isArray(args) && args.length === 0) { close(); onClose(); return { ok: true }; }
     if (method === 'windowAction' && Array.isArray(args) && args.length === 1 && WINDOW_ACTIONS.has(args[0])) {
       try { return { ok: (await onWindowAction(args[0])) === true }; } catch { return { ok: false }; }
     }

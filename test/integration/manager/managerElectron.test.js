@@ -4,19 +4,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const vm = require('node:vm');
-const { PROJECT_ROOT, MANAGER_RENDERER_FILE, MANAGER_PRELOAD_FILE, ACCOUNT_CARDS_FILE } = require('../../../src/paths');
+const { PROJECT_ROOT, MANAGER_PRELOAD_FILE } = require('../../../src/paths');
 
-for (const compact of [false, true]) test(`Electron renders ${compact ? 'Riot account cards' : 'the legacy interface'} sandboxed without Riot or real data`, { timeout: 30000 }, async (t) => {
+test('Electron renders the Riot account cards sandboxed without Riot or real data', { timeout: 30000 }, async (t) => {
   const directory = fs.mkdtempSync(path.join(__dirname, '.electron-manager-'));
   t.after(() => {
     assert.equal(path.dirname(directory), __dirname);
     fs.rmSync(directory, { recursive: true, force: true });
   });
   const resultFile = path.join(directory, 'result.json');
-  const rendererFile = compact ? ACCOUNT_CARDS_FILE : MANAGER_RENDERER_FILE;
   const entry = path.join(directory, 'entry.js');
   const hostFile = path.join(PROJECT_ROOT, 'src', 'integration', 'manager', 'managerHost.js');
-  const browserProbe = compact ? `window.api.init().then(async value=>{
+  const browserProbe = `window.api.init().then(async value=>{
     for(let count=0;count<100&&!document.querySelector('.account');count++)await new Promise(resolve=>setTimeout(resolve,50));
     const card=document.querySelector('.account');
     const outerShadows=value=>value.split(/,(?![^(]*\\))/).filter(part=>part.trim()!=='none'&&!part.includes('inset')).length;
@@ -75,11 +74,7 @@ for (const compact of [false, true]) test(`Electron renders ${compact ? 'Riot ac
     for(let count=0;count<40&&document.documentElement.lang!=='en';count++)await settle();
     await settle();
     const english=portugueseDefault&&document.documentElement.lang==='en'&&document.title==='Accounts'&&!document.querySelector('#settings-dialog').open&&document.querySelector('#count').textContent==='2 accounts'&&document.querySelector('#play').textContent.trim().startsWith('Play')&&document.querySelector('.account .queue-name').textContent==='Competitive'&&document.querySelector('#settings').title==='Settings'&&document.querySelector('#settings-dialog h2').textContent==='Settings'&&document.querySelector('#account-dialog [data-t=riotId]').textContent==='Account name (Riot ID)'&&document.querySelector('#account-dialog input[name=riotId]').placeholder==='Name#BR1'&&document.querySelector('#riot-minimize').getAttribute('aria-label')==='Minimize'&&document.querySelector('#riot-close').getAttribute('aria-label')==='Close'&&document.querySelector('#add-account').title==='Add account';
-    return {english,riotControls,embedded:value.embedded,accounts:value.accounts.length,hasGenericIPC:typeof window.api.invoke!=='undefined',cards:document.querySelectorAll('.account').length,footerGames,riotMode,footerActions,addOpens,flat,bothQueues,apexClimb,themed,staySignedIn,hasLevel:card.textContent.includes('247'),hasWins:card.textContent.includes('68'),hasWinrate:card.textContent.includes('62%'),backdrop:getComputedStyle(document.documentElement).backgroundColor==='rgb(242, 242, 242)'&&getComputedStyle(document.body).backgroundColor==='rgb(242, 242, 242)'&&getComputedStyle(document.body).backgroundImage==='none'&&getComputedStyle(document.querySelector('.launch-bar')).backgroundColor==='rgb(252, 252, 252)',singlePlay:document.querySelectorAll('#play').length===1,noTft:!document.querySelector('[data-game=tft]'),selectedCorrect,launchComplete};
-  })` : `window.api.init().then(async value=>{
-    for(let count=0;count<100&&!document.querySelector('.card');count++)await new Promise(resolve=>setTimeout(resolve,50));
-    const back=document.querySelector('#return-to-riot');
-    return {embedded:value.embedded,accounts:value.accounts.length,canClose:typeof window.api.closeManager==='function',hasGenericIPC:typeof window.api.invoke!=='undefined',cards:document.querySelectorAll('.card').length,canReturn:Boolean(back&&!back.hidden),windowSettingsHidden:document.querySelector('#window-behaviour').hidden};
+    return {english,riotControls,accounts:value.accounts.length,hasGenericIPC:typeof window.api.invoke!=='undefined',cards:document.querySelectorAll('.account').length,footerGames,riotMode,footerActions,addOpens,flat,bothQueues,apexClimb,themed,staySignedIn,hasLevel:card.textContent.includes('247'),hasWins:card.textContent.includes('68'),hasWinrate:card.textContent.includes('62%'),backdrop:getComputedStyle(document.documentElement).backgroundColor==='rgb(242, 242, 242)'&&getComputedStyle(document.body).backgroundColor==='rgb(242, 242, 242)'&&getComputedStyle(document.body).backgroundImage==='none'&&getComputedStyle(document.querySelector('.launch-bar')).backgroundColor==='rgb(252, 252, 252)',singlePlay:document.querySelectorAll('#play').length===1,noTft:!document.querySelector('[data-game=tft]'),selectedCorrect,launchComplete};
   })`;
   const entrySource = `
 const fs=require('fs');
@@ -98,11 +93,11 @@ app.whenReady().then(async()=>{
   let stage='window';
   try{
     const window=new BrowserWindow({show:false,width:1000,height:760,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false}});
-    const data={accounts:[{id:'fixture-account',gameName:'Example',tagLine:'BR1',username:'fixture-user',region:'br1',hasPassword:true,stats:{lol:{level:247,solo:{tier:'DIAMOND',division:'II',wins:68,losses:42,lp:62}}}}],settings:{refreshMinutes:0},regions:{br1:{label:'BR'}},valRegions:['br'],version:'fixture',clientFound:true,nativeIntegration:{active:true},embedded:true,eventCursor:0};
-    if(${compact})data.accounts.push({...data.accounts[0],id:'fixture-second',gameName:'Second',stats:{lol:{level:247,solo:{tier:'MASTER',division:'',wins:80,losses:60,lp:215,cutoffs:{grandmaster:300,challenger:900}}}}});
+    const data={accounts:[{id:'fixture-account',gameName:'Example',tagLine:'BR1',username:'fixture-user',region:'br1',hasPassword:true,stats:{lol:{level:247,solo:{tier:'DIAMOND',division:'II',wins:68,losses:42,lp:62}}}}],settings:{refreshMinutes:0},regions:{br1:{label:'BR'}},valRegions:['br'],version:'fixture',eventCursor:0};
+    data.accounts.push({...data.accounts[0],id:'fixture-second',gameName:'Second',stats:{lol:{level:247,solo:{tier:'MASTER',division:'',wins:80,losses:60,lp:215,cutoffs:{grandmaster:300,challenger:900}}}}});
     let launch=null;
     const actions=[],saved=[];
-    host=createManagerHost({onWindowAction:async action=>{actions.push(action);return true;},rendererFile:${JSON.stringify(rendererFile)},preloadFile:${JSON.stringify(MANAGER_PRELOAD_FILE)},request:async(method,args)=>{
+    host=createManagerHost({onWindowAction:async action=>{actions.push(action);return true;},preloadFile:${JSON.stringify(MANAGER_PRELOAD_FILE)},request:async(method,args)=>{
       if(method==='signIn'){launch=args;return {ok:true,value:{ok:true,operationId:'fixture-launch'}};}
       if(method==='saveSettings'){saved.push(args[0]);data.settings={...data.settings,...args[0]};return {ok:true,value:data.settings};}
       return {ok:true,value:method==='init'?data:method==='events'?{events:[],cursor:0}:method==='operation'?{id:'fixture-launch',status:'succeeded'}:method==='runningGames'?{}:null};
@@ -114,7 +109,7 @@ app.whenReady().then(async()=>{
     view.webContents.setBackgroundThrottling(false);
     stage='preload-api';
     const value=await view.webContents.executeJavaScript(${JSON.stringify(browserProbe)});
-    fs.writeFileSync(${JSON.stringify(resultFile)},JSON.stringify({ok:true,...value,...(${compact}?{launch,actions,saved}:{}),windows:BrowserWindow.getAllWindows().length}));
+    fs.writeFileSync(${JSON.stringify(resultFile)},JSON.stringify({ok:true,...value,launch,actions,saved,windows:BrowserWindow.getAllWindows().length}));
     host.dispose();
     window.destroy();
     app.exit(0);
@@ -137,7 +132,6 @@ app.whenReady().then(async()=>{
       reject(new Error(`The isolated Electron view smoke test failed (${stage})`));
     });
   });
-  assert.deepEqual(JSON.parse(fs.readFileSync(resultFile, 'utf8')), compact
-    ? { ok: true, english: true, riotControls: true, embedded: true, accounts: 2, hasGenericIPC: false, cards: 2, footerGames: true, riotMode: true, footerActions: true, addOpens: true, flat: true, bothQueues: true, apexClimb: true, themed: true, staySignedIn: true, hasLevel: true, hasWins: true, hasWinrate: true, backdrop: true, singlePlay: true, noTft: true, selectedCorrect: true, launchComplete: true, launch: ['fixture-second', 'val'], actions: ['minimize', 'close'], saved: [{ refreshMinutes: 0, staySignedIn: true, language: 'en' }], windows: 1 }
-    : { ok: true, embedded: true, accounts: 1, canClose: true, hasGenericIPC: false, cards: 1, canReturn: true, windowSettingsHidden: true, windows: 1 });
+  assert.deepEqual(JSON.parse(fs.readFileSync(resultFile, 'utf8')),
+    { ok: true, english: true, riotControls: true, accounts: 2, hasGenericIPC: false, cards: 2, footerGames: true, riotMode: true, footerActions: true, addOpens: true, flat: true, bothQueues: true, apexClimb: true, themed: true, staySignedIn: true, hasLevel: true, hasWins: true, hasWinrate: true, backdrop: true, singlePlay: true, noTft: true, selectedCorrect: true, launchComplete: true, launch: ['fixture-second', 'val'], actions: ['minimize', 'close'], saved: [{ refreshMinutes: 0, staySignedIn: true, language: 'en' }], windows: 1 });
 });

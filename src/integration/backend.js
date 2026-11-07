@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 const { localAppDataForRiot } = require('../platform/windows/windowsEnvironment');
 const { openArchive } = require('./asar');
 
@@ -32,24 +31,4 @@ function readBackendCertificate(clientPath) {
   finally { archive.close(); }
 }
 
-function verifyBackend(backend, certificate, { request = https.request, timeoutMs = 4000 } = {}) {
-  return new Promise((resolve, reject) => {
-    const fail = () => reject(new Error('Could not verify the Riot background service over HTTPS'));
-    const req = request({
-      hostname: '127.0.0.1', port: backend.port, method: 'GET', path: '/rso-auth/v1/session',
-      auth: `riot:${backend.token}`, ca: certificate, rejectUnauthorized: true, timeout: timeoutMs,
-    }, (response) => {
-      response.resume();
-      response.once('error', fail);
-      response.once('end', () => {
-        if (response.statusCode >= 200 && response.statusCode < 300) resolve(true);
-        else fail();
-      });
-    });
-    req.once('error', fail);
-    req.once('timeout', () => { req.destroy(); fail(); });
-    req.end();
-  });
-}
-
-module.exports = { parseBackendLockfile, readBackend, readBackendCertificate, verifyBackend };
+module.exports = { parseBackendLockfile, readBackend, readBackendCertificate };

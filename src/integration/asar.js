@@ -1,12 +1,8 @@
 const fs = process.versions.electron ? require('original-fs') : require('node:fs');
-const path = require('path');
-const crypto = require('crypto');
 const { TextDecoder } = require('util');
 
-const MARKER = 'RAM_LOGIN_INTEGRATION_V1';
 const MAX_HEADER = 64 * 1024 * 1024;
-const MAX_EDIT = 32 * 1024 * 1024;
-const DEFAULT_BLOCK_SIZE = 4 * 1024 * 1024;
+const MAX_READ = 32 * 1024 * 1024;
 
 function archivePath(name) {
   if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\') || /[\x00-\x1f:]/.test(name) || name.split('/').some((part) => !part || part === '.' || part === '..')) {
@@ -22,25 +18,6 @@ function readExact(fd, buffer, position) {
     if (!count) throw new Error('Truncated ASAR archive');
     offset += count;
   }
-}
-
-function writeExact(fd, buffer) {
-  let offset = 0;
-  while (offset < buffer.length) offset += fs.writeSync(fd, buffer, offset, buffer.length - offset);
-}
-
-function encodeHeader(header) {
-  const json = Buffer.from(JSON.stringify(header), 'utf8');
-  const payloadSize = Math.ceil((4 + json.length) / 4) * 4;
-  const headerSize = payloadSize + 4;
-  if (headerSize > MAX_HEADER) throw new Error('ASAR header is too large');
-  const out = Buffer.alloc(8 + headerSize);
-  out.writeUInt32LE(4, 0);
-  out.writeUInt32LE(headerSize, 4);
-  out.writeUInt32LE(payloadSize, 8);
-  out.writeUInt32LE(json.length, 12);
-  json.copy(out, 16);
-  return out;
 }
 
 function object(value) { return value && typeof value === 'object' && !Array.isArray(value); }
@@ -98,7 +75,7 @@ function openArchive(file) {
     return {
       fd, header, dataOffset, size: stat.size, payloadSize: stat.size - dataOffset,
       entry,
-      readFile(name, limit = MAX_EDIT) {
+      readFile(name, limit = MAX_READ) {
         if (closed) throw new Error('ASAR archive is closed');
         const meta = entry(name);
         if (meta.files || meta.link !== undefined || meta.unpacked) throw new Error(`ASAR entry is not a packed file: ${name}`);
@@ -112,80 +89,4 @@ function openArchive(file) {
   } catch (error) { fs.closeSync(fd); throw error; }
 }
 
-function sha256(buffer) { return crypto.createHash('sha256').update(buffer).digest('hex'); }
-
-function integrityFor(bytes, previous) {
-  if (previous && previous.algorithm !== 'SHA256') throw new Error('Unsupported ASAR integrity algorithm');
-  const blockSize = previous ? previous.blockSize : DEFAULT_BLOCK_SIZE;
-  if (!Number.isSafeInteger(blockSize) || blockSize < 1 || blockSize > MAX_HEADER) throw new Error('Invalid ASAR integrity block size');
-  const blocks = [];
-  for (let i = 0; i < bytes.length; i += blockSize) blocks.push(sha256(bytes.subarray(i, i + blockSize)));
-  return { ...(previous || {}), algorithm: 'SHA256', hash: sha256(bytes), blockSize, blocks };
-}
-
-function verifyIntegrity(bytes, meta) {
-  if (!meta.integrity) return;
-  const actual = integrityFor(bytes, meta.integrity);
-  if (meta.integrity.hash !== actual.hash || !Array.isArray(meta.integrity.blocks) || JSON.stringify(meta.integrity.blocks) !== JSON.stringify(actual.blocks)) throw new Error('ASAR source entry integrity mismatch');
-}
-
-function sha256File(file) {
-  const fd = fs.openSync(file, 'r');
-  try {
-    const hash = crypto.createHash('sha256');
-    const buffer = Buffer.alloc(1024 * 1024);
-    let count;
-    while ((count = fs.readSync(fd, buffer, 0, buffer.length, null))) hash.update(buffer.subarray(0, count));
-    return hash.digest('hex');
-  } finally { fs.closeSync(fd); }
-}
-
-function appendToArchive(source, destination, additions, { transformers = {} } = {}) {
-  if (path.resolve(source).toLowerCase() === path.resolve(destination).toLowerCase()) throw new Error('Source and destination must be different');
-  if (fs.existsSync(destination)) throw new Error('Prepared archive already exists; choose a new output directory');
-  if (!object(additions) || !Object.keys(additions).length) throw new Error('No ASAR additions supplied');
-  if (!object(transformers) || Object.entries(transformers).some(([name, transform]) => !Object.hasOwn(additions, name) || typeof transform !== 'function')) throw new Error('Invalid ASAR source transformers');
-  const archive = openArchive(source);
-  let outputFd;
-  const temp = `${destination}.${crypto.randomUUID()}.tmp`;
-  try {
-    const changed = [];
-    let nextOffset = archive.payloadSize;
-    for (const [name, addon] of Object.entries(additions)) {
-      const original = archive.readFile(name);
-      if (original.includes(Buffer.from(MARKER))) throw new Error('Client integration is already present; restore the original before preparing again');
-      if (!Buffer.isBuffer(addon) || !addon.length || addon.length > MAX_EDIT) throw new Error('Invalid ASAR addon');
-      const meta = archive.entry(name);
-      verifyIntegrity(original, meta);
-      const transformed = Object.hasOwn(transformers, name) ? transformers[name](Buffer.from(original)) : original;
-      if (!Buffer.isBuffer(transformed) || !transformed.length || transformed.length > MAX_EDIT) throw new Error('Invalid transformed ASAR source');
-      const bytes = Buffer.concat([transformed, Buffer.from(`\n;/* ${MARKER} */\n`), addon, Buffer.from('\n')]);
-      changed.push({ name, bytes, originalSha256: sha256(original), ...(transformed !== original ? { transformedSha256: sha256(transformed) } : {}), addonSha256: sha256(addon), sha256: sha256(bytes) });
-      meta.offset = String(nextOffset);
-      meta.size = bytes.length;
-      meta.integrity = integrityFor(bytes, meta.integrity);
-      nextOffset += bytes.length;
-    }
-    const newHeader = encodeHeader(archive.header);
-    outputFd = fs.openSync(temp, 'wx');
-    writeExact(outputFd, newHeader);
-    const buffer = Buffer.alloc(1024 * 1024);
-    for (let copied = 0; copied < archive.payloadSize;) {
-      const count = Math.min(buffer.length, archive.payloadSize - copied);
-      readExact(archive.fd, buffer.subarray(0, count), archive.dataOffset + copied);
-      writeExact(outputFd, buffer.subarray(0, count));
-      copied += count;
-    }
-    for (const item of changed) writeExact(outputFd, item.bytes);
-    fs.fsyncSync(outputFd);
-    fs.closeSync(outputFd); outputFd = undefined;
-    fs.copyFileSync(temp, destination, fs.constants.COPYFILE_EXCL);
-    return changed.map(({ bytes, ...item }) => ({ ...item, size: bytes.length }));
-  } finally {
-    archive.close();
-    if (outputFd !== undefined) fs.closeSync(outputFd);
-    try { fs.rmSync(temp, { force: true }); } catch {}
-  }
-}
-
-module.exports = { MARKER, openArchive, encodeHeader, appendToArchive, integrityFor, verifyIntegrity, sha256File };
+module.exports = { openArchive };

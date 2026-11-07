@@ -5,48 +5,49 @@ tags: [arquitetura, login]
 
 # Fluxo de login
 
-Visão de ponta a ponta do clique em **Play** (ou **Entrar e jogar** no painel integrado) até o jogo aberto. As etapas internas, com cada ramo, estão em [[signInFlow]].
+Visão de ponta a ponta do clique em **Jogar** (ou **Entrar**, com o ícone da Riot) nos [[cards]] até o jogo aberto. As etapas internas, com cada ramo, estão em [[signInFlow]]. Desde [[ADR-028 Modo antigo removido]] este é o único fluxo: o [[main]] sempre pede o login visível (`visibleLogin: true`).
 
 ```mermaid
 sequenceDiagram
   autonumber
-  participant UI as renderer / painel
+  participant UI as cartões
   participant SS as signInService
   participant RC as riotClient + signInFlow
-  participant WG as windowGuard.ps1
   participant RCS as Riot Client Services
 
   UI->>SS: signIn(accountId, game)
   SS->>SS: valida conta, recusa operação concorrente
-  SS->>RC: signIn({ conta, sessão salva, preferências, signal })
-  RC->>WG: arma o monitor e espera "pronto"
-  alt conta já conectada e nenhum jogo aberto
-    RC->>RCS: confere Riot ID
-  else troca de conta
-    RC->>RCS: encerra o cliente (salva a sessão de quem sai)
-    RC->>RC: restaura a sessão salva da conta escolhida
+  SS->>RC: signIn({ conta, sessão salva, visibleLogin, signal })
+  alt conta escolhida já conectada e nenhum jogo aberto
+    RC->>RCS: confere o Riot ID e reaproveita
+  else sessão guardada e Manter login ligado
+    RC->>RCS: fecha a Riot com a saída normal (guarda a sessão de quem sai)
+    RC->>RC: grava o login guardado da conta escolhida
     RC->>RCS: inicia só os serviços com --headless
-  end
-  opt sem sessão válida
-    RC->>RCS: login direto pela API local
-    Note over RC,RCS: API indisponível ou CAPTCHA antes da senha:<br/>interface nativa escondida (login.ps1)
+    RC->>RCS: confere o Riot ID
+  else sem sessão, ou sessão recusada
+    RC->>RCS: fecha a conta de outra pessoa com a saída normal, se houver
+    RC->>RCS: abre a interface oficial no formulário de login
+    RC->>RCS: login pela API local
+    Note over RC,RCS: API indisponível ou CAPTCHA antes da senha:<br/>login.ps1 preenche o formulário visível
   end
   RC->>RCS: confere o Riot ID autenticado
   RC->>RCS: pede a abertura do jogo
-  RC->>WG: espera a janela visível do jogo
+  RC->>RC: espera a janela visível do jogo
+  RC->>RCS: fecha a janela da Riot
   RC-->>SS: { gameStarted, session, riotId }
   SS-->>UI: operação concluída
 ```
 
 ## Etapas para o usuário
 
-1. **Esconde e arma.** Oculta a interface integrada e ativa o monitor de janelas. O painel integrado recusa trocas com jogo aberto; o gerenciador pede confirmação antes de encerrar.
-2. **Reaproveita se puder.** Se o Riot ID conectado é o escolhido e nenhum jogo está aberto, usa essa sessão. Se o backend está desconectado e a conta não tem sessão salva, entra nesse mesmo backend, sem reinício.
-3. **Troca de sessão.** Guarda a sessão da conta anterior só com identidade confirmada, encerra o cliente e inicia os serviços em `--headless`. A sessão escolhida é carregada depois do encerramento para preservar os tokens atualizados.
-4. **Autentica.** Login direto pela API local com HTTPS e o certificado da instalação Riot. Um contexto ausente ou em `invalid_request` é limpo e inicializado antes da primeira submissão de senha. API indisponível ou CAPTCHA antes da senha permitem usar a interface nativa escondida.
-5. **Acompanha.** Erros, demora, 2FA ou CAPTCHA não abrem o cliente sozinhos. O painel habilita **Show Riot Client**, que abre a janela do desafio. Depois da autenticação, o monitor volta a ocultá-la.
-6. **Abre o jogo.** Só depois de verificar a conta. O sucesso exige uma **janela visível do jogo** (para LoL/TFT, o lobby do League), não apenas um processo.
-7. **Mantém oculto.** O monitor continua ativo enquanto o app estiver aberto e esconde janelas recriadas do Riot. Se precisar reiniciar, entrega os snapshots ao substituto sem restaurar a aparência entre eles. Jogos e Vanguard ficam fora do filtro. Ao fechar o app, as janelas voltam ao estado original, inclusive após falha do monitor ([[ADR-008 Recuperação visual sem reexibir o Riot]]).
+1. **Reaproveita se puder.** Se o Riot ID conectado é o escolhido e nenhum jogo está aberto, usa essa sessão.
+2. **Sessão guardada entra em segundo plano.** Com "Manter login" ligado e uma sessão guardada da conta, segue [[#Sessão guardada por conta]]: nenhuma janela precisa de foco e nada é digitado.
+3. **Senão, login visível.** A Riot fica aberta no formulário de login. Desde [[ADR-024 Coluna de login coberta durante o login]], a coluna de login fica coberta por um carregamento enquanto o Eclipse entra, e a caixa "Ocultar contas" some até o formulário da Riot voltar, também no login manual ([[ADR-025 Caixa some junto com o formulário da Riot]]). O login vai primeiro pela API local, com HTTPS e o certificado da instalação Riot; API indisponível ou CAPTCHA antes da senha fazem o `login.ps1` preencher o formulário visível ([[ADR-010 Login visível com progresso]]).
+4. **Pedidos da Riot ficam com o usuário.** 2FA, CAPTCHA ou outro pedido de atenção tiram a cobertura, e o usuário conclui na tela da Riot. Erros comuns não repetem a senha.
+5. **Abre o jogo.** Só depois de verificar a conta. O sucesso exige uma **janela visível do jogo** (para LoL/TFT, o lobby do League), não apenas um processo. Depois o Eclipse guarda a sessão e fecha a janela da Riot. Com o ícone da Riot, a Riot fica aberta e conectada, sem jogo.
+
+Até 2026-11-07 havia também o login escondido do modo privado, com o monitor de janelas (`windowGuard.ps1`) escondendo o Riot do começo ao fim ([[ADR-008 Recuperação visual sem reexibir o Riot]]). Os ramos com `hide` continuam no [[signInFlow]], mas o app não os usa.
 
 ## Regras que não podem quebrar
 
@@ -58,13 +59,13 @@ sequenceDiagram
 - Erros comuns não podem revelar a tela de login sozinhos.
 - Nunca tirar da Riot um login lembrado de uma conta do Eclipse sem antes guardá-lo na conta dona dele, provada pelo `sub` ou por um Riot ID único ([[sessionKeeper]]).
 - Nunca limpar o login lembrado com a Riot conectada: a conta está na memória dela, e o jogo depende disso ([[sessionKeeper]]).
-- Nunca sair da conta conectada (`DELETE`) para trocar de conta, em nenhum modo: a saída normal da Riot mantém a sessão dela válida. O `DELETE` só limpa um login pela metade com a Riot sem conta ([[signInFlow]]).
+- Nunca sair da conta conectada (`DELETE`) para trocar de conta: a saída normal da Riot mantém a sessão dela válida. O `DELETE` só limpa um login pela metade com a Riot sem conta ([[signInFlow]]).
 
 Ver também [[Segurança e privacidade]] e [[ADR-003 Sem contornar CAPTCHA ou 2FA]].
 
-## Modo cartões
+## Sessão guardada por conta
 
-O diagrama acima é o modo privado. No modo cartões (padrão), o login é visível desde [[ADR-010 Login visível com progresso]]. Desde [[ADR-024 Coluna de login coberta durante o login]], o formulário fica coberto por um carregamento enquanto o Eclipse o preenche, e a caixa "Ocultar contas" some até o formulário da Riot voltar, também no login manual ([[ADR-025 Caixa some junto com o formulário da Riot]]); 2FA, CAPTCHA ou outro pedido de atenção tira a cobertura. Desde [[ADR-019 Sessão salva por conta no modo cartões]], uma conta com sessão guardada e "Manter login" ligado entra em segundo plano:
+Desde [[ADR-019 Sessão salva por conta no modo cartões]], uma conta com sessão guardada e "Manter login" ligado entra em segundo plano:
 
 1. **Jogar fecha a Riot.** A saída é normal, para a Riot gravar os tokens novos. Depois o Eclipse grava o YAML da conta e sobe só os serviços, sem interface.
 2. **Confere e pede o jogo.** Com o Riot ID conferido, pede o jogo. Nenhuma janela precisa de foco e nada é digitado.

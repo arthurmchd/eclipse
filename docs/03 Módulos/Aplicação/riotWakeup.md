@@ -50,7 +50,7 @@ Decisão em [[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]
 ## Dependências
 
 - Usa: [[riotClient]].
-- Usado por: [[main]], só no modo cartões.
+- Usado por: [[main]].
 
 ## Invariantes e decisões
 

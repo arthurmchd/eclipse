@@ -35,7 +35,7 @@
       stats: { lol: lol(30, 1, null, null), tft: { ranked: null }, val: val(27, 'Radiant', 412, card('f31491e7-4642-ea8b-87fa-ed8fd73e44cf')) } },
   ];
 
-  let settings = { refreshMinutes: 30, minimizeOnLaunch: true, hideRiotClient: true, closeRiotClient: true, streamerMode: false, staySignedIn: true, riotClientPath: '', language: 'pt', riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
+  let settings = { refreshMinutes: 30, staySignedIn: true, riotClientPath: '', language: 'pt', riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
   let lastRefresh = iso(7 * 60000);
   let activeSignIn = null;
   const listeners = {};
@@ -45,7 +45,7 @@
   const nextRefresh = () => new Date(now + 22 * 60000 + 59000).toISOString();
 
   window.api = {
-    init: async () => ({ accounts, settings, regions: REGIONS, valRegions: ['br', 'na', 'latam', 'eu', 'kr', 'ap'], lastRefresh, nextRefresh: nextRefresh(), version: '1.0.0', clientFound: true }),
+    init: async () => ({ accounts, settings, regions: REGIONS, valRegions: ['br', 'na', 'latam', 'eu', 'kr', 'ap'], lastRefresh, nextRefresh: nextRefresh(), version: '1.0.0' }),
     saveAccount: async (input) => {
       const { password, ...rest } = input;
       let acc = accounts.find((a) => a.id === input.id);
@@ -54,9 +54,6 @@
       return acc;
     },
     deleteAccount: async (id) => { accounts = accounts.filter((a) => a.id !== id); },
-    patchAccount: async (id, fields) => Object.assign(accounts.find((a) => a.id === id), fields),
-    forgetSession: async (id) => Object.assign(accounts.find((a) => a.id === id), { hasSession: false }),
-    copy: async () => true,
     refresh: async () => {
       for (let i = 0; i < accounts.length; i++) { emit('refresh-progress', { done: i, total: accounts.length }); await wait(150); }
       lastRefresh = new Date().toISOString();
@@ -82,16 +79,13 @@
         operation(attempt.cancelled ? 'cancelled' : 'succeeded');
       }
     },
-    showRiotClient: async () => ({ ok: true }),
     minimizeRiot: async () => ({ ok: true }),
     closeRiot: async () => ({ ok: true }),
     cancelSignIn: async () => {
       if (activeSignIn) activeSignIn.cancelled = true;
       return { ok: true };
     },
-    saveSettings: async (input) => ({ ...(settings = { ...settings, ...input }), nextRefresh: nextRefresh(), clientFound: true }),
-    pickClientPath: async () => null,
-    openDataFolder: async () => {},
+    saveSettings: async (input) => ({ ...(settings = { ...settings, ...input }), nextRefresh: nextRefresh() }),
     onAccountUpdated: on('account-updated'),
     onRefreshProgress: on('refresh-progress'),
     onNextRefresh: on('next-refresh'),

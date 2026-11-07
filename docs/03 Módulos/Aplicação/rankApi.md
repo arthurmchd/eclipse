@@ -35,7 +35,7 @@ Antes se chamava `riotApi` (`src/riotApi.js`); foi renomeado na reorganização 
 ## Dependências
 
 - Usa: `fetch` (global na instância padrão, injetável na fábrica) e `crypto` (SHA-256 da chave). Hosts: `<routing>.api.riotgames.com`, `<plataforma>.api.riotgames.com` e `api.henrikdev.xyz`. Monta URLs de card em `media.valorant-api.com`.
-- Usado por: [[main]] (`refreshAll`; `REGIONS` e `VAL_REGIONS` no `init`). O [[renderer]] lê os campos via `rankOf`.
+- Usado por: [[main]] (`refreshAll`; `REGIONS` e `VAL_REGIONS` no `init`). Os [[cards]] leem os campos via `rankOf` ([[ranks]]).
 
 ## Invariantes e decisões
 
