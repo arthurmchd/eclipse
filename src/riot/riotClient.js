@@ -371,7 +371,6 @@ function runWindowScript(request, onLine = () => {}, signal) {
       if (code === 0 && last === 'ok') resolve(lines);
       else if (out.includes('error:window-not-found')) reject(new Error('The Riot Client window did not open'));
       else if (out.includes('error:form-not-ready')) reject(new Error('The Riot Client sign-in screen did not load. Finish signing in there'));
-      else if (out.includes('error:focus')) reject(new Error('Could not bring the Riot Client to the front'));
       else reject(new Error(`Riot Client window script failed: ${last}`));
     });
   });
@@ -389,7 +388,7 @@ async function openClient(clientPath) {
   if (!exe) throw new Error('Riot Client not found. Set its path in Settings');
   selectedClientPath = exe;
   await windows.reveal();
-  if (!(await runningGames()).clientWindow) await openInterface({ exe, visible: true });
+  if (!(await runningGames()).clientWindow) await openInterface({ exe });
 }
 
 function createClientStarter({ detectClientPath: detect, runningGames: running, reveal, launchClient: launch, select = () => {} }) {
@@ -400,7 +399,7 @@ function createClientStarter({ detectClientPath: detect, runningGames: running, 
     select(exe);
     await reveal();
     if ((await running()).client) return false;
-    await launch(exe, { visible: true, interfaceRequired: true });
+    await launch(exe, { visible: true });
     return true;
   };
 }
@@ -437,12 +436,12 @@ const signIn = createSignInFlow({
   isAuthorized, authorization, activeRiotId, localApi, launchProduct, requestLaunch,
   authenticate: authentication.authenticate,
   typeCredentials: async (request, signal, log) => {
-    await openInterface({ exe: selectedClientPath || detectClientPath(), visible: true, signal, log });
+    await openInterface({ exe: selectedClientPath || detectClientPath(), signal, log });
     if (signal?.aborted) throw new Error('Sign-in cancelled');
     return runWindowScript(request, () => {}, signal).promise;
   },
   windows, runningGames,
-  openVisibleInterface: (exe, signal, log) => openInterface({ exe, visible: true, signal, log }),
+  openVisibleInterface: (exe, signal, log) => openInterface({ exe, signal, log }),
   closeGames: () => taskkill([...GAME_PROCESSES.lol, ...GAME_PROCESSES.val]),
 });
 

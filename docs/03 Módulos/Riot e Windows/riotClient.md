@@ -88,7 +88,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 - O pedido vai como JSON no stdin. Retorna `{ promise, kill }`; `onLine` recebe cada linha impressa.
 - Timeout de 90 s: "The Riot Client sign-in form did not respond". `signal` mata o processo: "Sign-in cancelled".
 - Sucesso exige código 0 e última linha `ok`. Resolve com todas as linhas.
-- Traduz `error:window-not-found`, `error:form-not-ready` e `error:focus`. O resto vira "Riot Client window script failed: <última linha>".
+- Traduz `error:window-not-found` e `error:form-not-ready`. O resto vira "Riot Client window script failed: <última linha>".
 
 ### `typeCredentials(request, signal, log)` (entregue ao signInFlow)
 
@@ -104,6 +104,8 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 - Devolve `{ status, errorCode }`. `errorCode` é o `errorCode` textual da resposta, cortado em 100 caracteres, ou `null`. Falha de rede vira `status: 0`.
 
 ## Invariantes e decisões
+
+- **Sem `error:focus` e sem interface escondida.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saiu o ramo `error:focus`, que o [[login.ps1]] nunca emitia, e o `visible: true` explícito das chamadas ao [[riotInterface]], que agora sempre abre a interface visível.
 - `openClient` usa o mesmo abridor quando os serviços já rodam sem interface; pede a janela ao backend antes de considerar outro início. Executar novamente apenas o exe não garantia uma janela.
 
 - Para [[ADR-010 Login visível com progresso]], fornece `openVisibleInterface` ao fluxo usando o abridor existente e `closeGames` restrito aos processos de jogos, sem reiniciar a interface Riot. A confirmação de fechar jogos permanece nos [[cards]] antes da operação.
@@ -151,7 +153,6 @@ Sem cobertura: `sameRiotId`, `detectClientPath`, `watchSettings`, `runWindowScri
 
 ## Pontos de atenção
 
-- **Ramo morto.** `error:focus` nunca é emitido pelo [[login.ps1]] atual.
 - **YAML editado por linhas.** `stripPersistedLogin` para na primeira linha em branco dentro do bloco, aceita qualquer chave `riot-client:` recuada e devolve o texto com `\n` (CRLF vira LF). Um formato novo exige revisão: [[Atualização do Riot Client]].
 - **Corpo de resposta no log.** `requestLaunch` grava trechos das respostas do Riot no `sign-in.log`. Ver [[Segurança e privacidade]].
 - **Jogos fechados à força.** `closeEverything` usa `taskkill /F` nos jogos. A confirmação do usuário fica fora deste módulo: os [[cards]] perguntam antes de trocar de conta com um jogo aberto. Conferido em 2026-11-06; a janela antiga e o caminho do addon saíram em 2026-11-07.

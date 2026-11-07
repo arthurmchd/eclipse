@@ -25,7 +25,6 @@ tags: [módulo]
 | Export | Tipo | Descrição |
 |---|---|---|
 | `createSignInService` | função | Fábrica do serviço |
-| `signIn(id, game)` | método assíncrono | Espera o fim, nunca lança e devolve `{ ok, gameStarted?, error?, cancelled? }`. Sem chamador no app desde 2026-11-07; os testes o usam |
 | `startFromManager(id, game)` | método | Fluxo dos cartões. Devolve na hora `{ ok: true, operationId }`; lança se a conta for inválida ou já houver login. As confirmações de jogo aberto ficam nos [[cards]] |
 | `cancel()` | método | Aborta a operação atual; sempre `{ ok: true }` |
 | `getState()` | método | Cópia rasa da última operação, ou `null` |
@@ -41,13 +40,14 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 
 ## Invariantes e decisões
 
-- **Sucesso sem jogo só para `riot`.** Desde 2026-11-04, `riot` é aceito junto de `lol`, `tft` e `val`. A operação só termina `succeeded` com `gameStarted`, ou, para `riot`, com `clientOpened` (texto "Riot Client opened", resposta `{ ok: true, clientOpened: true }`). `clientOpened` num jogo não conta como sucesso. Sem jogo aberto, `lastPlayed` e `lastGame` não mudam; sessão, conta atual e Riot ID são gravados normalmente. Ver [[signInFlow]].
+- **Sucesso sem jogo só para `riot`.** Desde 2026-11-04, `riot` é aceito junto de `lol`, `tft` e `val`. A operação só termina `succeeded` com `gameStarted`, ou, para `riot`, com `clientOpened` (texto "Riot Client opened"). `clientOpened` num jogo não conta como sucesso. Sem jogo aberto, `lastPlayed` e `lastGame` não mudam; sessão, conta atual e Riot ID são gravados normalmente. Ver [[signInFlow]].
 - **`remember` vem de `settings.staySignedIn`** (ausente conta como ligado). A operação pública ganhou `signedIn`, que começa `false` e vira `true` no primeiro status com `signedIn` do [[signInFlow]]; nunca volta a `false` na mesma operação. Adicionado em 2026-11-04.
 - **Login sempre visível.** Publica o estado da operação para o carregamento sobre a coluna de login.
 - **Sem opções de janela.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]), o serviço não repassa `hide`, `closeClient`, `releaseAfterLaunch` nem `visibleLogin` ao [[signInFlow]], que só tem o login visível. As preferências `hideRiotClient` e `closeRiotClient` da janela antiga saíram, junto com `start`, a entrada da ponte local, e a recusa com LoL ou VALORANT abertos que só ela fazia (`requireIdle`).
 
 - **Lançamento fora de qualquer interface.** O serviço é dono dos lançamentos, fora de toda UI. Um renderer da Riot pode sumir durante a troca sem interromper a operação e sem ganhar acesso às credenciais guardadas.
-- **Mutex compartilhado.** `pending` recusa um segundo pedido, venha de onde vier (`A sign-in is already in progress`).
+- **Um login por vez.** `busy` recusa um segundo pedido (`A sign-in is already in progress`).
+- **Só a entrada dos cartões.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saiu `signIn(id, game)`, que esperava o fim e devolvia `{ ok, gameStarted?, error?, cancelled? }`. Só os testes o chamavam; o app sempre usou `startFromManager`. Os testes esperam o fim pelo `operationUpdated` com `finishedAt`.
 - **Validar antes de criar a operação.** Jogo precisa ser `lol`, `tft` ou `val`; a conta precisa existir e ter usuário e senha. Falha aqui não cria operação.
 - **Execução adiada.** O trabalho começa em `setImmediate`, para os cartões receberem o identificador da operação antes de o login mexer na Riot.
 - **Cancelamento cedo não toca em nada.** O sinal é checado antes de qualquer trabalho. Cancelado ali, não há chamada ao cliente nem descriptografia.
@@ -62,11 +62,11 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 - **Recuperação após timeout.** Cada `status` redefine `needsAttention` e `nativeClient`. Uma falha preserva somente as flags explícitas devolvidas pelo erro do fluxo, sem deduzir verificação pendente de avisos genéricos. Sucesso e cancelamento limpam ambas. A operação terminada libera o mutex, mas mantém a recuperação da verificação nativa disponível.
 - **Progresso tardio não reabre operação.** Status recebido após o fim é ignorado; não pode apagar a recuperação pendente nem substituir a mensagem final.
 - **Estado é cópia.** `getState` devolve cópia; mudar o objeto recebido não afeta a operação.
-- **Texto traduzido só na saída.** A opção `translate(texto)` (padrão: devolve igual) é aplicada aos textos publicados: `text` e `error` da operação em `operationUpdated` e `getState`, `text` do `status` e `error` da resposta. A operação guardada e o log continuam em inglês, e `getState` traduz na hora de ler, então mudar o idioma no meio de um login já vale para a próxima leitura. Se `translate` falhar ou não devolver texto, sai o original. O [[main]] passa o `localize` do [[language]]. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
+- **Texto traduzido só na saída.** A opção `translate(texto)` (padrão: devolve igual) é aplicada aos textos publicados: `text` e `error` da operação em `operationUpdated` e `getState`, e `text` do `status`. A operação guardada e o log continuam em inglês, e `getState` traduz na hora de ler, então mudar o idioma no meio de um login já vale para a próxima leitura. Se `translate` falhar ou não devolver texto, sai o original. O [[main]] passa o `localize` do [[language]]. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
 
 ## Testes
 
-`test/core/signInService.test.js` cobre: senha descriptografada só para o [[riotClient]] e ausente de estado, log e status; `startFromManager` devolvendo antes de executar e a operação sobrevivendo; mutex entre as duas entradas; nenhuma consulta a jogos abertos; `hide` e `closeClient` com e sem `visibleLogin`; cancelamento antes e durante; ordem apagar/salvar de sessão rejeitada; erro de autenticação com falha ao apagar; `nativeClient` publicado e limpo pelo progresso seguinte; observadores que falham; credenciais trocadas no meio; redação; jogo e conta inválidos; jogo que não abriu; erro que não é `Error`.
+`test/core/signInService.test.js` cobre: senha descriptografada só para o [[riotClient]] e ausente de estado, log e status; o serviço expondo só `startFromManager`, `cancel`, `getState`, `isBusy` e `activeAccountId`; `startFromManager` devolvendo antes de executar e a operação sobrevivendo; segundo login recusado enquanto outro roda; nenhuma consulta a jogos abertos; nenhuma opção de janela repassada; cancelamento antes e durante; ordem apagar/salvar de sessão rejeitada; erro de autenticação com falha ao apagar; `nativeClient` publicado e limpo pelo progresso seguinte; observadores que falham; credenciais trocadas no meio; redação; jogo e conta inválidos; jogo que não abriu; erro que não é `Error`.
 
 Desde 2026-11-06 também cobre o `onRejected`: a sessão da conta escolhida é apagada antes de a Riot fechar a outra conta, e uma falha ao apagar só vai ao log.
 

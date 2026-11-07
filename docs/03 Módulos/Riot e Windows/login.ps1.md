@@ -23,7 +23,7 @@ Entrada: um único JSON UTF-8 no stdin.
 
 | `action` | Campos | Efeito |
 |---|---|---|
-| `type` | `username`, `password`, `remember`, `submit` | Preenche o formulário. |
+| `type` | `username`, `password`, `remember` | Preenche o formulário e clica em entrar. |
 | `self-test` | — | Testa `Point`, as cores da caixa "remember" e a leitura num bitmap com borda invisível, sem procurar nem tocar janelas. Imprime `ok`. |
 
 Até 2026-11-07 o [[riotClient]] também enviava `hide`, que o script ignorava.
@@ -44,7 +44,7 @@ Códigos permitidos: `invalid-request`, `invalid-action`, `invalid-credentials`,
 3. Por até 60 s, a cada 250 ms: procura a janela. O formulário está pronto após 4 leituras seguidas da mesma janela com `Test-FormReady`.
 4. Clica no campo de usuário, limpa e digita. Repete no campo de senha.
 5. Lê a caixa. Se o estado é reconhecido e difere do pedido (`on` com `remember: true`, `off` com qualquer outro valor), clica uma vez e lê de novo. Com `unknown`, não clica. Imprime o estado. Até 2026-11-04 só marcava, nunca desmarcava. Até 2026-11-06 a leitura usava as cores da v141 e o quadro da janela inteira, e a caixa marcada da v142 nunca era reconhecida, então na prática também não desmarcava.
-6. Com `submit`: clica em entrar.
+6. Clica em entrar.
 
 ## Detalhes
 
@@ -68,6 +68,7 @@ Posições (fração de largura e altura da área cliente):
 
 ## Invariantes e decisões
 
+- **Sempre envia.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saiu o campo `submit`: só o `dryRun` do [[signInFlow]], usado apenas em testes, pedia para preencher sem enviar.
 - **Mensagens só para o HWND do Riot.** Tudo vai por `PostMessage` à janela encontrada.
 - **Credenciais só pelo stdin.** Nunca aparecem nos argumentos do processo.
 - **Limpar sem `Ctrl+A`.** `End` e `Backspace` locais limpam um campo preenchido. `Ctrl+A` dependeria do estado global das teclas modificadoras e interferiria no usuário.
@@ -93,6 +94,5 @@ A ação `type` não tem teste automatizado: precisa da janela real do Riot.
 
 - **Layout fixo.** As coordenadas, medidas na v141, e as cores da caixa, medidas na v142, dependem do tema do cliente: [[Atualização do Riot Client]].
 - **Precisa da janela renderizando.** A janela não pode estar em `SW_HIDE` para renderizar e receber a digitação. Desde 2026-11-07 o login é sempre visível; antes, o [[signInFlow]] trocava para o modo `hide` (alpha 1) do monitor antes de chamar o script.
-- **`error:focus` não existe aqui.** O [[riotClient]] trata esse código, mas o script nunca o emite.
 - **Tempo total.** 60 s para achar o formulário, mais a digitação, dentro do limite de 90 s do [[riotClient]].
 - Regra geral: [[Segurança e privacidade]].

@@ -20,7 +20,7 @@ tags: [módulo]
 | Export | Tipo | Descrição |
 |---|---|---|
 | `createInterfaceOpener({ runningGames, localApi, stopClient, launchClient, waitFor, showTimeoutMs, stopTimeoutMs })` | função | Retorna `openInterface`. Prazos padrão de 10 s. |
-| `openInterface({ exe, visible, signal, log })` | função async | Devolve `'existing'`, `'shown'` ou `'launched'`. Lança erro se os serviços não pararem. |
+| `openInterface({ exe, signal, log })` | função async | Devolve `'existing'`, `'shown'` ou `'launched'`. Lança erro se os serviços não pararem. |
 | `SHOW_INTERFACE` | string | `/riot-client-lifecycle/v1/show` |
 
 ## Sequência
@@ -30,7 +30,7 @@ tags: [módulo]
    1. `POST /riot-client-lifecycle/v1/show` pela API local autenticada.
    2. Espera a janela por até 10 s → `'shown'`.
    3. Sem resposta 2xx ou sem janela: encerra os serviços (`taskkill` em `CLIENT_PROCESSES`) e espera eles saírem.
-3. Inicia `RiotClientServices.exe` **sem** `--headless` (`interfaceRequired: true`), oculto se `visible` for falso → `'launched'`.
+3. Inicia `RiotClientServices.exe` **sem** `--headless`, com a janela visível (`visible: true`) → `'launched'`.
 
 Cada caminho escreve uma linha no `sign-in.log` pelo `log` recebido.
 
@@ -46,11 +46,11 @@ Cada caminho escreve uma linha no `sign-in.log` pelo `log` recebido.
 - **Reiniciar é seguro neste ponto.** O formulário nativo só é usado antes de qualquer envio de senha (API indisponível ou CAPTCHA antes da submissão, ver [[riotAuthentication]]). Encerrar os serviços não perde credenciais enviadas nem uma sessão autenticada, e o `RiotGamesPrivateSettings.yaml` restaurado continua em disco.
 - **Nunca dois clientes.** Se os serviços não saírem em 10 s, a abertura falha em vez de iniciar uma segunda instância.
 - **Cancelamento antes de cada efeito.** O `signal` é conferido antes do `show`, do encerramento e do lançamento.
-- **A janela nova fica visível.** Desde 2026-11-07 nada a esconde. Antes, o [[signInFlow]] chamava `windows.hide()` antes do `typeCredentials`, e o monitor do [[windowGuard.ps1]] ocultava a interface assim que ela era criada.
+- **A janela nova fica visível.** Desde 2026-11-07 nada a esconde, e a opção `visible` saiu: a interface sempre abre visível, mesmo que alguém peça o contrário. Antes, o [[signInFlow]] chamava `windows.hide()` antes do `typeCredentials`, e o monitor do [[windowGuard.ps1]] ocultava a interface assim que ela era criada.
 
 ## Testes
 
-`riotInterface.test.js`: janela existente reaproveitada; `show` funcionando sem reinício; `show` falhando (2xx sem janela, 404 ou erro de rede) leva ao reinício com interface oculta; serviços parados iniciam direto com interface; serviços que não param geram erro sem segundo cliente; cancelamento antes de qualquer efeito.
+`riotInterface.test.js`: janela existente reaproveitada; `show` funcionando sem reinício; `show` falhando (2xx sem janela, 404 ou erro de rede) leva ao reinício com interface visível; serviços parados iniciam direto com interface visível, mesmo se pedirem oculta; serviços que não param geram erro sem segundo cliente; cancelamento antes de qualquer efeito.
 
 ## Pontos de atenção
 

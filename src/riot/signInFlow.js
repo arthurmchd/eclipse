@@ -15,7 +15,7 @@ function createSignInFlow(io) {
     now = Date.now, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = io;
 
-  return async function signIn({ account, session, hasSavedSession, game, clientPath, dryRun = false, remember = true, status = () => {}, log = () => {}, onClosed = () => {}, onRejected = () => {}, signal }) {
+  return async function signIn({ account, session, hasSavedSession, game, clientPath, remember = true, status = () => {}, log = () => {}, onClosed = () => {}, onRejected = () => {}, signal }) {
     if (!['lol', 'tft', 'val', 'riot'].includes(game)) throw new Error('Select a supported game');
     const exe = detectClientPath(clientPath);
     if (!exe) throw new Error('Riot Client not found. Set its path in Settings');
@@ -64,10 +64,10 @@ function createSignInFlow(io) {
     async function authState() {
       const state = await (readAuthenticationState || sessionState)();
       if (state?.type === 'multifactor') {
-        await authenticationAttention('Riot needs your 2FA code. Use Show Riot Client to enter it');
+        await authenticationAttention('Riot needs your 2FA code. Enter it in the Riot window');
       } else if (state?.error === 'captcha_not_allowed' || /captcha|challenge/i.test(state?.type || '')) {
         if (now() < automaticCheckUntil) return state;
-        await authenticationAttention('Riot needs a security check. Use Show Riot Client to complete it');
+        await authenticationAttention('Riot needs a security check. Complete it in the Riot window');
       } else if (state?.error) {
         const errors = { auth_failure: 'Wrong username or password', rate_limited: 'Too many attempts, wait a few minutes' };
         throw new Error(errors[state.error] || `Riot sign-in error: ${state.error}`);
@@ -83,7 +83,7 @@ function createSignInFlow(io) {
         if (authorized && !isHumanStep(state)) return true;
         if (!manualAttention && !stalled && now() - began > 35000) {
           stalled = true;
-          await authenticationAttention('Sign-in is taking longer. Use Show Riot Client if Riot needs your attention', false);
+          await authenticationAttention('Sign-in is taking longer. Check the Riot window in case it needs you', false);
         }
         return false;
       }, timeoutMs, 700);
@@ -136,7 +136,7 @@ function createSignInFlow(io) {
         check();
         await launchProduct(exe);
         const initial = await wait(sessionState, 45000);
-        if (!initial) throw new Error('The Riot Client did not start. Use Show Riot Client in Settings to inspect it');
+        if (!initial) throw new Error('The Riot Client did not start. Open it to see what happened');
       };
       const openVisibleForm = async () => {
         if (!await sessionState()) {
@@ -214,7 +214,7 @@ function createSignInFlow(io) {
       if (!signedIn) {
         status('Signing in in the background…', { needsAttention: false });
         let direct = { supported: false };
-        if (!dryRun && typeof authenticate === 'function') {
+        if (typeof authenticate === 'function') {
           direct = await authenticate(account, signal, { remember });
           check();
           if (direct?.supported !== true && direct?.supported !== false) throw new Error('The Riot background sign-in service returned an invalid response');
@@ -224,27 +224,24 @@ function createSignInFlow(io) {
           nativeFormUsed = true;
           status('Entrando na conta…', { needsAttention: false, nativeClient: true });
           const lines = await typeCredentials({
-            action: 'type', username: account.username, password: account.password,
-            remember, submit: !dryRun,
+            action: 'type', username: account.username, password: account.password, remember,
           }, signal, log);
           automaticCheckUntil = now() + AUTOMATIC_CHECK_GRACE_MS;
           log(`credentials entered (${lines.filter((line) => line.startsWith('remember:')).join(', ') || 'remember state unavailable'})`);
         } else {
           log('sign-in requested through the Riot background service');
           if (direct.needsAttention) attention(direct.reason === 'multifactor'
-            ? 'Riot needs your 2FA code. Use Show Riot Client to enter it'
-            : 'Riot needs a security check. Use Show Riot Client to complete it');
+            ? 'Riot needs your 2FA code. Enter it in the Riot window'
+            : 'Riot needs a security check. Complete it in the Riot window');
         }
         check();
-        if (dryRun) return result;
         if (!(await awaitAuthorization(180000))) throw new Error(nativeAttentionPending
           ? 'Sign-in timed out waiting for your attention. Complete the pending step in Riot Client, then try Play again'
-          : 'Sign-in timed out. Use Show Riot Client in Settings to inspect it');
+          : 'Sign-in timed out. Open the Riot Client to see what happened');
       }
-      if (dryRun) return result;
 
       if (isHumanStep(await authState())) {
-        if (!(await awaitAuthorization(180000))) throw new Error('Riot security check timed out. Use Show Riot Client in Settings to continue');
+        if (!(await awaitAuthorization(180000))) throw new Error('Riot security check timed out. Open the Riot Client to continue');
       }
 
       nativeAuthenticationComplete = true;
@@ -293,13 +290,13 @@ function createSignInFlow(io) {
             }
           } else if (!notified && now() - requestedAt > 40000) {
             notified = true;
-            attention('The game is taking longer to open or updating. Use Show Riot Client for details');
+            attention('The game is taking longer to open or is updating. Check the Riot Client');
           }
           await pause(1000);
         }
         if (!ready && outdated(launch)) throw new Error('The game update did not finish in time. Open Riot Client to check the update');
       }
-      if (!ready) throw new Error('The game did not open. Use Show Riot Client in Settings to check updates or installation');
+      if (!ready) throw new Error('The game did not open. Open the Riot Client to check updates or the installation');
       check();
       await keepSession();
       await windows.closeClient();

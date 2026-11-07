@@ -253,7 +253,7 @@ public static class RiotWindow {
   }
   [Console]::Out.WriteLine("remember:$rememberState")
 
-  if ($req.submit) { [RiotWindow]::Click($hwnd, $SUBMIT[0], $SUBMIT[1]) }
+  [RiotWindow]::Click($hwnd, $SUBMIT[0], $SUBMIT[1])
   [Console]::Out.WriteLine('ok')
   [Console]::Out.Flush()
   exit 0

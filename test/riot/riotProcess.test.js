@@ -17,7 +17,7 @@ test('background launch uses Riot headless mode and never requests a product bef
   assert.equal(released, true);
 });
 
-test('manual recovery can open the official interface', async () => {
+test('a visible launch opens the official interface, never a hidden one', async () => {
   const child = new EventEmitter();
   child.unref = () => {};
   let call;
@@ -28,12 +28,12 @@ test('manual recovery can open the official interface', async () => {
   await pending;
 });
 
-test('legacy credential fallback requests an interface while keeping startup hidden', async () => {
+test('an interface is never created without a visible window', async () => {
   const child = new EventEmitter();
   child.unref = () => {};
   let call;
   const pending = launchClient('synthetic.exe', { interfaceRequired: true, spawn: (...args) => { call = args; return child; } });
-  assert.deepEqual(call[1], []);
+  assert.deepEqual(call[1], ['--headless']);
   assert.equal(call[2].windowsHide, true);
   child.emit('spawn');
   await pending;

@@ -19,6 +19,8 @@ O app nunca tenta contornar essas etapas. Quando aparecem:
 2. o painel oferece **Show Riot Client**, que abre a janela que contém o desafio, preservando o contexto;
 3. depois que o usuário conclui, o monitor volta a esconder o cliente.
 
+Desde 2026-11-07 não há botão nem monitor: a Riot já está visível, a cobertura da coluna de login sai, e o usuário conclui o desafio na própria tela da Riot ([[ADR-024 Coluna de login coberta durante o login]], [[ADR-028 Modo antigo removido]]). A regra não muda.
+
 Regras derivadas:
 
 - Uma tela de verificação desconhecida nunca recebe senha automática.

@@ -281,12 +281,12 @@ function starter({ exe = 'riot-client.exe', running = [false] } = {}) {
   return { events, startClient };
 }
 
-test('a closed Riot is started with its interface, after its windows are released', async () => {
+test('a closed Riot is started with its interface, after its window is brought to the front', async () => {
   const f = starter();
   assert.equal(await f.startClient('custom-client.exe'), true);
   assert.deepEqual(f.events, [
     ['detect', 'custom-client.exe'], 'processes?', ['select', 'riot-client.exe'], 'reveal', 'processes?',
-    ['launch', 'riot-client.exe', { visible: true, interfaceRequired: true }],
+    ['launch', 'riot-client.exe', { visible: true }],
   ]);
 });
 

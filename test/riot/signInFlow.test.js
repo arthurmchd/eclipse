@@ -58,7 +58,7 @@ function fixture() {
     localApi: async (method, endpoint) => { events.push([method, endpoint]); state.authorized = false; return { status: 200 }; },
     launchProduct: async () => { events.push('launch'); },
     requestLaunch: async () => { events.push('request-launch'); },
-    typeCredentials: async (request) => { events.push(['type', request.submit]); state.authorized = true; return ['remember:on']; },
+    typeCredentials: async (request) => { events.push(['type', request]); state.authorized = true; return ['remember:on']; },
     windows: {
       reveal: async () => { events.push('reveal'); },
       gameWindow: async () => { events.push('game-window'); return state.gameWindow; },
@@ -311,6 +311,7 @@ test('an unsupported direct endpoint falls back to the visible form once', async
   const result = await f.run();
   assert.equal(result.gameStarted, true);
   assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
+  assert.deepEqual(f.events.find((event) => Array.isArray(event) && event[0] === 'type')[1], { action: 'type', username: 'example-user', password: 'example-password', remember: true });
   assert.equal(f.events.includes('closed'), false);
   assert.equal(reveals(f), 1);
 });
@@ -622,19 +623,6 @@ test('saving a delayed session never delays requesting the verified game', async
   assert.equal(result.gameStarted, true);
   assert.equal(result.session, 'token:fresh');
   assert.ok(f.elapsed() < 2500);
-});
-
-test('dry runs never submit background authentication or launch even an already verified account', async () => {
-  for (const authorized of [false, true]) {
-    const f = directFixture();
-    f.state.authorized = authorized;
-    f.options.dryRun = true;
-    const result = await f.run();
-    assert.equal(result.gameStarted, false);
-    assert.equal(f.events.includes('authenticate'), false);
-    assert.equal(f.events.includes('request-launch'), false);
-    assert.equal(f.events.some((event) => Array.isArray(event) && event[0] === 'type' && event[1] === true), false);
-  }
 });
 
 test('stay signed in off ignores saved sessions, types with remember off and keeps no session', async () => {

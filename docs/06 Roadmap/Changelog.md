@@ -7,6 +7,18 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-07 · Resto do código morto sai
+
+- A pedido do usuário, fecha o item 17 do [[Backlog]].
+- **[[riotInterface]] e [[riotProcess]]:** saem a opção `visible` do `openInterface` e o `interfaceRequired` do `launchClient`. A interface só é pedida com a janela visível.
+- **[[riotClient]]:** sai o ramo `error:focus`, que o [[login.ps1]] nunca emitia.
+- **[[signInFlow]] e [[login.ps1]]:** saem o `dryRun` e o campo `submit`; o script sempre clica em entrar.
+- **[[signInService]]:** sai `signIn(id, game)`, usado só nos testes. O app continua chamando `startFromManager`.
+- **[[language]]:** as mensagens em inglês param de citar o botão "Show Riot Client" e dizem para olhar ou abrir a janela da Riot, como as traduções já diziam. Saem três traduções sem uso.
+- [[ADR-003 Sem contornar CAPTCHA ou 2FA]] ganha uma nota: o desafio é concluído na própria tela da Riot, sem botão nem monitor. A regra não muda.
+- O comportamento do app não muda, salvo o texto das mensagens em inglês.
+- Testes: os do [[signInService]] passam a usar `startFromManager` e esperar o fim pelo `operationUpdated`; sai o teste do `dryRun`; entram testes de que o serviço só expõe o que os cartões usam, de que o pedido de digitação não leva `submit` e de que a interface nunca é criada escondida. 329 testes.
+
 ## 2026-11-07 · Monitor de janelas sai do windowController e do windowGuard.ps1
 
 - A pedido do usuário, depois de o login escondido sair do [[signInFlow]]: ninguém mais armava o monitor que escondia a Riot.
