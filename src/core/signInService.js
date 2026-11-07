@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-function createSignInService({ store, riotClient, status = () => {}, operationUpdated = () => {}, accountUpdated = () => {}, log = () => {}, onClosed = () => {}, onLaunched = () => {}, releaseAfterLaunch = false, visibleLogin = false, translate = (text) => text }) {
+function createSignInService({ store, riotClient, status = () => {}, operationUpdated = () => {}, accountUpdated = () => {}, log = () => {}, onClosed = () => {}, onLaunched = () => {}, translate = (text) => text }) {
   let operation = null;
   let controller = null;
   let pending = null;
@@ -65,11 +65,7 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
           session: () => store.loadSession(id), game,
           hasSavedSession: store.hasSession(id),
           clientPath: store.data.settings.riotClientPath,
-          hide: !visibleLogin,
-          closeClient: true,
           signal: attempt.signal,
-          releaseAfterLaunch,
-          visibleLogin,
           remember: store.data.settings.staySignedIn !== false,
           status: (text, details = {}) => {
             if (current.status !== 'running') return;

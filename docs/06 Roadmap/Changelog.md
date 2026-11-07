@@ -7,6 +7,15 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-07 · Login escondido sai do signInFlow
+
+- A pedido do usuário, depois da [[ADR-028 Modo antigo removido]]: o [[main]] já pedia sempre o login visível, então os ramos do login escondido não rodavam.
+- **[[signInFlow]]:** saem as opções `hide`, `closeClient`, `releaseAfterLaunch` e `visibleLogin`, o monitor de ocultação (`hide`, `conceal`, `park`, `assertHealthy`, `drainIncidents`), a espera de até 180 s por desafio numa sessão restaurada e o atalho do backend desconectado. O fluxo só usa `reveal`, `gameWindow` e `closeClient` da janela.
+- **[[signInService]] e [[main]]:** param de passar essas opções. **[[riotClient]]:** o formulário sempre abre a interface visível. **[[language]]:** sai "Finishing sign-in through the hidden Riot interface…".
+- O comportamento do app não muda.
+- Testes: os do signInFlow passam a partir do login visível; saem os que só testavam o esconder (park, queda do monitor, espera de 2FA na restauração escondida, troca de conta escondida). 339 testes.
+- Fica para depois ([[Backlog]], item 17): o monitor de ocultação no [[windowController]] e no [[windowGuard.ps1]], o `visible: false` do [[riotInterface]] e as mensagens em inglês com "Show Riot Client".
+
 ## 2026-11-07 · Modo antigo removido
 
 - Item 17 da análise de remendos, a pedido do usuário. A tag local `modo-antigo-final` (`a4fe748`) guarda o último código com o modo antigo.

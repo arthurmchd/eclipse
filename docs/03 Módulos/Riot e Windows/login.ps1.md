@@ -26,7 +26,7 @@ Entrada: um único JSON UTF-8 no stdin.
 | `type` | `username`, `password`, `remember`, `submit` | Preenche o formulário. |
 | `self-test` | — | Testa `Point`, as cores da caixa "remember" e a leitura num bitmap com borda invisível, sem procurar nem tocar janelas. Imprime `ok`. |
 
-O [[riotClient]] também envia `hide`; o script ignora esse campo.
+Até 2026-11-07 o [[riotClient]] também enviava `hide`, que o script ignorava.
 
 Saída: `remember:on|off|unknown`, depois `ok`. Em falha, `error:<código>` e código de saída 1.
 
@@ -92,7 +92,7 @@ A ação `type` não tem teste automatizado: precisa da janela real do Riot.
 ## Pontos de atenção
 
 - **Layout fixo.** As coordenadas, medidas na v141, e as cores da caixa, medidas na v142, dependem do tema do cliente: [[Atualização do Riot Client]].
-- **Depende do modo `hide`.** A janela precisa estar em alpha 1, não em `SW_HIDE`, para renderizar e receber a digitação. O [[signInFlow]] troca para `hide` antes de chamar o script.
+- **Precisa da janela renderizando.** A janela não pode estar em `SW_HIDE` para renderizar e receber a digitação. Desde 2026-11-07 o login é sempre visível; antes, o [[signInFlow]] trocava para o modo `hide` (alpha 1) do monitor antes de chamar o script.
 - **`error:focus` não existe aqui.** O [[riotClient]] trata esse código, mas o script nunca o emite.
 - **Tempo total.** 60 s para achar o formulário, mais a digitação, dentro do limite de 90 s do [[riotClient]].
 - Regra geral: [[Segurança e privacidade]].

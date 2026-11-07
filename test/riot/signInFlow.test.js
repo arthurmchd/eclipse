@@ -3,79 +3,40 @@ const assert = require('node:assert/strict');
 const { createSignInFlow } = require('../../src/riot/signInFlow');
 
 const account = { username: 'example-user', password: 'example-password', gameName: 'Example', tagLine: 'BR1' };
+const reveals = (f) => f.events.filter((event) => event === 'reveal').length;
 
-test('visible login keeps the official interface alive and closes its window only after the game is ready', async () => {
+test('the login keeps the official interface open and closes its window only after the game is ready', async () => {
   const f = fixture();
-  f.options.visibleLogin = true;
+  f.options.hasSavedSession = false;
   f.state.authorized = false;
   f.io.runningGames = async () => ({ lol: f.state.authorized, val: false });
-  f.io.openVisibleInterface = async () => f.events.push('visible-interface');
-  f.io.windows.closeClient = async () => f.events.push('close-client-window');
   f.io.authenticate = async () => ({ supported: false });
   assert.equal((await f.run()).gameStarted, true);
   assert.equal(f.events.includes('closed'), false);
-  assert.equal(f.events.includes('hide'), false);
-  assert.equal(f.events.includes('conceal'), false);
   assert.equal(f.events.some(e => Array.isArray(e) && e[0] === 'write'), false);
+  assert.ok(f.events.indexOf('visible-interface') < f.events.findIndex(e => Array.isArray(e) && e[0] === 'type'));
   assert.equal(f.events.at(-1), 'close-client-window');
   assert.ok(f.events.indexOf('close-client-window') > f.events.indexOf('game-window'));
 });
 
-test('visible login errors keep Riot open without requesting or closing a game', async () => {
+test('login errors keep Riot open without requesting or closing a game', async () => {
   const f = fixture();
-  f.options.visibleLogin = true;
+  f.options.hasSavedSession = false;
   f.state.authorized = false;
   f.io.runningGames = async () => ({});
-  f.io.openVisibleInterface = async () => {};
   f.io.authenticate = async () => { throw new Error('Wrong username or password'); };
-  f.io.windows.closeClient = async () => f.events.push('close-client-window');
   await assert.rejects(f.run(), /Wrong username/);
-  for (const event of ['hide', 'conceal', 'closed', 'request-launch', 'close-client-window']) assert.equal(f.events.includes(event), false);
+  for (const event of ['closed', 'request-launch', 'close-client-window']) assert.equal(f.events.includes(event), false);
 });
 
-test('overlay launch releases the Riot window monitor only after the actual game window is ready', async () => {
+test('the sign-in never hides the Riot or arms the window monitor', async () => {
   const f = fixture();
-  f.options.releaseAfterLaunch = true;
-  f.io.windows.park = async () => f.events.push('park');
-  assert.equal((await f.run()).gameStarted, true);
-  assert.equal(f.events.at(-1), 'park');
-  assert.ok(f.events.indexOf('park') > f.events.indexOf('game-window'));
-});
-
-test('loss of the window guard interrupts login before requesting the product', async () => {
-  const f = fixture();
-  let healthy = true;
-  f.io.windows.assertHealthy = () => { if (!healthy) throw new Error('guard stopped'); };
-  f.io.sessionState = async () => { healthy = false; return { type: 'auth' }; };
-  await assert.rejects(f.run(), /guard stopped/);
-  assert.equal(f.events.includes('request-launch'), false);
-  assert.equal(f.events.some((entry) => Array.isArray(entry) && entry[0] === 'type'), false);
-});
-
-test('window guard restarts and unrecoverable losses are written to the sign-in log', async () => {
-  const recovered = fixture();
-  const logs = [];
-  recovered.options.log = (line) => logs.push(line);
-  let pending = [{ reason: 'window-style-timeout', recovered: true }];
-  recovered.io.windows.drainIncidents = () => pending.splice(0);
-  const result = await recovered.run();
+  const used = new Set();
+  f.io.windows = new Proxy(f.io.windows, { get: (target, name) => { used.add(name); return target[name]; } });
+  const result = await f.run();
   assert.equal(result.gameStarted, true);
-  assert.ok(logs.includes('window guard restarted after window-style-timeout'));
-
-  const failed = fixture();
-  const failedLogs = [];
-  failed.options.log = (line) => failedLogs.push(line);
-  let healthy = true;
-  pending = [];
-  failed.io.windows.drainIncidents = () => pending.splice(0);
-  failed.io.windows.assertHealthy = () => { if (!healthy) throw new Error('The background window guard stopped (window-opacity-denied). Try Play again'); };
-  failed.io.sessionState = async () => {
-    healthy = false;
-    pending = [{ reason: 'window-opacity-denied', recovered: false }];
-    return { type: 'auth' };
-  };
-  await assert.rejects(failed.run(), /window-opacity-denied/);
-  assert.ok(failedLogs.includes('window guard could not be restarted after window-opacity-denied'));
+  assert.deepEqual([...used].sort(), ['closeClient', 'gameWindow', 'reveal']);
+  assert.equal(f.events[0], 'reveal');
 });
 
 function fixture() {
@@ -99,12 +60,13 @@ function fixture() {
     requestLaunch: async () => { events.push('request-launch'); },
     typeCredentials: async (request) => { events.push(['type', request.submit]); state.authorized = true; return ['remember:on']; },
     windows: {
-      hide: async () => { events.push('hide'); },
-      conceal: async () => { events.push('conceal'); },
       reveal: async () => { events.push('reveal'); },
       gameWindow: async () => { events.push('game-window'); return state.gameWindow; },
+      closeClient: async () => { events.push('close-client-window'); },
     },
     runningGames: async () => ({ lol: true, val: true }),
+    openVisibleInterface: async () => { events.push('visible-interface'); },
+    closeGames: async () => { events.push('close-games'); },
     now: () => clock,
     sleep: async (ms) => { clock += ms; },
   };
@@ -112,6 +74,7 @@ function fixture() {
     account,
     game: 'lol',
     session: 'token:saved',
+    hasSavedSession: true,
     status: (text, details) => { statuses.push({ text, ...details }); },
   };
   return { io, options, state, events, statuses, elapsed: () => clock, run: () => createSignInFlow(io)(options) };
@@ -130,41 +93,14 @@ test('loads the latest remembered session only after the leaving session is pers
   assert.equal(f.events.some((entry) => Array.isArray(entry) && entry[0] === 'type'), false);
 });
 
-test('falls back to hidden credential entry for an expired saved session', async () => {
+test('a Riot window that cannot be shown stops the login before touching Riot', async () => {
   const f = fixture();
-  f.state.authorized = false;
-  const result = await f.run();
-  assert.equal(result.sessionRejected, true);
-  assert.equal(result.gameStarted, true);
-  assert.deepEqual(f.events.find((entry) => Array.isArray(entry) && entry[0] === 'type'), ['type', true]);
-  assert.equal(f.events.includes('reveal'), false);
+  f.io.windows.reveal = async () => { throw new Error('window unavailable'); };
+  await assert.rejects(f.run(), /window unavailable/);
+  for (const event of ['launch', 'closed', 'visible-interface', 'close-games']) assert.equal(f.events.includes(event), false);
 });
 
-test('refuses to start Riot when the background guard cannot be armed', async () => {
-  const f = fixture();
-  f.io.windows.hide = async () => { throw new Error('guard unavailable'); };
-  await assert.rejects(f.run(), /guard unavailable/);
-  assert.equal(f.events.includes('launch'), false);
-  assert.equal(f.events.includes('closed'), false);
-  assert.equal(f.events.includes('reveal'), false);
-});
-
-test('MFA requests manual attention without revealing the client or typing over the code form', async () => {
-  const f = fixture();
-  f.state.authorized = false;
-  f.io.sessionState = async () => ({ type: f.state.authorized ? 'authenticated' : 'multifactor' });
-  f.io.isAuthorized = async () => {
-    if (f.elapsed() > 16000) f.state.authorized = true;
-    return f.state.authorized;
-  };
-  const result = await f.run();
-  assert.equal(result.gameStarted, true);
-  assert.ok(f.statuses.some((status) => status.needsAttention && /2FA/.test(status.text)));
-  assert.equal(f.events.includes('reveal'), false);
-  assert.equal(f.events.some((entry) => Array.isArray(entry) && entry[0] === 'type'), false);
-});
-
-test('retains the concealment watcher after a real game window is ready', async () => {
+test('the Riot window closes only after a real game window is ready', async () => {
   const f = fixture();
   f.io.windows.gameWindow = async () => {
     const ready = f.elapsed() >= 5000;
@@ -174,8 +110,8 @@ test('retains the concealment watcher after a real game window is ready', async 
   const result = await f.run();
   assert.equal(result.gameStarted, true);
   assert.ok(f.elapsed() >= 5000);
-  assert.ok(f.events.lastIndexOf('conceal') > f.events.indexOf('game-ready'));
-  assert.equal(f.events.includes('reveal'), false);
+  assert.ok(f.events.lastIndexOf('close-client-window') > f.events.indexOf('game-ready'));
+  assert.equal(f.events.filter((event) => event === 'close-client-window').length, 1);
   assert.equal(f.events.includes('request-launch'), true);
 });
 
@@ -184,16 +120,16 @@ test('a running game process without a game window times out without reporting s
   f.state.gameWindow = false;
   await assert.rejects(f.run(), /game did not open/i);
   assert.ok(f.elapsed() >= 180000);
-  assert.equal(f.events.at(-1), 'conceal');
-  assert.equal(f.events.includes('reveal'), false);
+  assert.equal(f.events.includes('close-client-window'), false);
+  assert.equal(reveals(f), 1);
   assert.equal(f.statuses.some((status) => status.text === 'Game opened'), false);
 });
 
-test('cancellation interrupts authentication polling and does not reveal the client', async () => {
+test('cancellation interrupts authentication polling and keeps the Riot open', async () => {
   const f = fixture();
   const controller = new AbortController();
   f.options.signal = controller.signal;
-  f.options.session = null;
+  f.options.hasSavedSession = false;
   f.state.authorized = false;
   f.io.typeCredentials = async () => [];
   const sleep = f.io.sleep;
@@ -201,39 +137,39 @@ test('cancellation interrupts authentication polling and does not reveal the cli
   await assert.rejects(f.run(), /cancelled/i);
   assert.ok(f.elapsed() < 2000);
   assert.equal(f.events.includes('request-launch'), false);
-  assert.equal(f.events.includes('reveal'), false);
-  assert.equal(f.events.at(-1), 'conceal');
+  assert.equal(f.events.includes('close-client-window'), false);
+  assert.equal(reveals(f), 1);
 });
 
 test('Riot Client only signs in, keeps the session and shows the client without requesting any game', async () => {
   const f = fixture();
   f.options.game = 'riot';
-  f.options.visibleLogin = true;
+  f.options.hasSavedSession = false;
   f.state.authorized = false;
   f.io.runningGames = async () => ({});
-  f.io.openVisibleInterface = async () => f.events.push('visible-interface');
-  f.io.windows.closeClient = async () => f.events.push('close-client-window');
   f.io.authenticate = async () => ({ supported: false });
   const result = await f.run();
   assert.equal(result.clientOpened, true);
   assert.equal(result.gameStarted, false);
   assert.equal(result.session, 'token:current');
   assert.deepEqual(result.riotId, { gameName: 'Example', tagLine: 'BR1' });
-  for (const event of ['request-launch', 'game-window', 'close-client-window', 'conceal']) assert.equal(f.events.includes(event), false);
+  for (const event of ['request-launch', 'game-window', 'close-client-window']) assert.equal(f.events.includes(event), false);
   assert.equal(f.events.at(-1), 'reveal');
   assert.equal(f.statuses.at(-1).text, 'Riot Client opened');
   assert.equal(f.statuses.at(-1).signedIn, true);
 });
 
-test('Riot Client only never opens the client for a different signed-in account', async () => {
+test('Riot Client only never shows the client for a different signed-in account', async () => {
   const f = fixture();
   f.options.game = 'riot';
+  f.options.hasSavedSession = false;
   f.state.authorized = false;
   f.io.runningGames = async () => ({});
   f.io.authenticate = async () => ({ supported: false });
   f.state.identity = { gameName: 'Someone', tagLine: 'ELSE' };
   await assert.rejects(f.run(), /does not match/);
   assert.equal(f.events.includes('request-launch'), false);
+  assert.equal(reveals(f), 1);
 });
 
 test('rejects unsupported products before touching client processes', async () => {
@@ -243,41 +179,9 @@ test('rejects unsupported products before touching client processes', async () =
   assert.deepEqual(f.events, []);
 });
 
-for (const challenge of [
-  { label: 'captcha error', type: 'auth', error: 'captcha_not_allowed' },
-  { label: 'challenge screen', type: 'challenge' },
-]) {
-  test(`saved session ${challenge.label} requests attention without overwriting the challenge`, async () => {
-    const f = fixture();
-    f.state.authorized = false;
-    f.io.sessionState = async () => f.state.authorized ? { type: 'authenticated' } : challenge;
-    f.io.isAuthorized = async () => {
-      if (f.elapsed() > 17000) f.state.authorized = true;
-      return f.state.authorized;
-    };
-    const result = await f.run();
-    assert.equal(result.gameStarted, true);
-    assert.equal(result.usedSavedSession, true);
-    assert.equal(f.statuses.filter((status) => status.needsAttention).length, 1);
-    assert.equal(f.events.some((entry) => Array.isArray(entry) && entry[0] === 'type'), false);
-    assert.equal(f.events.includes('reveal'), false);
-  });
-}
-
-test('a saved-session MFA timeout fails without falling back to credential entry', async () => {
-  const f = fixture();
-  f.state.authorized = false;
-  f.io.sessionState = async () => ({ type: 'multifactor' });
-  await assert.rejects(f.run(), /security check timed out/i);
-  assert.ok(f.elapsed() >= 195000);
-  assert.equal(f.events.some((entry) => Array.isArray(entry) && entry[0] === 'type'), false);
-  assert.equal(f.events.includes('request-launch'), false);
-  assert.equal(f.events.includes('reveal'), false);
-});
-
 test('rejects a different signed-in account after credential entry before saving its session', async () => {
   const f = fixture();
-  f.options.session = null;
+  f.options.hasSavedSession = false;
   f.state.authorized = false;
   f.state.identity = { gameName: 'AnotherAccount', tagLine: 'BR1' };
   let readSession = false;
@@ -285,58 +189,16 @@ test('rejects a different signed-in account after credential entry before saving
   await assert.rejects(f.run(), /does not match the selected account/);
   assert.equal(readSession, false);
   assert.equal(f.events.includes('request-launch'), false);
-  assert.equal(f.events.includes('reveal'), false);
-  assert.equal(f.events.at(-1), 'conceal');
+  assert.equal(f.events.includes('close-client-window'), false);
 });
 
-test('a mismatched saved session is closed normally, never signed out, before the selected credentials are typed', async () => {
-  const f = fixture();
-  const leaving = [];
-  let launches = 0, closes = 0;
-  f.options.onRejected = () => f.events.push('rejected');
-  f.options.onClosed = (closed) => { leaving.push(closed.yaml); f.events.push('persist-leaving'); };
-  f.io.closeEverything = async () => {
-    f.events.push('closed');
-    f.state.authorized = false;
-    return { yaml: ++closes === 2 ? 'token:another-renewed' : null };
-  };
-  f.io.launchProduct = async () => {
-    f.events.push('launch');
-    if (++launches === 1) {
-      f.state.authorized = true;
-      f.state.identity = { gameName: 'AnotherAccount', tagLine: 'BR1' };
-    }
-  };
-  f.io.typeCredentials = async () => {
-    f.events.push(['type', true]);
-    f.state.identity = { gameName: account.gameName, tagLine: account.tagLine };
-    f.state.authorized = true;
-    return ['remember:on'];
-  };
-  const result = await f.run();
-  assert.equal(result.gameStarted, true);
-  assert.equal(result.sessionRejected, true);
-  assert.equal(result.usedSavedSession, false);
-  assert.equal(f.events.some((entry) => Array.isArray(entry) && entry[0] === 'DELETE'), false);
-  assert.deepEqual(leaving, [null, 'token:another-renewed']);
-  const stripped = f.events.findIndex((entry) => Array.isArray(entry) && entry[0] === 'write' && entry[1] === 'stripped');
-  const typed = f.events.findIndex((entry) => Array.isArray(entry) && entry[0] === 'type');
-  assert.equal(f.events.filter((event) => event === 'rejected').length, 1);
-  assert.ok(f.events.indexOf('rejected') < f.events.lastIndexOf('closed'));
-  assert.ok(f.events.lastIndexOf('closed') < f.events.lastIndexOf('persist-leaving'));
-  assert.ok(f.events.lastIndexOf('persist-leaving') < stripped);
-  assert.ok(stripped < f.events.lastIndexOf('launch'));
-  assert.ok(f.events.lastIndexOf('launch') < typed);
-});
-
-test('cancelling while the guard starts never closes games afterward', async () => {
+test('cancelling while the Riot window is shown never closes games afterward', async () => {
   const f = fixture();
   const controller = new AbortController();
   f.options.signal = controller.signal;
-  f.io.windows.hide = async () => { f.events.push('hide'); controller.abort(); };
+  f.io.windows.reveal = async () => { f.events.push('reveal'); controller.abort(); };
   await assert.rejects(f.run(), /cancelled/i);
-  assert.equal(f.events.includes('closed'), false);
-  assert.equal(f.events.includes('launch'), false);
+  for (const event of ['closed', 'launch', 'close-games', 'visible-interface']) assert.equal(f.events.includes(event), false);
 });
 
 test('cancelling during session loading never replaces the Riot settings afterward', async () => {
@@ -376,7 +238,8 @@ test('a verified current account opens the selected game without restarting or s
   const result = await f.run();
   assert.equal(result.reusedCurrentSession, true);
   assert.equal(result.gameStarted, true);
-  for (const event of ['closed', 'launch', 'authenticate', 'reveal']) assert.equal(f.events.includes(event), false);
+  for (const event of ['closed', 'launch', 'authenticate']) assert.equal(f.events.includes(event), false);
+  assert.equal(reveals(f), 1);
   assert.equal(f.events.some((event) => Array.isArray(event) && ['type', 'write'].includes(event[0])), false);
   assert.ok(f.events.indexOf('identity') < f.events.indexOf('request-launch'));
   assert.equal(f.elapsed(), 0);
@@ -402,7 +265,7 @@ test('an unresolved player-session verification never opens a game despite exist
   await assert.rejects(f.run(), /security check timed out/);
   assert.equal(f.events.includes('request-launch'), false);
   assert.equal(f.events.includes('authenticate'), false);
-  assert.equal(f.events.includes('reveal'), false);
+  assert.equal(reveals(f), 1);
 });
 
 test('player-session inspection errors cannot be mistaken for completed verification', async () => {
@@ -411,17 +274,19 @@ test('player-session inspection errors cannot be mistaken for completed verifica
   f.io.readAuthenticationState = async () => { throw new Error('Could not inspect player session'); };
   await assert.rejects(f.run(), /Could not inspect player session/);
   assert.equal(f.events.includes('request-launch'), false);
-  assert.equal(f.events.includes('reveal'), false);
+  assert.equal(reveals(f), 1);
 });
 
 for (const game of ['lol', 'tft', 'val']) {
-  test(`a signed-out backend signs in directly for ${game} without restarting or typing`, async () => {
+  test(`a signed-out Riot signs in directly for ${game} without restarting or typing`, async () => {
     const f = directFixture();
     f.options.game = game;
     const result = await f.run();
     assert.equal(result.gameStarted, true);
     assert.equal(f.events.filter((event) => event === 'authenticate').length, 1);
-    for (const event of ['closed', 'launch', 'reveal']) assert.equal(f.events.includes(event), false);
+    for (const event of ['closed', 'launch']) assert.equal(f.events.includes(event), false);
+    assert.equal(reveals(f), 1);
+    assert.ok(f.events.indexOf('visible-interface') < f.events.indexOf('authenticate'));
     assert.equal(f.events.some((event) => Array.isArray(event) && ['type', 'write'].includes(event[0])), false);
     assert.ok(f.events.indexOf('identity') < f.events.indexOf('request-launch'));
     assert.equal(f.elapsed(), 0);
@@ -436,32 +301,32 @@ test('direct authentication errors never fall back to typing or launch a game', 
     assert.equal(f.events.filter((event) => event === 'authenticate').length, 1);
     assert.equal(f.events.some((event) => Array.isArray(event) && event[0] === 'type'), false);
     assert.equal(f.events.includes('request-launch'), false);
-    assert.equal(f.events.includes('reveal'), false);
+    assert.equal(reveals(f), 1);
   }
 });
 
-test('an unsupported direct endpoint permits hidden credential compatibility', async () => {
+test('an unsupported direct endpoint falls back to the visible form once', async () => {
   const f = directFixture();
   f.io.authenticate = async () => { f.events.push('authenticate'); return { supported: false }; };
   const result = await f.run();
   assert.equal(result.gameStarted, true);
   assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
   assert.equal(f.events.includes('closed'), false);
-  assert.equal(f.events.includes('reveal'), false);
+  assert.equal(reveals(f), 1);
 });
 
-test('a CAPTCHA required before any credential submission uses the native hidden form once', async () => {
+test('a CAPTCHA required before any credential submission uses the visible form once', async () => {
   const f = directFixture();
   f.io.authenticate = async () => { f.events.push('inspect-auth'); return { supported: true, requiresNativeForm: true, reason: 'captcha' }; };
   const result = await f.run();
   assert.equal(result.gameStarted, true);
   assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
   assert.equal(f.events.includes('closed'), false);
-  assert.equal(f.events.includes('reveal'), false);
-  assert.ok(f.statuses.some((status) => status.nativeClient === true && !status.needsAttention));
+  assert.equal(reveals(f), 1);
+  assert.ok(f.statuses.some((status) => status.text === 'Entrando na conta…' && status.nativeClient === true && !status.needsAttention));
 });
 
-test('the native hidden form reports how the Riot interface was opened to the sign-in log', async () => {
+test('the visible form reports how the Riot interface was opened to the sign-in log', async () => {
   const f = directFixture();
   const logs = [];
   f.options.log = (line) => logs.push(line);
@@ -488,9 +353,9 @@ test('manual verification after native credential entry identifies the original 
   assert.equal(result.gameStarted, true);
   assert.ok(f.statuses.some((status) => status.needsAttention && status.nativeClient === true));
   assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
-  assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
-  assert.ok(f.events.indexOf('reveal') < f.events.indexOf('request-launch'));
-  assert.ok(f.events.lastIndexOf('conceal') > f.events.indexOf('reveal'));
+  assert.equal(reveals(f), 2);
+  assert.ok(f.events.lastIndexOf('reveal') < f.events.indexOf('request-launch'));
+  assert.equal(f.events.at(-1), 'close-client-window');
 });
 
 for (const challenge of [{ type: 'multifactor' }, { type: 'challenge' }, { type: 'auth', error: 'captcha_not_allowed' }]) {
@@ -506,7 +371,7 @@ for (const challenge of [{ type: 'multifactor' }, { type: 'challenge' }, { type:
       assert.equal(error.nativeClient, true);
       return true;
     });
-    assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
+    assert.equal(reveals(f), 2);
     assert.equal(f.events.at(-1), 'reveal');
     assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
     assert.equal(f.events.includes('request-launch'), false);
@@ -521,7 +386,7 @@ test('a native verification remains recoverable when revealing its existing wind
   f.io.authenticate = async () => ({ supported: false });
   f.io.typeCredentials = async () => { typed = true; return ['remember:on']; };
   f.io.sessionState = async () => ({ type: typed ? 'multifactor' : 'auth' });
-  f.io.windows.reveal = async () => { f.events.push('reveal'); throw new Error('window-style-denied'); };
+  f.io.windows.reveal = async () => { f.events.push('reveal'); if (typed) throw new Error('window-style-denied'); };
   await assert.rejects(f.run(), (error) => {
     assert.equal(error.message, 'window-style-denied');
     assert.equal(error.needsAttention, true);
@@ -533,25 +398,24 @@ test('a native verification remains recoverable when revealing its existing wind
 });
 
 for (const revealFails of [false, true]) {
-  test(`a guard failure after native entry recovers pending MFA${revealFails ? ' even if window recovery fails' : ''}`, async () => {
+  test(`a failure right after native entry recovers pending MFA${revealFails ? ' even if window recovery fails' : ''}`, async () => {
     const f = directFixture();
-    let healthy = true;
+    let typed = false;
     let inspections = 0;
     const logs = [];
-    f.options.log = (line) => logs.push(line);
-    f.io.windows.assertHealthy = () => { if (!healthy) throw new Error('original guard failure'); };
+    f.options.log = (line) => { logs.push(line); if (line.startsWith('credentials entered')) throw new Error('original failure'); };
     f.io.authenticate = async () => ({ supported: false });
-    f.io.typeCredentials = async () => { healthy = false; f.events.push(['type', true]); return ['remember:on']; };
+    f.io.typeCredentials = async () => { typed = true; f.events.push(['type', true]); return ['remember:on']; };
     f.io.readAuthenticationState = async () => { inspections++; return { type: 'multifactor' }; };
-    f.io.windows.reveal = async () => { f.events.push('reveal'); if (revealFails) throw new Error('recovery failed'); };
+    f.io.windows.reveal = async () => { f.events.push('reveal'); if (typed && revealFails) throw new Error('recovery failed'); };
     await assert.rejects(f.run(), (error) => {
-      assert.equal(error.message, 'original guard failure');
+      assert.equal(error.message, 'original failure');
       assert.equal(error.needsAttention, true);
       assert.equal(error.nativeClient, true);
       return true;
     });
     assert.equal(inspections, 1);
-    assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
+    assert.equal(reveals(f), 2);
     assert.equal(f.events.at(-1), 'reveal');
     assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
     assert.equal(f.events.includes('request-launch'), false);
@@ -563,21 +427,19 @@ for (const revealFails of [false, true]) {
 
 test('an unreadable state during native error recovery keeps the original failure without inventing a challenge', async () => {
   const f = directFixture();
-  let healthy = true;
   let inspections = 0;
-  f.io.windows.assertHealthy = () => { if (!healthy) throw new Error('original guard failure'); };
+  f.options.log = (line) => { if (line.startsWith('credentials entered')) throw new Error('original failure'); };
   f.io.authenticate = async () => ({ supported: false });
-  f.io.typeCredentials = async () => { healthy = false; return ['remember:on']; };
+  f.io.typeCredentials = async () => ['remember:on'];
   f.io.readAuthenticationState = async () => { inspections++; throw new Error('inspection failed'); };
   await assert.rejects(f.run(), (error) => {
-    assert.equal(error.message, 'original guard failure');
+    assert.equal(error.message, 'original failure');
     assert.equal(error.needsAttention, undefined);
     assert.equal(error.nativeClient, undefined);
     return true;
   });
   assert.equal(inspections, 1);
-  assert.equal(f.events.includes('reveal'), false);
-  assert.equal(f.events.at(-1), 'conceal');
+  assert.equal(reveals(f), 1);
 });
 
 test('cancellation after native entry never inspects or reveals another verification', async () => {
@@ -588,8 +450,7 @@ test('cancellation after native entry never inspects or reveals another verifica
   f.io.typeCredentials = async () => { controller.abort(); return ['remember:on']; };
   f.io.readAuthenticationState = async () => { assert.fail('A cancelled operation must not inspect authentication'); };
   await assert.rejects(f.run(), /cancelled/);
-  assert.equal(f.events.includes('reveal'), false);
-  assert.equal(f.events.at(-1), 'conceal');
+  assert.equal(reveals(f), 1);
 });
 
 test('a failure after native authentication completes never reopens a newly reported challenge', async () => {
@@ -609,8 +470,8 @@ test('a failure after native authentication completes never reopens a newly repo
     return true;
   });
   assert.equal(extraInspections, 0);
-  assert.equal(f.events.includes('reveal'), false);
-  assert.equal(f.events.at(-1), 'conceal');
+  assert.equal(reveals(f), 1);
+  assert.equal(f.events.includes('close-client-window'), false);
 });
 
 test('a slow native sign-in preserves manual recovery without automatically revealing the client', async () => {
@@ -622,12 +483,11 @@ test('a slow native sign-in preserves manual recovery without automatically reve
     assert.equal(error.nativeClient, true);
     return true;
   });
-  assert.equal(f.events.includes('reveal'), false);
-  assert.equal(f.events.at(-1), 'hide');
+  assert.equal(reveals(f), 1);
   assert.equal(f.events.includes('request-launch'), false);
 });
 
-test('cancelling a revealed native verification conceals it and clears recovery flags', async () => {
+test('cancelling a revealed native verification clears recovery flags', async () => {
   const f = directFixture();
   const controller = new AbortController();
   let typed = false;
@@ -643,8 +503,7 @@ test('cancelling a revealed native verification conceals it and clears recovery 
     assert.equal(error.nativeClient, undefined);
     return true;
   });
-  assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
-  assert.equal(f.events.at(-1), 'conceal');
+  assert.equal(reveals(f), 2);
   assert.equal(f.events.includes('request-launch'), false);
 });
 
@@ -663,8 +522,8 @@ test('a game timeout after native verification does not retain authentication re
     return true;
   });
   assert.ok(f.statuses.some((status) => status.needsAttention && /game is taking longer/i.test(status.text)));
-  assert.equal(f.events.filter((event) => event === 'reveal').length, 1);
-  assert.equal(f.events.at(-1), 'conceal');
+  assert.equal(reveals(f), 2);
+  assert.equal(f.events.includes('close-client-window'), false);
 });
 
 test('an invalid direct-login result fails closed without duplicate credential submission', async () => {
@@ -720,10 +579,11 @@ test('a game already running prevents reusing even a matching current session', 
   const f = directFixture();
   f.state.authorized = true;
   f.state.processes.val = true;
+  f.io.closeEverything = async () => { f.events.push('closed'); f.state.authorized = false; f.state.processes.val = false; return { yaml: null }; };
   const result = await f.run();
   assert.equal(result.reusedCurrentSession, false);
-  assert.equal(f.events.includes('closed'), true);
-  assert.equal(f.events.includes('launch'), true);
+  assert.ok(f.events.indexOf('closed') < f.events.indexOf('visible-interface'));
+  assert.ok(f.events.indexOf('visible-interface') < f.events.indexOf('authenticate'));
 });
 
 test('direct MFA waits for user intervention without typing or submitting credentials twice', async () => {
@@ -739,7 +599,7 @@ test('direct MFA waits for user intervention without typing or submitting creden
   assert.equal(f.events.filter((event) => event === 'authenticate').length, 1);
   assert.equal(f.statuses.filter((status) => status.needsAttention).length, 1);
   assert.equal(f.events.some((event) => Array.isArray(event) && event[0] === 'type'), false);
-  assert.equal(f.events.includes('reveal'), false);
+  assert.equal(reveals(f), 1);
 });
 
 test('cancellation during direct authentication never launches a product or types credentials afterward', async () => {
@@ -781,6 +641,7 @@ test('stay signed in off ignores saved sessions, types with remember off and kee
   const f = fixture();
   const typed = [];
   f.options.remember = false;
+  f.io.closeEverything = async () => { f.events.push('closed'); f.state.authorized = false; return { yaml: null }; };
   f.options.session = () => { throw new Error('Saved sessions must not be read'); };
   f.io.typeCredentials = async (request) => { typed.push(request.remember); f.state.authorized = true; return ['remember:off']; };
   const result = await f.run();
@@ -813,7 +674,7 @@ function automaticCheckFixture(checkMs) {
   f.io.typeCredentials = async () => { submittedAt = f.elapsed(); return ['remember:unknown']; };
   f.io.readAuthenticationState = async () => (submittedAt !== null && f.elapsed() - submittedAt < checkMs ? { type: 'challenge' } : { type: 'auth' });
   f.io.isAuthorized = async () => submittedAt !== null && f.elapsed() - submittedAt >= checkMs;
-  f.io.windows.reveal = async () => { timeline.push(['reveal', f.elapsed() - submittedAt]); };
+  f.io.windows.reveal = async () => { if (submittedAt !== null) timeline.push(['reveal', f.elapsed() - submittedAt]); };
   f.options.status = (text, details = {}) => { f.statuses.push({ text, ...details }); if (details.needsAttention) timeline.push(['attention', f.elapsed() - submittedAt]); };
   return { f, timeline };
 }
@@ -893,16 +754,12 @@ test('a launch refused for another reason is not repeated and keeps the open tim
   assert.ok(f.elapsed() < 200000);
 });
 
-function cardsFixture() {
+function restoreFixture() {
   const f = fixture();
-  f.options.visibleLogin = true;
-  f.options.hasSavedSession = true;
   f.state.authorized = false;
   f.state.launched = false;
   f.io.runningGames = async () => ({ lol: f.state.launched, val: false });
   f.io.launchProduct = async (_exe, game, visible) => { f.events.push(['launch', game, visible]); };
-  f.io.openVisibleInterface = async () => f.events.push('visible-interface');
-  f.io.windows.closeClient = async () => f.events.push('close-client-window');
   f.io.authenticate = async () => ({ supported: false });
   f.io.requestLaunch = async () => { f.events.push('request-launch'); f.state.launched = true; return { status: 200 }; };
   const at = (match) => f.events.findIndex((event) => match(event));
@@ -910,8 +767,8 @@ function cardsFixture() {
   return f;
 }
 
-test('cards mode restores a saved session in the background without opening Riot or typing', async () => {
-  const f = cardsFixture();
+test('restores a saved session in the background without opening Riot or typing', async () => {
+  const f = restoreFixture();
   f.io.launchProduct = async (_exe, game, visible) => { f.events.push(['launch', game, visible]); f.state.authorized = true; };
   const result = await f.run();
   assert.equal(result.usedSavedSession, true);
@@ -927,8 +784,8 @@ test('cards mode restores a saved session in the background without opening Riot
   assert.ok(f.statuses.some((status) => status.text === 'Signing in with the saved session…'));
 });
 
-test('cards mode falls back to the visible Riot form when the saved session is no longer accepted', async () => {
-  const f = cardsFixture();
+test('falls back to the visible Riot form when the saved session is no longer accepted', async () => {
+  const f = restoreFixture();
   const result = await f.run();
   assert.equal(result.sessionRejected, true);
   assert.equal(result.usedSavedSession, false);
@@ -941,8 +798,8 @@ test('cards mode falls back to the visible Riot form when the saved session is n
   assert.equal(f.events.at(-1), 'close-client-window');
 });
 
-test('cards mode closes a restored session of another account normally, hands it over before closing and types the selected one in the visible form', async () => {
-  const f = cardsFixture();
+test('closes a restored session of another account normally, hands it over before closing and types the selected one in the visible form', async () => {
+  const f = restoreFixture();
   const leaving = [];
   f.io.authorization = async () => (f.state.authorized ? 'yes' : 'no');
   f.options.onRejected = () => f.events.push('rejected');
@@ -980,7 +837,7 @@ test('cards mode closes a restored session of another account normally, hands it
 });
 
 test('an account Riot restores on its own is closed normally before the visible form, never signed out', async () => {
-  const f = cardsFixture();
+  const f = restoreFixture();
   const leaving = [];
   let opened = 0;
   f.options.hasSavedSession = false;
@@ -1016,7 +873,7 @@ test('an account Riot restores on its own is closed normally before the visible 
 });
 
 test('an account that stays signed in after a normal close stops the switch without being signed out', async () => {
-  const f = cardsFixture();
+  const f = restoreFixture();
   f.options.hasSavedSession = false;
   f.io.authorization = async () => 'yes';
   f.io.closeEverything = async () => { f.events.push('closed'); return { signedIn: true, riotId: null, yaml: null }; };
@@ -1035,7 +892,7 @@ for (const scenario of [
   { label: 'a pending security check', state: { type: 'challenge' }, account: 'no', cleared: false },
 ]) {
   test(`the visible form ${scenario.cleared ? 'clears' : 'never clears'} ${scenario.label} left in Riot`, async () => {
-    const f = cardsFixture();
+    const f = restoreFixture();
     let pending = true;
     f.options.hasSavedSession = false;
     f.io.authorization = async () => scenario.account;
@@ -1060,8 +917,8 @@ for (const scenario of [
   });
 }
 
-test('cards mode with stay signed in off never restarts Riot for a stored session', async () => {
-  const f = cardsFixture();
+test('stay signed in off never restarts Riot for a stored session', async () => {
+  const f = restoreFixture();
   f.options.remember = false;
   const result = await f.run();
   assert.equal(result.gameStarted, true);
@@ -1070,16 +927,16 @@ test('cards mode with stay signed in off never restarts Riot for a stored sessio
   assert.ok(f.index('visible-interface') < f.index('type'));
 });
 
-test('cards mode without a stored session keeps the visible form path', async () => {
-  const f = cardsFixture();
+test('an account without a stored session keeps the visible form path', async () => {
+  const f = restoreFixture();
   f.options.hasSavedSession = false;
   await f.run();
   for (const name of ['closed', 'write', 'launch']) assert.equal(f.index(name), -1, name);
   assert.ok(f.index('visible-interface') < f.index('type'));
 });
 
-test('Riot Client only in cards mode opens the interface after the background restore', async () => {
-  const f = cardsFixture();
+test('Riot Client only opens the interface after the background restore', async () => {
+  const f = restoreFixture();
   f.options.game = 'riot';
   f.io.launchProduct = async (_exe, game, visible) => { f.events.push(['launch', game, visible]); f.state.authorized = true; };
   const result = await f.run();
@@ -1091,7 +948,7 @@ test('Riot Client only in cards mode opens the interface after the background re
 });
 
 test('after a background restore, only a session Riot has renewed is kept, never the copy that was just consumed', async () => {
-  const f = cardsFixture();
+  const f = restoreFixture();
   const logs = [];
   f.options.log = (line) => logs.push(line);
   f.io.launchProduct = async (_exe, game, visible) => { f.events.push(['launch', game, visible]); f.state.authorized = true; };
@@ -1100,15 +957,15 @@ test('after a background restore, only a session Riot has renewed is kept, never
   assert.equal(stale.usedSavedSession, true);
   assert.equal(stale.session, null);
   assert.ok(logs.includes('Riot has not renewed the restored session yet'));
-  const renewed = cardsFixture();
+  const renewed = restoreFixture();
   let reads = 0;
   renewed.io.launchProduct = async (_exe, game, visible) => { renewed.events.push(['launch', game, visible]); renewed.state.authorized = true; };
   renewed.io.readSettingsYaml = () => (++reads < 3 ? 'token:saved' : 'token:renewed');
   assert.equal((await renewed.run()).session, 'token:renewed');
 });
 
-test('cards mode closes another signed-in account normally, keeping its session, instead of signing it out', async () => {
-  const f = cardsFixture();
+test('closes another signed-in account normally, keeping its session, instead of signing it out', async () => {
+  const f = restoreFixture();
   f.options.hasSavedSession = false;
   f.state.authorized = true;
   f.state.identity = { gameName: 'AnotherAccount', tagLine: 'BR1' };

@@ -437,7 +437,7 @@ const signIn = createSignInFlow({
   isAuthorized, authorization, activeRiotId, localApi, launchProduct, requestLaunch,
   authenticate: authentication.authenticate,
   typeCredentials: async (request, signal, log) => {
-    await openInterface({ exe: selectedClientPath || detectClientPath(), visible: !request.hide, signal, log });
+    await openInterface({ exe: selectedClientPath || detectClientPath(), visible: true, signal, log });
     if (signal?.aborted) throw new Error('Sign-in cancelled');
     return runWindowScript(request, () => {}, signal).promise;
   },

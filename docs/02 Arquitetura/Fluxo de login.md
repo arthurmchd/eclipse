@@ -5,7 +5,7 @@ tags: [arquitetura, login]
 
 # Fluxo de login
 
-Visão de ponta a ponta do clique em **Jogar** (ou **Entrar**, com o ícone da Riot) nos [[cards]] até o jogo aberto. As etapas internas, com cada ramo, estão em [[signInFlow]]. Desde [[ADR-028 Modo antigo removido]] este é o único fluxo: o [[main]] sempre pede o login visível (`visibleLogin: true`).
+Visão de ponta a ponta do clique em **Jogar** (ou **Entrar**, com o ícone da Riot) nos [[cards]] até o jogo aberto. As etapas internas, com cada ramo, estão em [[signInFlow]]. Desde [[ADR-028 Modo antigo removido]] este é o único fluxo: o login é sempre visível.
 
 ```mermaid
 sequenceDiagram
@@ -17,7 +17,7 @@ sequenceDiagram
 
   UI->>SS: signIn(accountId, game)
   SS->>SS: valida conta, recusa operação concorrente
-  SS->>RC: signIn({ conta, sessão salva, visibleLogin, signal })
+  SS->>RC: signIn({ conta, sessão salva, remember, signal })
   alt conta escolhida já conectada e nenhum jogo aberto
     RC->>RCS: confere o Riot ID e reaproveita
   else sessão guardada e Manter login ligado
@@ -47,7 +47,7 @@ sequenceDiagram
 4. **Pedidos da Riot ficam com o usuário.** 2FA, CAPTCHA ou outro pedido de atenção tiram a cobertura, e o usuário conclui na tela da Riot. Erros comuns não repetem a senha.
 5. **Abre o jogo.** Só depois de verificar a conta. O sucesso exige uma **janela visível do jogo** (para LoL/TFT, o lobby do League), não apenas um processo. Depois o Eclipse guarda a sessão e fecha a janela da Riot. Com o ícone da Riot, a Riot fica aberta e conectada, sem jogo.
 
-Até 2026-11-07 havia também o login escondido do modo privado, com o monitor de janelas (`windowGuard.ps1`) escondendo o Riot do começo ao fim ([[ADR-008 Recuperação visual sem reexibir o Riot]]). Os ramos com `hide` continuam no [[signInFlow]], mas o app não os usa.
+Até 2026-11-07 havia também o login escondido do modo privado, com o monitor de janelas (`windowGuard.ps1`) escondendo o Riot do começo ao fim ([[ADR-008 Recuperação visual sem reexibir o Riot]]). Os ramos dele saíram do [[signInFlow]] no mesmo dia.
 
 ## Regras que não podem quebrar
 

@@ -164,8 +164,6 @@ if (!app.requestSingleInstanceLock()) {
       },
       accountUpdated: (account) => { if (account) send('account-updated', account); },
       translate: say,
-      releaseAfterLaunch: true,
-      visibleLogin: true,
     });
     managerService = createManagerService({
       store, launchService, riotClient, shell, events, refreshAll, scheduleRefresh,

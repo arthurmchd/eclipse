@@ -50,7 +50,7 @@ Essa é a parte que mais depende de cada versão da Riot e que mais pesa com os 
 - O app perde a opção `--private-client`. Tudo acontece na Riot oficial, sem alterar arquivos dela.
 - As regras de segurança da cópia privada (manifesto, SHA-256, marcadores, bridge local) deixam de valer. As da sobreposição continuam ([[Segurança e privacidade]]).
 - O agente `riot-update-checker`, que conferia a cópia privada a cada versão da Riot, perde o objeto e é removido.
-- Os itens 11 (dividir o `signInFlow`), 16 (helpers PowerShell) e 18 (fábrica do `riotClient`) da análise ficam menores. Os modos de login antigos dentro do [[signInFlow]] ficam para o item 11.
+- Os itens 11 (dividir o `signInFlow`), 16 (helpers PowerShell) e 18 (fábrica do `riotClient`) da análise ficam menores. Os modos de login antigos dentro do [[signInFlow]] ficavam para o item 11; saíram no mesmo dia, a pedido do usuário, e o fluxo ficou só com o login visível. O monitor de ocultação do [[windowController]] e do [[windowGuard.ps1]] continua no código, sem chamador.
 - Se o caminho da Riot não for detectado sozinho, não há mais tela para escolhê-lo. Isso já valia no modo cartões, que nunca mostrava a janela antiga.
 
 ## Relacionado

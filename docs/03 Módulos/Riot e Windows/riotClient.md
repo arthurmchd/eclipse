@@ -92,7 +92,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 
 ### `typeCredentials(request, signal, log)` (entregue ao signInFlow)
 
-- Garante a janela da interface com `openInterface` ([[riotInterface]]): reaproveita a janela existente, pede `show` aos serviços headless ou os reinicia com interface, oculta se `request.hide`.
+- Garante a janela da interface com `openInterface` ([[riotInterface]]): reaproveita a janela existente, pede `show` aos serviços headless ou os reinicia com interface, sempre visível desde 2026-11-07.
 - Checa cancelamento e roda `runWindowScript(request, () => {}, signal)`.
 - O caminho usado vai para o `sign-in.log` pelo `log`.
 

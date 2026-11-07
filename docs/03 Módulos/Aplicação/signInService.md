@@ -20,7 +20,7 @@ tags: [módulo]
 
 ## API pública
 
-`createSignInService(options)`. Opções: `store`, `riotClient`, os observadores opcionais `status`, `operationUpdated`, `accountUpdated`, `log`, `onClosed`, `onLaunched`, e `releaseAfterLaunch`, `visibleLogin` e `translate`.
+`createSignInService(options)`. Opções: `store`, `riotClient`, os observadores opcionais `status`, `operationUpdated`, `accountUpdated`, `log`, `onClosed`, `onLaunched` e `translate`.
 
 | Export | Tipo | Descrição |
 |---|---|---|
@@ -43,9 +43,8 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 
 - **Sucesso sem jogo só para `riot`.** Desde 2026-11-04, `riot` é aceito junto de `lol`, `tft` e `val`. A operação só termina `succeeded` com `gameStarted`, ou, para `riot`, com `clientOpened` (texto "Riot Client opened", resposta `{ ok: true, clientOpened: true }`). `clientOpened` num jogo não conta como sucesso. Sem jogo aberto, `lastPlayed` e `lastGame` não mudam; sessão, conta atual e Riot ID são gravados normalmente. Ver [[signInFlow]].
 - **`remember` vem de `settings.staySignedIn`** (ausente conta como ligado). A operação pública ganhou `signedIn`, que começa `false` e vira `true` no primeiro status com `signedIn` do [[signInFlow]]; nunca volta a `false` na mesma operação. Adicionado em 2026-11-04.
-- **Opção `visibleLogin`.** Ativada pelo [[main]]; repassa a opção ao fluxo e manda `hide: false`. Publica o estado da operação para o carregamento sobre a coluna de login.
-- **Liberação para abertura oficial.** A opção de construção `releaseAfterLaunch`, falsa por padrão, é repassada ao [[signInFlow]]. O main a ativa para que o monitor não esconda futuras aberturas normais do Riot.
-- **Sem preferências de janela.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]), `hide` é `!visibleLogin` e `closeClient` é sempre `true`. As opções `hideRiotClient` e `closeRiotClient` da janela antiga saíram, junto com `start`, a entrada da ponte local, e a recusa com LoL ou VALORANT abertos que só ela fazia (`requireIdle`).
+- **Login sempre visível.** Publica o estado da operação para o carregamento sobre a coluna de login.
+- **Sem opções de janela.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]), o serviço não repassa `hide`, `closeClient`, `releaseAfterLaunch` nem `visibleLogin` ao [[signInFlow]], que só tem o login visível. As preferências `hideRiotClient` e `closeRiotClient` da janela antiga saíram, junto com `start`, a entrada da ponte local, e a recusa com LoL ou VALORANT abertos que só ela fazia (`requireIdle`).
 
 - **Lançamento fora de qualquer interface.** O serviço é dono dos lançamentos, fora de toda UI. Um renderer da Riot pode sumir durante a troca sem interromper a operação e sem ganhar acesso às credenciais guardadas.
 - **Mutex compartilhado.** `pending` recusa um segundo pedido, venha de onde vier (`A sign-in is already in progress`).

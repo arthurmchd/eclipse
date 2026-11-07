@@ -11,7 +11,6 @@ const MESSAGES = [
   ['Starting Riot services in the background…', 'Iniciando os serviços da Riot em segundo plano…'],
   ['Signing in with the saved session…', 'Entrando com a sessão salva…'],
   ['Signing in in the background…', 'Entrando em segundo plano…'],
-  ['Finishing sign-in through the hidden Riot interface…', 'Concluindo o login pela interface oculta da Riot…'],
   ['Signed in. Preparing the game…', 'Conta conectada. Preparando o jogo…'],
   ['Starting VALORANT in the background…', 'Abrindo o VALORANT em segundo plano…'],
   ['Starting League of Legends in the background…', 'Abrindo o League of Legends em segundo plano…'],

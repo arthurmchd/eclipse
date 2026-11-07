@@ -109,25 +109,16 @@ test('the service never checks running games, because the cards confirm before s
   assert.equal((await settle(f.service)).status, 'succeeded');
 });
 
-test('a hidden login hides the Riot and closes it after the game opens', async () => {
+test('the sign-in passes no window options, because the login is always visible', async () => {
   const f = fixture();
   f.store.hasSession = () => false;
   f.service.startFromManager('test-account', 'lol');
   await settle(f.service);
-  assert.equal(f.received().hide, true);
-  assert.equal(f.received().closeClient, true);
+  for (const name of ['hide', 'closeClient', 'releaseAfterLaunch', 'visibleLogin']) assert.equal(Object.hasOwn(f.received(), name), false);
   assert.equal(f.received().hasSavedSession, false);
 });
 
-test('a visible login never hides the Riot and still closes it after the game opens', async () => {
-  const f = fixture({ visibleLogin: true });
-  await f.service.signIn('test-account', 'lol');
-  assert.equal(f.received().hide, false);
-  assert.equal(f.received().closeClient, true);
-  assert.equal(f.received().visibleLogin, true);
-});
-
-test('the cards start acknowledges immediately, keeps Riot hidden and leaves the game confirmation to the cards', async () => {
+test('the cards start acknowledges immediately and leaves the game confirmation to the cards', async () => {
   const f = fixture();
   const hold = deferred();
   f.riotClient.runningGames = async () => { throw new Error('The cards already confirmed the switch'); };
@@ -138,8 +129,7 @@ test('the cards start acknowledges immediately, keeps Riot hidden and leaves the
   assert.equal(f.calls.length, 0);
   await flush();
   const options = f.calls.find(([name]) => name === 'embedded-options')[1];
-  assert.equal(options.hide, true);
-  assert.equal(options.closeClient, true);
+  assert.equal(options.game, 'val');
   assert.throws(() => f.service.startFromManager('test-account', 'lol'), /already in progress/);
   hold.resolve(f.result);
   assert.equal((await settle(f.service)).status, 'succeeded');

@@ -13,7 +13,7 @@ tags: [módulo]
 ## Responsabilidade
 
 - Inicia e reinicia o processo PowerShell do monitor de janelas.
-- Envia `hide`, `conceal`, `reveal` e consultas de janela do jogo, um por vez.
+- Envia `hide`, `conceal`, `reveal` e consultas de janela do jogo, um por vez. Desde 2026-11-07 o [[signInFlow]] só usa `reveal`, `gameWindow` e `closeClient`; `hide`, `conceal`, `park`, `assertHealthy` e `drainIncidents` ficaram sem chamador ([[Backlog]], item 17).
 - Detecta monitor morto ou travado, invalida o processo e, se estava armado, sobe outro no mesmo modo.
 - Guarda o motivo de cada queda para o `sign-in.log`.
 - Não decide quando esconder. Quem decide é o [[signInFlow]] ou o [[riotClient]].

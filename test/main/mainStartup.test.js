@@ -16,8 +16,7 @@ test('startup waits for the official client and starts the cards over it', async
   await flush();
   assert.equal(f.events.includes('overlay-start'), true);
   assert.equal(f.events.includes('official-open'), false);
-  assert.equal(f.launchOptions().releaseAfterLaunch, true);
-  assert.equal(f.launchOptions().visibleLogin, true);
+  for (const name of ['releaseAfterLaunch', 'visibleLogin']) assert.equal(Object.hasOwn(f.launchOptions(), name), false);
   for (const name of ['clipboard', 'dialog', 'showRiotClient', 'setTimer']) assert.equal(Object.hasOwn(f.managerOptions(), name), false);
   f.launchOptions().operationUpdated({ status: 'running', needsAttention: true });
   assert.equal(f.events.at(-1), 'overlay-blocked');
