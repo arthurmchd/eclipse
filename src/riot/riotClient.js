@@ -462,6 +462,7 @@ module.exports = {
   watchSettings, watchLockfile, sessionState, showInterface,
   clientRunning: async () => (await runningGames()).client,
   isAuthorized,
+  authorization,
   quitClient: () => localApi('POST', QUIT).catch(() => null),
   showClient: () => openClient(selectedClientPath || detectClientPath()),
   startClient,

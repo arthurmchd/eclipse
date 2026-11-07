@@ -56,6 +56,7 @@ Interface compacta: [[cards]].
 - [[ADR-024 Coluna de login coberta durante o login]]
 - [[ADR-025 Caixa some junto com o formulário da Riot]]
 - [[ADR-026 Riot fechada depois do jogo reabre na tela de login]]
+- [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]
 
 - [[ADR-001 Cópia privada da interface do Riot]]
 - [[ADR-002 Segredos protegidos pelo DPAPI]]

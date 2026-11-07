@@ -20,7 +20,8 @@ Com "Manter login" ligado, a Riot grava o login lembrado no `RiotGamesPrivateSet
 4. se a Riot não está segurando uma conta conectada (fechada, em segundo plano ou na tela de login), grava de volta o arquivo sem o login (`stripPersistedLogin`, mantém o `tdid`), seja a conta do Eclipse ou não;
 5. pede à Riot a saída normal quando ela está conectada e um jogo fechou, ou quando ficou sem janela e sem jogo;
 6. se a Riot fechada assim estava com a janela aberta, inicia de novo a Riot, desconectada, na tela de login, depois que ela saiu e o arquivo foi limpo;
-7. ao iniciar, apaga as sessões guardadas antes do modo cartões atual, que provavelmente já não valem.
+7. apaga na hora a sessão guardada de uma conta que saiu pela Riot (ou pelo "Sign Out" do League), para o próximo Jogar dela ir direto ao login visível;
+8. ao iniciar, apaga as sessões guardadas antes do modo cartões atual, que provavelmente já não valem.
 
 Assim a Riot abre desconectada, e Jogar restaura a sessão em segundo plano ([[signInFlow]]). O usuário nunca precisa sair da conta pela Riot.
 
@@ -34,7 +35,7 @@ Assim a Riot abre desconectada, e Jogar restaura a sessão em segundo plano ([[s
 - não inicia a Riot fora da reabertura acima, nem mexe numa Riot que já esteja rodando;
 - não restaura sessão nenhuma.
 
-Decisões em [[ADR-019 Sessão salva por conta no modo cartões]], [[ADR-020 Riot conectada é encerrada quando fica sem jogo]], [[ADR-021 Riot sempre abre desconectada]], [[ADR-022 Sessões de antes do modo cartões são descartadas]] e [[ADR-026 Riot fechada depois do jogo reabre na tela de login]].
+Decisões em [[ADR-019 Sessão salva por conta no modo cartões]], [[ADR-020 Riot conectada é encerrada quando fica sem jogo]], [[ADR-021 Riot sempre abre desconectada]], [[ADR-022 Sessões de antes do modo cartões são descartadas]] , [[ADR-026 Riot fechada depois do jogo reabre na tela de login]] e [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]].
 
 ## API pública
 
@@ -43,12 +44,12 @@ Decisões em [[ADR-019 Sessão salva por conta no modo cartões]], [[ADR-020 Rio
 | `createSessionKeeper(options)` | função | Devolve `{ start, check, keep, stop }`. |
 | `start()` | função | Apaga as sessões de antes do modo cartões, começa a observar o arquivo da Riot, agenda uma conferência (pega o que ficou de quando o Eclipse estava fechado) e liga a olhada nos processos. |
 | `check()` | função | Agenda uma conferência daqui a `delayMs`. Chamadas seguidas adiam a mesma conferência. |
-| `keep(yaml)` | função | Guarda na conta dona o login lembrado em `yaml`, se a dona for provada. Devolve a conta ou `null`. Não olha `busy()`: o [[main]] usa durante um login para guardar a sessão de quem sai. |
+| `keep(yaml)` | função | Guarda na conta dona o login lembrado em `yaml`, se a dona for provada. Devolve a conta ou `null`. Não olha `busy()`: o [[main]] usa durante um login para guardar a sessão de quem sai. Também apaga a anotação da conta segurada pela Riot, porque vem de um fechamento. |
 | `stop()` | função | Fecha o watcher e cancela a conferência e a olhada pendentes. Depois disso nada mais roda. |
 
 **`options`:**
 
-- `riot`: o [[riotClient]], com `watchSettings`, `clientRunning`, `runningGames`, `isAuthorized`, `quitClient`, `startClient`, `readSettingsYaml`, `writeSettingsYaml`, `hasPersistedLogin`, `stripPersistedLogin`, `persistedSubject`, `persistedRiotId` e `sameRiotId`.
+- `riot`: o [[riotClient]], com `watchSettings`, `clientRunning`, `runningGames`, `isAuthorized`, `authorization`, `quitClient`, `startClient`, `readSettingsYaml`, `writeSettingsYaml`, `hasPersistedLogin`, `stripPersistedLogin`, `persistedSubject`, `persistedRiotId` e `sameRiotId`.
 - `store`: o [[store]], com `data.accounts`, `data.settings.staySignedIn`, `data.settings.riotClientPath`, `hasSession`, `loadSession`, `saveSession`, `sessionSavedAt` e `forgetSession`.
 - `busy`: diz se há login em andamento.
 - `log`: grava no `sign-in.log`.
@@ -76,7 +77,7 @@ Decisões em [[ADR-019 Sessão salva por conta no modo cartões]], [[ADR-020 Rio
 - **A olhada nos processos também limpa.**
   - A cada 4 s, `runningGames()` diz se há jogo, Riot ou janela da Riot.
   - **Com jogo aberto,** nada é feito: a Riot segura a conta.
-  - **Com a janela da Riot aberta, nenhum jogo visto e nenhum login no arquivo,** nada é feito e a API local não é consultada.
+  - **Com a janela da Riot aberta, nenhum jogo visto e nenhum login no arquivo,** nada é feito. A API local só é consultada se houver uma conta anotada como segurada pela Riot (abaixo).
   - **Com a Riot fechada ou desconectada,** se o arquivo tem login, agenda uma conferência. Isso cobre o modo segundo plano sem nova gravação e um aviso do Windows que falhou.
   - **Com a Riot conectada sem jogo,** se um jogo fechou ou ela não tem janela, a condição precisa aparecer em duas olhadas seguidas. Aí vem `quitClient()`, a saída normal (`POST /process-control/v1/process/quit`). A Riot grava o login ao sair, e a conferência seguinte guarda e limpa.
   - `busy()` e "Manter login" são conferidos antes e depois de cada consulta à Riot, porque ela leva tempo. Um erro numa olhada zera a contagem, e a próxima acontece normalmente.
@@ -86,6 +87,12 @@ Decisões em [[ADR-019 Sessão salva por conta no modo cartões]], [[ADR-020 Rio
   - Aí chama `startClient` com o caminho das Configurações, que só inicia uma Riot totalmente fechada. Se ela já está rodando, nada acontece ([[riotClient]]).
   - Login em andamento, "Manter login" desligado, `stop()` ou um jogo cancelam a reabertura. `busy()` é conferido de novo logo antes de iniciar.
   - Uma falha ao iniciar vira "could not reopen the Riot after closing it", sem a mensagem, e não é repetida. Esgotadas as olhadas, o log registra "gave up reopening the Riot after closing it".
+- **Saída pela Riot apaga a sessão guardada.** Desde 2026-11-07 ([[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]). No log da Riot v142, a saída manual regrava na hora o login lembrado no arquivo e volta à tela de login com o processo aberto. O fim do jogo em segundo plano solta a conta sem regravar o arquivo.
+  - Quando a conferência acha o login de uma conta do Eclipse com a Riot conectada, o guardião anota a conta e a versão guardada.
+  - Se depois o arquivo aparece sem login, ele confirma que a Riot roda e que `authorization()` responde `'no'`, relê o arquivo e confere que a sessão guardada ainda é a versão anotada. Aí apaga a sessão (`forgetSession`), avisa o cartão (`onSaved`) e registra "forgot the saved session of an account signed out in Riot".
+  - A conferência faz isso a cada mudança no arquivo, e a olhada nos processos faz de novo a cada 4 s. Com a resposta `'unknown'`, a anotação fica para a próxima vez.
+  - A anotação some num login em andamento, num `keep()` vindo de fechamento, quando o guardião limpa o arquivo, quando a Riot fecha, com "Manter login" desligado, com a resposta `'yes'` (outra conta conectada sem login no arquivo) e depois de cada decisão. Sem anotação, nada é apagado.
+  - O guardião não fecha nem reabre a Riot por isso.
 - **A dona é provada pelo `sub`, com o Riot ID como segunda prova.**
   - Primeiro, a conta cuja sessão já guardada tem o mesmo `sub` (`persistedSubject`, que lê o `id_token` ou o cookie antigo).
   - Sem essa sessão, a conta cujo Riot ID bate com o do `id_token` (`persistedRiotId` e `sameRiotId`), desde que seja uma só. Duas contas com o mesmo Riot ID não provam nada.
@@ -127,6 +134,10 @@ Decisões em [[ADR-019 Sessão salva por conta no modo cartões]], [[ADR-020 Rio
 - nenhuma reabertura para a Riot fechada sem janela, para a Riot que não sai (com desistência registrada uma vez) e quando a Riot já foi aberta de novo;
 - reabertura cancelada por login em andamento (antes e durante a olhada), jogo ou "Manter login" desligado;
 - falha ao reabrir registrada sem detalhes e sem nova tentativa;
+- conta que sai pela Riot com a sessão guardada apagada uma vez, com aviso ao cartão, sem gravar no arquivo nem fechar a Riot;
+- Riot que só solta a conta depois do jogo, com a sessão mantida mesmo quando o arquivo limpo é regravado;
+- nenhuma sessão apagada com login em andamento, troca de conta (`keep`), Riot fechada, outra conta conectada, sessão guardada diferente da anotada, "Manter login" desligado ou login gravado pela Riot durante a confirmação;
+- resposta desconhecida esperando a olhada seguinte, saída confirmada pela olhada quando o aviso do arquivo falha, saída depois de um jogo e Riot fechada apagando a anotação;
 - nunca encerrar a Riot na tela de login, durante um login ou com um jogo abrindo de novo;
 - erro numa olhada sem parar as seguintes;
 - sessões de antes do modo cartões apagadas uma vez no `start()`, com aviso ao cartão, e falha ao apagar uma sem impedir as outras.
@@ -137,7 +148,7 @@ Fora dos testes: o `fs.watch` real, o modo segundo plano real da Riot e o `taskl
 
 - **Durante um jogo, a Riot aberta mostra a conta conectada.** O jogo depende dessa sessão, e o Eclipse não desconecta. Quando o jogo fecha, a Riot solta a conta e o arquivo é limpo em poucos segundos.
 - **Abrir a Riot no mesmo instante em que o jogo fecha** ainda pode restaurar a conta antes da conferência (até uns 5 s). Com a janela aberta, ela mostra a conta, fecha e volta sozinha desconectada, uns 5 a 10 s depois ([[ADR-026 Riot fechada depois do jogo reabre na tela de login]]).
-- **Sair da conta pela própria Riot (ou "Sign Out" no LoL) encerra a sessão no servidor.** O guardião não tem como impedir nem perceber. O próximo Jogar dessa conta ainda fecha a Riot, tem a sessão recusada e reabre a Riot no login visível, uma vez.
+- **Sair da conta pela própria Riot (ou "Sign Out" no LoL) encerra a sessão no servidor.** O guardião não tem como impedir. Desde [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]], ele percebe a saída e apaga a sessão na hora. Se a percepção falhar (Riot fechada menos de 1 s depois, Eclipse fechado na hora da saída, resposta desconhecida até a Riot fechar), o próximo Jogar dessa conta ainda fecha a Riot, tem a sessão recusada e reabre a Riot no login visível, uma vez.
 - **Com o Eclipse fechado, nada limpa o arquivo.** A Riot aberta antes do Eclipse (por exemplo, iniciando com o Windows) pode entrar sozinha na última conta. Na abertura, o Eclipse limpa o que ficou e, se a Riot estiver conectada sem jogo e sem janela, a encerra.
 - **Não se sabe se a Riot volta a gravar o login depois de uma limpeza com ela conectada.** Por isso a limpeza nunca acontece com ela conectada. Uma falha de rede momentânea em `isAuthorized` pode, raramente, fazer uma limpeza nesse estado; a sessão já estava guardada.
 - **Formato do `id_token`.** A identidade depende de a Riot continuar gravando o `id_token` com `sub` e `acct` no login lembrado. Se o formato mudar, o login deixa de ser guardado pelo guardião, mas continua sendo limpo. A sessão capturada pelo próprio login ([[signInFlow]]) não depende disso.

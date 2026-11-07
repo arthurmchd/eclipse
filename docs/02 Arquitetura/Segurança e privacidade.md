@@ -70,6 +70,8 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 - Login sem digitar só pelo "Manter login" da própria Riot: o Eclipse devolve à Riot a sessão que ela mesma gravou, sem formulário. Uma sessão recusada volta ao formulário visível, onde a verificação automática da Riot roda com a janela à mostra; nada finge que uma janela escondida está visível ([[ADR-019 Sessão salva por conta no modo cartões]]).
 - Trocar de conta nunca encerra a sessão de quem sai no servidor da Riot, em nenhum modo: a Riot conectada é fechada com a saída normal, sem `DELETE /rso-auth/v1/session`. Vale também para uma sessão restaurada que é de outra conta e para uma conta que a Riot restaurou sozinha. O `DELETE` só limpa um login pela metade (2FA ou erro pendente) quando a Riot diz que não há conta conectada, nunca com o estado desconhecido ([[signInFlow]], [[ADR-020 Riot conectada é encerrada quando fica sem jogo]]).
 
+- Uma sessão guardada só é apagada pelo guardião quando a conta saiu pela Riot: o arquivo da Riot perdeu o login com ela aberta e o serviço local responde sem conta. Só a cópia local some; nada é enviado à Riot ([[sessionKeeper]], [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]).
+
 ### Área de transferência
 - A senha copiada é apagada depois de 20 s se ainda estiver lá ([[main]]).
 

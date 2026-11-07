@@ -1,6 +1,6 @@
 ---
 tipo: roadmap
-atualizado: 2026-11-06
+atualizado: 2026-11-07
 tags: [backlog]
 ---
 
@@ -42,6 +42,12 @@ Ordenado por prioridade. Use o template [[Tarefa]] para detalhar um item antes d
   - opcional: título do jogador no VALORANT (a HenrikDev v2 devolve o UUID; o texto vem de valorant-api `playertitles`).
 - **Gerenciador some ao entrar na conta.** Login real em 2026-11-04 12:29 entrou e abriu o jogo com o código novo; falta o usuário confirmar que os cartões sumiram logo após "Signed in", antes do jogo abrir.
 
+- **Saída pela Riot apaga a sessão.** Desde 2026-11-07 ([[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]). Falta conferir na Riot real:
+  - sair da conta pela Riot e ver "forgot the saved session of an account signed out in Riot" no `sign-in.log`, com o ⚡ do cartão sumindo;
+  - o "Sign Out" do League fazendo o mesmo;
+  - o Jogar seguinte dessa conta indo direto ao login visível, sem reiniciar a Riot;
+  - um jogo fechado normalmente sem apagar a sessão.
+
 ## Segurança do login
 
 Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo) foram resolvidos em 2026-10-26. Ver [[Changelog]] e [[riotAuthentication]].
@@ -62,6 +68,7 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 
 ## Investigar
 
+- **Serviço único de estado da Riot.** Item 4 da análise de remendos de 2026-11-06: o [[sessionKeeper]], o [[riotWakeup]] e o login têm cada um a sua regra para saber se a Riot está fechada, em segundo plano, na tela de login, conectada ou em jogo. Antes de juntar, conferir na Riot real, só lendo e com autorização, se a API local tem canal de eventos (`/help`). A [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]] não precisou dele.
 - **Validar o reinício com interface do [[riotInterface]].** O caminho `show` foi validado em 2026-10-26; o reinício (reserva) ainda não rodou numa instalação real.
 
 ## Estrutura

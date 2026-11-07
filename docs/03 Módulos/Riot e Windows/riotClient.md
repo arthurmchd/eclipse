@@ -40,6 +40,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 | `sessionState()` | função async | Estado da tela de login pela API local, ou `null` em qualquer erro. Nulo também com a Riot em segundo plano, porque a rota não existe nesse modo. Exportada desde 2026-11-06 para o [[riotWakeup]]. |
 | `showInterface()` | função async | `POST /riot-client-lifecycle/v1/show`. `true` com resposta 2xx; erro vira `false`. Sem plano B que reinicie a Riot, diferente de `openClient`. Desde 2026-11-06, para o [[riotWakeup]]. |
 | `isAuthorized()` | função async | `true` só quando `authorization()` diz `'yes'` (`GET /rso-auth/v1/authorization`). Erro vira `false`. Exportada desde 2026-11-06 para o [[sessionKeeper]]. |
+| `authorization()` | função async | `'yes'`, `'no'` ou `'unknown'` (`authorizationOf`). Exportada desde 2026-11-07 para o [[sessionKeeper]] confirmar uma saída pela Riot só com `'no'`. |
 | `quitClient()` | função async | Pede à Riot a saída normal (`POST /process-control/v1/process/quit`), a mesma do menu "Sair". Erro vira `null`. Exportada desde 2026-11-06 para o [[sessionKeeper]]. |
 | `sameRiotId(a, b)` | função | Compara `gameName` e `tagLine` sem diferenciar maiúsculas. Exige `gameName` nos dois. |
 | `showClient()` | função async | `openClient` com o último caminho usado ou o detectado. |

@@ -3,7 +3,7 @@ const REOPEN_POLLS = 5;
 
 function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, onSaved = () => {}, setTimeout: later = setTimeout, clearTimeout: cancel = clearTimeout, delayMs = 1000, pollMs = 4000, keptSince = KEPT_SINCE, reopenPolls = REOPEN_POLLS }) {
   let watcher = null, timer = null, pollTimer = null, settling = null, again = false, stopped = false;
-  let idleSeen = 0, gameSeen = false, failing = false, reopenLeft = 0;
+  let idleSeen = 0, gameSeen = false, failing = false, reopenLeft = 0, held = null;
   const enabled = () => store.data.settings.staySignedIn !== false;
   const idle = () => !stopped && enabled() && !busy();
 
@@ -17,6 +17,11 @@ function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, 
   }
 
   function keep(yaml) {
+    held = null;
+    return keepSession(yaml);
+  }
+
+  function keepSession(yaml) {
     if (stopped || !enabled() || !riot.hasPersistedLogin(yaml)) return null;
     const owner = ownerOf(yaml);
     if (!owner) return null;
@@ -40,13 +45,34 @@ function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, 
     if (forgotten) log(`forgot ${forgotten} saved session(s) from before cards mode kept sessions`);
   }
 
+  async function noticeSignOut() {
+    const last = held;
+    if (!last) return;
+    const running = await riot.clientRunning();
+    if (held !== last) return;
+    if (!running || !idle()) { held = null; return; }
+    const state = await riot.authorization();
+    if (held !== last) return;
+    if (!idle()) { held = null; return; }
+    if (state === 'unknown') return;
+    held = null;
+    if (state !== 'no' || riot.hasPersistedLogin(riot.readSettingsYaml())) return;
+    const { account, yaml } = last;
+    if (!store.hasSession(account.id) || store.loadSession(account.id) !== yaml) return;
+    store.forgetSession(account.id);
+    try { onSaved(account); } catch {}
+    log('forgot the saved session of an account signed out in Riot');
+  }
+
   async function settle() {
-    if (!idle()) return;
+    if (!idle()) { held = null; return; }
     const yaml = riot.readSettingsYaml();
-    if (!riot.hasPersistedLogin(yaml)) return;
-    const owner = keep(yaml);
+    if (!riot.hasPersistedLogin(yaml)) { await noticeSignOut(); return; }
+    const owner = keepSession(yaml);
     const holding = (await riot.clientRunning()) && (await riot.isAuthorized());
-    if (!idle() || holding) return;
+    if (!idle()) { held = null; return; }
+    if (holding) { held = owner ? { account: owner, yaml } : null; return; }
+    held = null;
     if (!(await riot.writeSettingsYaml(riot.stripPersistedLogin(yaml), { expected: yaml }))) return;
     log(owner ? 'kept the Riot session for its account and cleared the remembered login' : 'cleared a remembered Riot login that is not from an account in Eclipse');
   }
@@ -88,17 +114,19 @@ function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, 
   }
 
   async function inspectClient() {
-    if (!idle()) { idleSeen = 0; reopenLeft = 0; return; }
+    if (!idle()) { idleSeen = 0; reopenLeft = 0; held = null; return; }
     const state = await riot.runningGames();
     if (state.lol || state.val) { gameSeen = true; idleSeen = 0; reopenLeft = 0; return; }
+    if (!state.client) held = null;
     if (reopenLeft > 0 && await reopenClient(state)) return;
-    if (state.clientWindow && !gameSeen && !riot.hasPersistedLogin(riot.readSettingsYaml())) { idleSeen = 0; return; }
+    if (state.clientWindow && !gameSeen && !riot.hasPersistedLogin(riot.readSettingsYaml())) { idleSeen = 0; await noticeSignOut(); return; }
     const signedIn = state.client && await riot.isAuthorized();
     if (!idle()) { idleSeen = 0; return; }
     if (!signedIn) {
       gameSeen = false;
       idleSeen = 0;
       if (riot.hasPersistedLogin(riot.readSettingsYaml())) check();
+      else await noticeSignOut();
       return;
     }
     if (state.clientWindow && !gameSeen) { idleSeen = 0; return; }
@@ -133,6 +161,7 @@ function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, 
     keep,
     stop() {
       stopped = true;
+      held = null;
       cancel(timer);
       cancel(pollTimer);
       timer = pollTimer = null;

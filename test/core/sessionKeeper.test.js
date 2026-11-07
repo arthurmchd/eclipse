@@ -35,6 +35,7 @@ function fixture({ yaml = remembered('sub-a'), running = [false], staySignedIn, 
     watchSettings: (onChange) => { watcher = { onChange, closed: false, close() { this.closed = true; } }; return watcher; },
     runningGames: async () => { events.push('processes?'); return { ...state.processes }; },
     isAuthorized: async () => { events.push('authorized?'); return state.authorized; },
+    authorization: async () => { events.push('authorization?'); return state.authorization ?? (state.authorized ? 'yes' : 'no'); },
     quitClient: async () => { events.push('quit'); },
     startClient: async (clientPath) => {
       events.push(['start', clientPath]);
@@ -383,6 +384,123 @@ test('a failed reopen is logged without details and never retried', async () => 
   assert.equal(starts(f).length, 1);
   assert.equal(f.logs.at(-1), 'could not reopen the Riot after closing it');
   assert.equal(f.logs.some((line) => line.includes('private')), false);
+});
+
+const forgets = (f) => f.events.filter((event) => Array.isArray(event) && event[0] === 'forget');
+
+async function heldByRiot(options = {}) {
+  const f = fixture({ yaml: remembered('sub-a', '', 'v2'), running: [true], ...options });
+  f.keeper.start();
+  await f.flush();
+  assert.deepEqual(f.saved, [['a', remembered('sub-a', '', 'v2')]]);
+  assert.equal(f.state.yaml, remembered('sub-a', '', 'v2'));
+  return f;
+}
+
+function signOutInRiot(f) {
+  f.state.yaml = 'tdid only';
+  f.state.authorized = false;
+  f.watcher().onChange();
+}
+
+test('an account signed out in Riot loses its saved session at once, and Riot is left alone', async () => {
+  const f = await heldByRiot();
+  signOutInRiot(f);
+  await f.flush();
+  assert.equal(f.state.sessions.a, undefined);
+  assert.equal(f.state.sessions.b, remembered('sub-b'));
+  assert.deepEqual(f.events.filter(Array.isArray).slice(-2), [['forget', 'a'], ['saved', 'a']]);
+  assert.equal(f.logs.at(-1), 'forgot the saved session of an account signed out in Riot');
+  assert.equal(f.events.includes('quit'), false);
+  assert.equal(f.events.some((event) => Array.isArray(event) && event[0] === 'write'), false);
+  f.watcher().onChange();
+  await f.flush();
+  assert.equal(forgets(f).length, 1);
+});
+
+test('a Riot that only lets go of the account after a game keeps the session, even when the cleared file is rewritten later', async () => {
+  const f = await heldByRiot();
+  f.state.authorized = false;
+  f.keeper.check();
+  await f.flush();
+  assert.equal(f.state.yaml, 'stripped');
+  f.state.yaml = 'tdid only';
+  f.watcher().onChange();
+  await f.flush();
+  assert.equal(f.state.sessions.a, remembered('sub-a', '', 'v2'));
+  assert.equal(forgets(f).length, 0);
+});
+
+test('a sign-in, an account switch, a closed Riot, another signed-in account, a changed session or stay signed in off never forget a session', async () => {
+  const signingIn = await heldByRiot();
+  signingIn.setBusy(true);
+  signOutInRiot(signingIn);
+  await signingIn.flush();
+  signingIn.setBusy(false);
+  signingIn.keeper.check();
+  await signingIn.flush();
+  const switching = await heldByRiot();
+  switching.keeper.keep(remembered('sub-b', '', 'v2'));
+  signOutInRiot(switching);
+  await switching.flush();
+  const closed = await heldByRiot();
+  closed.state.running = [false];
+  signOutInRiot(closed);
+  await closed.flush();
+  const other = await heldByRiot();
+  other.state.yaml = 'tdid only';
+  other.watcher().onChange();
+  await other.flush();
+  other.state.authorized = false;
+  other.keeper.check();
+  await other.flush();
+  const changed = await heldByRiot();
+  changed.state.sessions.a = remembered('sub-a', '', 'v3');
+  signOutInRiot(changed);
+  await changed.flush();
+  const disabled = await heldByRiot();
+  disabled.store.data.settings.staySignedIn = false;
+  signOutInRiot(disabled);
+  await disabled.flush();
+  disabled.store.data.settings.staySignedIn = true;
+  disabled.keeper.check();
+  await disabled.flush();
+  const raced = await heldByRiot();
+  raced.riot.authorization = async () => { raced.state.yaml = remembered('sub-c', 'Gamma#BR1'); return 'no'; };
+  signOutInRiot(raced);
+  await raced.flush();
+  for (const f of [signingIn, switching, closed, other, changed, disabled, raced]) {
+    assert.equal(forgets(f).length, 0);
+    assert.ok(f.state.sessions.a);
+  }
+});
+
+test('an unknown Riot state waits, and the client polling confirms a sign-out the file watcher missed, also after a game', async () => {
+  const unsure = await heldByRiot({ pollMs: POLL, processes: { client: true, clientWindow: true } });
+  unsure.state.authorization = 'unknown';
+  signOutInRiot(unsure);
+  await unsure.flush();
+  assert.ok(unsure.state.sessions.a);
+  unsure.state.authorization = undefined;
+  await unsure.tick();
+  assert.deepEqual(forgets(unsure), [['forget', 'a']]);
+  const missed = await heldByRiot({ pollMs: POLL, processes: { client: true, clientWindow: false } });
+  missed.state.yaml = 'tdid only';
+  missed.state.authorized = false;
+  await missed.tick();
+  assert.deepEqual(forgets(missed), [['forget', 'a']]);
+  const league = await heldByRiot({ pollMs: POLL, processes: { client: true, lol: true } });
+  await league.tick();
+  league.state.processes = { client: true, clientWindow: true };
+  signOutInRiot(league);
+  await league.flush();
+  assert.deepEqual(forgets(league), [['forget', 'a']]);
+  const gone = await heldByRiot({ pollMs: POLL, processes: { client: false } });
+  await gone.tick();
+  gone.state.running = [true];
+  signOutInRiot(gone);
+  await gone.flush();
+  assert.equal(forgets(gone).length, 0);
 });
 
 test('Riot on the sign-in screen, a sign-in in progress or a game starting again never makes the keeper quit Riot', async () => {

@@ -7,6 +7,17 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-07 · Saída pela Riot apaga a sessão guardada na hora
+
+- Item 6 da análise de remendos: uma conta que saía pela Riot (ou pelo "Sign Out" do League) só era descoberta no Jogar seguinte, com a Riot fechando, a sessão recusada e a Riot reabrindo.
+- O log real da Riot v142 separa os dois casos: a saída manual regrava o login lembrado no arquivo e volta à tela de login com a Riot aberta; o fim do jogo em segundo plano solta a conta sem regravar o arquivo.
+- **Percepção da saída** ([[sessionKeeper]]): o guardião anota a conta que a Riot está segurando. Se o arquivo perde o login com a Riot aberta e o serviço local responde sem conta, apaga a sessão guardada dessa conta e avisa o cartão. A olhada nos processos confere de novo se o aviso do arquivo falhar.
+- Login em andamento, troca de conta, Riot fechada, outra conta conectada, resposta desconhecida ou sessão guardada diferente nunca apagam nada.
+- `authorization()` exportada pelo [[riotClient]].
+- O serviço único de estado (item 4) ficou para depois de conferir o canal de eventos da API local; foi para o [[Backlog]].
+- Decisão: [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]].
+- Testes novos em `test/core/sessionKeeper.test.js`. Falta o teste com a Riot real.
+
 ## 2026-11-06 · Riot fechada depois do jogo volta na tela de login
 
 - Relato do usuário: abriu a Riot pela bandeja enquanto o League fechava, viu a conta conectada e a Riot fechou sozinha segundos depois. O log da Riot confirma: com a janela aberta ela não solta a conta, e o [[sessionKeeper]] pediu a saída normal, como manda a [[ADR-020 Riot conectada é encerrada quando fica sem jogo]].

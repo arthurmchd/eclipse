@@ -76,7 +76,8 @@ O diagrama acima é o modo privado. No modo cartões (padrão), o login é visí
    - ou volta à tela de login.
 
    Antes de limpar, guarda o login na conta dona (mesmo `sub`, ou Riot ID único). Login de conta fora do Eclipse é limpo sem ser guardado. Quando o jogo fecha com a Riot ainda conectada (ou ela fica conectada sem janela e sem jogo), o guardião pede a saída normal ([[ADR-020 Riot conectada é encerrada quando fica sem jogo]]). Ela volta a abrir na tela de login, com os cartões, e o usuário nunca precisa sair da conta pela Riot. Se a janela dela estava aberta, o guardião a inicia de novo assim que ela sai e o arquivo fica limpo ([[ADR-026 Riot fechada depois do jogo reabre na tela de login]]).
-6. **Trocar de conta não encerra a sessão de quem sai.** O login visível com outra conta conectada fecha a Riot com a saída normal, em vez de `DELETE`, e a sessão de quem sai é guardada na dona provada. Vale também para uma sessão restaurada que se revela de outra conta: a cópia errada é apagada antes, e a sessão renovada vai para a dona dela.
+6. **Saída pela Riot apaga a sessão na hora.** Se a conta sai pela Riot ou pelo "Sign Out" do League, o [[sessionKeeper]] percebe pelo arquivo e pela API e apaga a sessão guardada. O próximo Jogar dela vai direto ao login visível, sem reiniciar a Riot ([[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]).
+7. **Trocar de conta não encerra a sessão de quem sai.** O login visível com outra conta conectada fecha a Riot com a saída normal, em vez de `DELETE`, e a sessão de quem sai é guardada na dona provada. Vale também para uma sessão restaurada que se revela de outra conta: a cópia errada é apagada antes, e a sessão renovada vai para a dona dela.
 
 ## Registro
 

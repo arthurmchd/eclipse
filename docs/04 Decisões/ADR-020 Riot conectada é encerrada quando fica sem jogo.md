@@ -51,7 +51,7 @@ O `sign-in.log` real mostra por que a sessão salva "funcionou uma vez e parou":
 - **Abrir a Riot logo depois de fechar o jogo** pode mostrar a página inicial conectada por alguns segundos, até o Eclipse encerrá-la. Desde a [[ADR-026 Riot fechada depois do jogo reabre na tela de login]], ela volta sozinha na tela de login.
 - **O Eclipse passa a consultar os processos a cada 4 s** enquanto está aberto (`tasklist`, como o resto do projeto). A API local só é consultada quando a Riot roda sem jogo.
 - **Uma atualização que a Riot baixa em segundo plano, sem janela e sem jogo, é interrompida** pela saída normal e continua quando a Riot abrir de novo.
-- **Sair da conta pela própria Riot continua encerrando a sessão.** O Eclipse não tem como impedir. A conta volta ao login visível uma vez.
+- **Sair da conta pela própria Riot continua encerrando a sessão.** O Eclipse não tem como impedir. A conta volta ao login visível uma vez. Desde a [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]], sem reiniciar a Riot.
 - **Este ADR não mexe na instalação da Riot**, nem em processos fora de `RiotClientServices` e da interface dela. Jogos só são fechados no caminho que já existia, antes de um login.
 
 ## Revisão de 2026-11-06: modo segundo plano

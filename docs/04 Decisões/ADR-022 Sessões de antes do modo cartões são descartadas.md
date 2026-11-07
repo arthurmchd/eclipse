@@ -42,7 +42,7 @@ Sessões guardadas antes de 2026-11-06 vêm de fluxos que podiam deixá-las velh
 ## Consequências
 
 - **As três contas com sessões de outubro** passam a fazer um login visível no próximo Jogar, sem reinício.
-- **Uma sessão de depois de 2026-11-06 que morrer ainda causa o reinício uma vez.** Isso acontece, por exemplo, depois de "Sign Out" no LoL ou de sair da conta pela Riot. A sessão recusada é apagada, e o próximo Jogar dessa conta já vai direto para o login visível.
+- **Uma sessão de depois de 2026-11-06 que morrer ainda causa o reinício uma vez.** Isso acontece, por exemplo, depois de "Sign Out" no LoL ou de sair da conta pela Riot. A sessão recusada é apagada, e o próximo Jogar dessa conta já vai direto para o login visível. Desde a [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]], a saída pela Riot é percebida na hora, e o reinício só sobra quando essa percepção falha.
 - **A data depende do arquivo.** Copiar a pasta de dados para outro lugar pode mudar a data e salvar uma sessão antiga do descarte. Nesse caso ela é usada uma vez e, se recusada, apagada.
 
 ## Relacionado

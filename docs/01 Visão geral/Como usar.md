@@ -37,7 +37,7 @@ Para a sessão continuar valendo:
 - não saia da conta pelo menu da Riot: isso encerra a sessão no servidor, e a próxima entrada daquela conta volta a ser visível uma vez;
 - uma conta sem sessão guardada (nova, esquecida, recusada ou com sessão de antes de 2026-11-06, que o Eclipse apaga ao iniciar) faz um login visível uma vez, direto na Riot aberta, e daí em diante entra em segundo plano;
 - depois de uma entrada em segundo plano, um clique no ícone da Riot na bandeja abre a Riot. A janela aparece uns 3 a 5 s depois, porque o Eclipse espera a Riot sair do segundo plano. Com o Eclipse fechado, são dois cliques;
-- feche o LoL com **Exit**, não com **Sign Out**: Sign Out encerra a sessão, e o próximo Jogar dessa conta reinicia a Riot uma vez antes do login visível.
+- feche o LoL com **Exit**, não com **Sign Out**: Sign Out encerra a sessão, e o próximo Jogar dessa conta pede o login visível de novo (senha e, se a conta tiver, 2FA). O mesmo vale para sair da conta pela Riot.
 
 Ver [[ADR-020 Riot conectada é encerrada quando fica sem jogo]]. O fluxo oculto descrito abaixo permanece no modo privado anterior.
 
