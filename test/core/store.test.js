@@ -41,6 +41,7 @@ test('session operations reject traversal and unknown accounts', (t) => {
     assert.throws(() => store.sessionFile(id), /Invalid account ID/);
     assert.throws(() => store.forgetSession(id), /Invalid account ID/);
     assert.throws(() => store.saveSession(id, 'fictional-session'), /Invalid account ID/);
+    assert.throws(() => store.sessionSavedAt(id), /Invalid account ID/);
   }
   assert.equal(fs.readFileSync(outside, 'utf8'), 'sentinel');
   assert.throws(() => store.saveSession('unknown-account', 'fictional-session'), /Account not found/);
@@ -53,8 +54,11 @@ test('sessions round trip using encrypted bytes for UUID and legacy IDs', (t) =>
   assert.equal(store.loadSession(account.id), 'fictional-session');
   assert.ok(fs.readFileSync(store.sessionFile(account.id), 'utf8').startsWith('test-encrypted:'));
   assert.equal(fs.readFileSync(store.sessionFile(account.id), 'utf8').includes('fictional-session'), false);
+  const savedAt = store.sessionSavedAt(account.id);
+  assert.ok(Math.abs(savedAt - fs.statSync(store.sessionFile(account.id)).mtimeMs) < 1 && savedAt > Date.now() - 60000);
   store.forgetSession(account.id);
   assert.equal(store.hasSession(account.id), false);
+  assert.equal(store.sessionSavedAt(account.id), 0);
   store.data.accounts[0].id = 'legacy-account_01';
   store.saveSession('legacy-account_01', 'legacy-fictional-session');
   assert.equal(store.loadSession('legacy-account_01'), 'legacy-fictional-session');
@@ -80,7 +84,7 @@ test('backups track account and settings edits without rank or launch churn', (t
   const initial = store.listBackups().length;
   store.updateAccountFields(account.id, { note: 'Edited note' });
   assert.equal(store.listBackups().length, initial + 1);
-  store.updateSettings({ minimizeOnLaunch: false });
+  store.updateSettings({ refreshMinutes: 15 });
   assert.equal(store.listBackups().length, initial + 2);
   store.updateAccountFields(account.id, {
     stats: { lol: { tier: 'GOLD' } },
@@ -92,7 +96,7 @@ test('backups track account and settings edits without rank or launch churn', (t
   assert.equal(store.listBackups().length, initial + 2);
   const newest = JSON.parse(fs.readFileSync(path.join(store.backupsDir, store.listBackups()[0]), 'utf8'));
   assert.equal(newest.accounts[0].note, 'Edited note');
-  assert.equal(newest.settings.minimizeOnLaunch, false);
+  assert.equal(newest.settings.refreshMinutes, 15);
 });
 
 test('stay signed in is on by default and can be turned off', (t) => {
@@ -111,4 +115,21 @@ test('language is Portuguese by default and only switches when saved', (t) => {
   assert.equal(store.data.settings.language, 'en');
   store.data.settings.language = 'fr';
   assert.equal(store.publicSettings().language, 'pt');
+});
+
+test('options of the removed legacy mode are dropped from an old data file', (t) => {
+  const { store } = createStore(t);
+  const retired = ['minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode'];
+  fs.writeFileSync(store.file, JSON.stringify({ accounts: [], settings: { refreshMinutes: 10, minimizeOnLaunch: false, hideRiotClient: false, closeRiotClient: false, streamerMode: true } }));
+  store.data = store.load();
+  assert.equal(store.data.settings.refreshMinutes, 10);
+  for (const key of retired) {
+    assert.equal(Object.hasOwn(store.data.settings, key), false);
+    assert.equal(Object.hasOwn(store.publicSettings(), key), false);
+  }
+  store.save();
+  const saved = JSON.parse(fs.readFileSync(store.file, 'utf8')).settings;
+  for (const key of retired) assert.equal(Object.hasOwn(saved, key), false);
+  store.updateSettings({ streamerMode: true, hideRiotClient: false });
+  for (const key of retired) assert.equal(Object.hasOwn(store.data.settings, key), false);
 });

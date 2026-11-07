@@ -10,7 +10,7 @@ http
   .createServer((req, res) => {
     const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (url === '/') {
-      res.writeHead(302, { Location: '/src/renderer/index.html' });
+      res.writeHead(302, { Location: '/src/renderer/cards.html' });
       return res.end();
     }
     const file = path.normalize(path.join(ROOT, url));
@@ -22,9 +22,6 @@ http
       if (err) {
         res.writeHead(404);
         return res.end('Not found');
-      }
-      if (url === '/src/renderer/index.html') {
-        data = data.toString().replace('<script type="module" src="app.js">', '<script src="/scripts/dev/mock-api.js"></script>\n  <script type="module" src="app.js">');
       }
       if (url === '/src/renderer/cards.html') {
         data = data.toString().replace('<script type="module" src="cards.js">', '<script src="/scripts/dev/mock-api.js"></script><script type="module" src="cards.js">');

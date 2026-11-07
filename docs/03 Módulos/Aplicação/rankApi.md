@@ -2,7 +2,7 @@
 tipo: módulo
 arquivo: src/core/rankApi.js
 camada: aplicação
-testes: nenhum
+testes: test/core/rankApi.test.js
 tags: [módulo]
 ---
 
@@ -12,7 +12,8 @@ tags: [módulo]
 
 ## Responsabilidade
 
-- Resolve o PUUID pelo Riot ID e consulta summoner e league (LoL), league de TFT e MMR de VALORANT.
+- Resolve o PUUID pelo Riot ID, confere pelo PUUID salvo se o Riot ID mudou e consulta summoner e league (LoL), league de TFT e MMR de VALORANT.
+- Em Mestre, Grão-Mestre e Desafiante, estima os cortes de Grão-Mestre e Desafiante da fila e da região.
 - Traduz respostas e erros em `stats` e mensagens por jogo.
 - Limita o ritmo das requisições e repete depois de `429`.
 - **Não** grava nada: o [[main]] aplica o resultado com `store.updateAccountFields`. **Não** lê chaves: recebe de `store.getKeys()`.
@@ -25,14 +26,16 @@ Antes se chamava `riotApi` (`src/riotApi.js`); foi renomeado na reorganização 
 |---|---|---|
 | `REGIONS` | constante | ID de plataforma → `label`, `routing` do account-v1 e região de VALORANT |
 | `VAL_REGIONS` | constante | `br`, `na`, `latam`, `eu`, `kr`, `ap` |
-| `refreshAccount(acc, keys)` | função assíncrona | Devolve `{ fields, errors }`: campos a mesclar na conta e erros por jogo |
+| `createRankApi({ fetch, wait, now })` | fábrica | Instância com fila, cache de cortes e relógio próprios; devolve `{ refreshAccount }` |
+| `refreshAccount(acc, keys)` | função assíncrona | Da instância padrão. Devolve `{ fields, errors }`: campos a mesclar na conta e erros por jogo |
+| `ladderCutoffs([challenger, grandmaster, master])` | função | PdL do corte de Desafiante e de Grão-Mestre a partir das três listas de entradas |
 
-`keys` é `{ riot, tft, henrik }`. `fields` pode ter `stats` (`lol`, `tft`, `val`, `errors`), `puuidCache`, `gameName` e `tagLine`.
+`keys` é `{ riot, tft, henrik }`. `fields` pode ter `stats` (`lol`, `tft`, `val`, `errors`), `puuidCache`, `gameName` e `tagLine`. Em Mestre+, `stats.lol.solo` e `stats.lol.flex` ganham `cutoffs: { challenger, grandmaster }`.
 
 ## Dependências
 
-- Usa: `fetch` global e `crypto` (SHA-256 da chave). Hosts: `<routing>.api.riotgames.com`, `<plataforma>.api.riotgames.com` e `api.henrikdev.xyz`. Monta URLs de card em `media.valorant-api.com`.
-- Usado por: [[main]] (`refreshAll`; `REGIONS` e `VAL_REGIONS` no `init`). O [[renderer]] lê os campos via `rankOf`.
+- Usa: `fetch` (global na instância padrão, injetável na fábrica) e `crypto` (SHA-256 da chave). Hosts: `<routing>.api.riotgames.com`, `<plataforma>.api.riotgames.com` e `api.henrikdev.xyz`. Monta URLs de card em `media.valorant-api.com`.
+- Usado por: [[main]] (`refreshAll`; `REGIONS` e `VAL_REGIONS` no `init`). Os [[cards]] leem os campos via `rankOf` ([[ranks]]).
 
 ## Invariantes e decisões
 
@@ -44,7 +47,19 @@ Antes se chamava `riotApi` (`src/riotApi.js`); foi renomeado na reorganização 
 - **401 e 403.** Riot: chave inválida ou expirada (chaves de desenvolvimento expiram a cada 24 h). HenrikDev: `HenrikDev API key is invalid`.
 - **Cache de PUUID por chave.** PUUIDs são criptografados por chave de API, então cada chave precisa da própria consulta. O cache mapeia um hash curto da chave (12 hex do SHA-256) para o Riot ID e o PUUID resolvidos. Só vale se o Riot ID ainda for igual. Com a mesma chave e a grafia já igual, o TFT reaproveita o PUUID que o LoL resolveu na mesma chamada.
 - **Formato antigo descartado.** Versões antigas guardavam uma entrada única `{ key, riotId, puuid }`. Se `puuidCache.puuid` existe, o cache recomeça vazio.
-- **Grafia igual à da Riot.** Quando o LoL resolve o PUUID, `gameName` e `tagLine` devolvidos pela Riot entram em `fields`, para manter a capitalização do Riot ID em sincronia.
+- **Grafia igual à da Riot.** O nome devolvido pelo account-v1, por Riot ID ou por PUUID e com qualquer das chaves, entra em `fields` (`gameName`, `tagLine`) quando difere do salvo. Mantém a capitalização e as renomeações em sincronia.
+- **Fábrica.** Revisão de 2026-11-05: `createRankApi({ fetch, wait, now })` guarda a fila, o cache de cortes e o relógio na instância, para os testes trocarem rede e tempo. O módulo exporta o `refreshAccount` de uma instância padrão, que o [[main]] usa.
+- **Riot ID trocado no site da Riot.** Revisão de 2026-11-05, pedido do usuário. Com o PUUID em cache e o Riot ID salvo igual ao do cache, cada atualização consulta `account-v1 /accounts/by-puuid` e devolve o nome atual quando mudou.
+  - Uma consulta de conta por atualização: qualquer resposta do account-v1 na mesma atualização marca o nome como conferido (`context.checked`).
+  - Falha nessa conferência não vira erro: o PUUID salvo continua valendo. Um 404 cai na busca pelo Riot ID salvo.
+  - TFT (inclusive com chave própria) e VALORANT da mesma atualização já usam o nome novo.
+  - Riot ID editado no Eclipse, diferente do cache, continua buscando pelo nome digitado, para não ficar preso ao PUUID da conta anterior.
+  - PUUIDs mudam com a chave. Com chave nova, a primeira busca é pelo nome salvo; uma conta renomeada antes disso dá "não encontrado" até o usuário corrigir o nome.
+- **Cortes de Grão-Mestre e Desafiante.** Revisão de 2026-11-05, pedido do usuário. Quando Solo/Duo ou Flex está em Mestre+, baixa `challengerleagues`, `grandmasterleagues` e `masterleagues` daquela fila e região e grava `cutoffs` na entrada.
+  - `ladderCutoffs` junta as três listas, ordena por PdL e pega o PdL da posição igual ao tamanho atual de Desafiante (corte de Desafiante) e de Desafiante + Grão-Mestre (corte de Grão-Mestre). Assim conta os Mestres acima dos últimos Grão-Mestres, que sobem na próxima atualização diária.
+  - É uma estimativa: supõe as vagas iguais ao tamanho atual das listas e ignora o PdL mínimo e o desempate da Riot. Lista vazia dá corte `null`; sem nenhum corte, a entrada fica sem `cutoffs`.
+  - Cache por região e fila durante 10 min, compartilhado entre as contas da mesma atualização. Uma falha não fica em cache e não vira erro da conta.
+  - Contas abaixo de Mestre não baixam as listas. TFT não tem cortes, porque o painel não mostra TFT.
 - **Chave própria de TFT.** Chaves pessoais são emitidas por jogo, então o TFT pode ter a sua. Sem ela, usa a principal (chaves de desenvolvimento cobrem os dois jogos).
 - **Culpar o TFT só com prova.** `This Riot key has no TFT access…` só aparece quando não há chave de TFT, a mesma chave funcionou no LoL e o TFT respondeu 401/403.
 - **Apex sem divisão.** Master, Grandmaster e Challenger ficam com `division: ''`.
@@ -57,12 +72,11 @@ Antes se chamava `riotApi` (`src/riotApi.js`); foi renomeado na reorganização 
 
 ## Testes
 
-Nenhum teste automatizado. O preview do [[renderer]] usa `stats` prontos de `scripts/dev/mock-api.js` ([[Desenvolvimento]]).
+`test/core/rankApi.test.js`, com `fetch` falso, cobre: conta renomeada seguindo o PUUID (LoL, TFT com chave própria e VALORANT), uma só consulta de conta com o nome igual, conferência que falha sem perder o elo, Riot ID editado no Eclipse, cálculo dos cortes, listas baixadas uma vez por região e fila e de novo depois de 10 min, nada baixado abaixo de Mestre e falha das listas sem erro na conta. O preview do [[renderer]] usa `stats` prontos de `scripts/dev/mock-api.js` ([[Desenvolvimento]]), com cortes nas contas de Mestre+.
 
 ## Pontos de atenção
 
 - `fetch` não tem timeout. Uma requisição presa trava a fila global e, com ela, o `refreshAll` do [[main]].
 - `retry-after` em formato de data HTTP vira `NaN`, e a espera vira zero.
-- O intervalo de 80 ms não respeita o limite de 100 a cada 2 minutos. Com muitas contas, o app depende do `429`.
-- Se o LoL falhar depois de resolver o PUUID, ou se só houver chave de TFT, o cache guarda a grafia da Riot mas `fields` não atualiza o nome. Com grafia diferente, o PUUID é consultado de novo a cada refresh.
+- O intervalo de 80 ms não respeita o limite de 100 a cada 2 minutos. Com muitas contas, o app depende do `429`. Desde 2026-11-05 cada atualização gasta um pedido de conta a mais, e cada região e fila com conta em Mestre+ gasta 3 pedidos a cada 10 min (limite do método: 30 a cada 10 s e 500 a cada 10 min). A lista de Mestre pode ter milhares de entradas.
 - A HenrikDev é não oficial e pode mudar endpoints ou formato. Ver [[Limitações conhecidas]] e [[Backlog]].

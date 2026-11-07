@@ -34,7 +34,9 @@ Define que o Eclipse fala `pt` ou `en`, com `pt` como padrão, e tem o catálogo
 
 - **Traduz na saída, não na origem.** As mensagens continuam em inglês em [[signInFlow]], [[signInService]] e no `sign-in.log`. O [[main]] passa `localize` ao [[signInService]] como `translate` e usa nos balões e diálogos. Assim o log de diagnóstico não muda de língua.
 - **Pares nos dois sentidos.** `localize` aceita o texto em inglês ou em português e devolve o do idioma pedido; o [[main]] tem alguns erros que antes eram escritos em português e agora são escritos em inglês, e qualquer texto antigo em português ainda se traduz. Um mesmo texto não pode aparecer em dois pares; o teste confere.
-- **Padrões com parte variável.** Três mensagens têm um trecho que vem de fora (código de erro da Riot, motivo do monitor de janelas, código do script da janela). O trecho é mantido como veio.
+- **Padrões com parte variável.** Duas mensagens têm um trecho que vem de fora (código de erro da Riot, código do script da janela). O trecho é mantido como veio.
+- **Sem textos do monitor de janelas.** Desde 2026-11-07 saíram "The background window guard has stopped" e o padrão "The background window guard stopped (motivo). Try Play again", que só o monitor persistente produzia ([[windowController]]). Fica "The background window guard is shutting down", que o controlador ainda usa.
+- **Sem "Show Riot Client".** Desde 2026-11-07 as mensagens em inglês do [[signInFlow]] e do [[signInService]] dizem para olhar ou abrir a janela da Riot, como os textos em português já diziam; o botão era da janela antiga. Saíram também três pares sem uso: "Preparing the Riot Client sign-in…", "Could not bring the Riot Client to the front" e "Could not follow the Riot window. Restart Eclipse."
 - **Sem par, sem erro.** Uma mensagem nova que não entrou no catálogo aparece no texto original. Ao criar mensagem que chega ao usuário, acrescente o par.
 - **Padrão português.** Qualquer valor diferente de `'en'` vira `pt`, inclusive dados antigos sem o campo.
 

@@ -77,9 +77,6 @@ function createManagerApi({ ipcRenderer, setInterval: repeat = setInterval, clea
     },
     saveAccount: (input) => invoke('saveAccount', [input]),
     deleteAccount: (id) => invoke('deleteAccount', [id]),
-    patchAccount: (id, fields) => invoke('patchAccount', [id, fields]),
-    forgetSession: (id) => invoke('forgetSession', [id]),
-    copy: (id, what) => invoke('copy', [id, what]),
     refresh: (ids) => invoke('refresh', ids === undefined ? [] : [ids]),
     runningGames: () => invoke('runningGames'),
     async signIn(id, game) {
@@ -92,15 +89,10 @@ function createManagerApi({ ipcRenderer, setInterval: repeat = setInterval, clea
         poll();
       });
     },
-    showRiotClient: () => invoke('showRiotClient'),
     cancelSignIn: () => invoke('cancelSignIn'),
     saveSettings: (input) => invoke('saveSettings', [input]),
-    pickClientPath: () => invoke('pickClientPath'),
-    openDataFolder: () => invoke('openDataFolder'),
-    closeManager: () => invoke('closeManager'),
     minimizeRiot: () => invoke('windowAction', ['minimize']),
     closeRiot: () => invoke('windowAction', ['close']),
-    revealRiot: () => invoke('windowAction', ['reveal']),
     onAccountUpdated: on('account-updated'),
     onRefreshProgress: on('refresh-progress'),
     onNextRefresh: on('next-refresh'),

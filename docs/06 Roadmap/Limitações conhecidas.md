@@ -8,14 +8,14 @@ tags: [limitações]
 ## Riot
 
 - **API local não é contrato público.** Os endpoints do Riot Client usados para sessão, autenticação e abertura de produtos podem mudar sem aviso. A [própria Riot](https://developer.riotgames.com/docs/lol#league-client-api) não garante documentação, disponibilidade nem aviso de mudanças.
-- **Cópia privada presa a versões.** Só 141.0.0 e 142.0.0. Cada atualização exige [[Atualização do Riot Client]].
-- **Preenchimento de compatibilidade depende do layout.** [[login.ps1]] usa posições medidas na v141. Um redesenho pode exigir ajuste. O caminho direto pela API não usa posições.
+- **Cartões dependem do desenho da tela de login.** A largura da coluna de login, a caixa "Ocultar contas" e os pontos que o [[riotWindowObserver]] lê são frações da janela da Riot. Um redesenho pode exigir ajuste ([[Atualização do Riot Client]]). A cópia privada presa a versões saiu em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
+- **Preenchimento de compatibilidade depende do layout.** [[login.ps1]] usa posições medidas na v141 e as cores da caixa "Stay signed in" da v142. Um redesenho pode exigir ajuste. O caminho direto pela API não usa posições.
 - **Elo da temporada passada e banimentos são manuais.** A Riot API não informa. No VALORANT, a HenrikDev preenche quando disponível.
 - **Termos de uso.** Automatizar o Riot Client é zona cinzenta. O app não mexe nos jogos nem no Vanguard, mas o risco é do usuário.
 
 ## Windows
 
-- **Flashes de janela.** Eventos entre processos são assíncronos; o monitor reduz, mas não elimina em todas as combinações de versão, driver e permissão ([[ADR-004 Monitor persistente de janelas]]).
+- **Cartões um instante atrás da Riot.** Os movimentos da janela da Riot chegam por evento entre processos; os cartões podem seguir com um pequeno atraso ([[ADR-012 Sobreposição presa à janela do Riot]]). Os flashes do login escondido saíram com ele em 2026-11-07.
 - **DPAPI amarra os dados ao usuário e à máquina** ([[ADR-002 Segredos protegidos pelo DPAPI]]).
 - **Só Windows.**
 

@@ -5,41 +5,42 @@ tags: [integração, manutenção]
 
 # Atualização do Riot Client
 
-O modo integrado só aceita versões da interface do Riot validadas (**141.0.0** e **142.0.0**). Quando a Riot atualiza, o app mostra um erro em vez de abrir a cópia antiga. Como todas as funções agora vivem na janela Riot, é preciso preparar uma cópia compatível para voltar ao painel de contas.
+Os cartões ficam sobre a janela oficial da Riot e não dependem de uma versão da interface dela. O Eclipse não copia nem altera a instalação ([[ADR-028 Modo antigo removido]]). Uma atualização da Riot só quebra algo quando muda o desenho da tela de login, a API local ou o local do certificado.
 
 ## Sintomas
 
-- Diálogo "Não foi possível abrir a interface integrada" com motivo de preparação ou versão.
-- `npm run integration:probe-private` grava `ok: false` em `.client-integration/private-v1/probe-controller/result.json`.
+- Os cartões cobrem parte da coluna de login, ou deixam uma faixa da arte à mostra.
+- A caixa "Ocultar contas" fica fora do lugar da caixa da Riot.
+- O login visível digita no lugar errado ou não marca "Manter conectado".
+- Os cartões não somem com um diálogo da Riot aberto, ou somem sem motivo.
+- O `sign-in.log` mostra erro da API local, de certificado ou um estado de sessão desconhecido.
 
 ## O que pode quebrar
 
 | Ponto | Onde | Por quê |
 |---|---|---|
-| Lista de versões | `SUPPORTED_VERSIONS` em [[privateHostCore]] | Versão nova é recusada por padrão |
-| Inicialização do protocolo Sentry | `ORIGINAL_PROTOCOL_BOOTSTRAP*` em [[privateHostCore]] | Texto minificado procurado literalmente |
-| Log com argumentos | `UNSAFE_STARTUP_LOG` em [[privateHostCore]] e [[Scripts de integração]] | O filtro precisa encontrar a chamada exata |
-| Hook do formulário e MFA | `HOOK_START`, `HOOK_END`, `ORIGINAL_INITIALIZE`, `ORIGINAL_EFFECTS` em [[privateRendererCore]] | Nomes minificados mudam a cada build |
-| Seletores do formulário | `addon-renderer.js` ([[addons]]) | O painel procura o `LoginForm` |
-| Posições do preenchimento nativo | `login.ps1` ([[login.ps1]]) | Frações medidas na v141 |
+| Largura da coluna de login | `cardsLeft` em [[riotOverlay]] (400/1536 da largura) | Os cartões começam onde a arte começa |
+| Caixa "Ocultar contas" | `TOGGLE_AREA` em [[overlayToggle]] | Posição medida na tela de login |
+| Ponto do painel e caixa "Stay signed in" | `PANEL_POINT` em [[riotWindowObserver]] (`PANEL_X`, `PANEL_Y`, `BOX_X`, `BOX_Y` no `.ps1`) | O observador lê cores nesses pontos para saber se o formulário está à mostra e se a caixa está marcada |
+| Posições do preenchimento nativo | `$USERNAME`, `$PASSWORD`, `$REMEMBER`, `$SUBMIT`, `$PANEL` em [[login.ps1]] | Frações medidas na janela da Riot; só usadas quando a API pede o formulário |
 | Estados da sessão do jogador | `NON_BLOCKING_SESSION_STATES` em [[riotAuthentication]] | Estado automático novo fica bloqueado até entrar na lista. Compare com a enumeração `PlayerSessionStateType` em `C:\Riot Games\Riot Client\RiotGamesApi.dll` (só leitura) |
+| Rotas da API local | constantes no topo de [[riotAuthentication]] e [[riotInterface]] | Rota nova ou removida muda o login e a abertura da interface |
+| Certificado da API local | `dist/main/root.pem` dentro do `app.asar` oficial, lido por [[backend]] com [[asar]] | Sem ele, o HTTPS para a API local é recusado |
+| Lockfile | `%LOCALAPPDATA%\Riot Games\Riot Client\Config\lockfile` ([[backend]]) | Porta e senha da API local |
 
 Os serviços do Riot (`RiotGamesApi.dll`) atualizam junto com a interface e também afetam o login em segundo plano.
 
 ## Passo a passo
 
-1. **Descubra a versão.** Leia `package.json` dentro de `C:\Riot Games\Riot Client\RiotClientElectron\resources\app.asar` sem extrair, com `openArchive` de [[asar]].
-2. **Compare o código.** Procure cada âncora da tabela no `dist/main/main.js` e `dist/renderer/renderer.js` da versão nova. Cada âncora tem de aparecer **uma única vez**.
-3. **Adapte e teste.** Acrescente a versão, as âncoras novas e um teste no formato de `test/integration/host/privateVersion142.test.js`. `npm test` tem de passar.
-4. **Encerre a instância antiga pela bandeja.** Não mova `.client-integration/` nem suas cópias: os manifestos guardam caminhos absolutos.
-5. **Prepare.** `npm run integration:prepare-private` cria o destino novo `private-v1/embedded-v1/` e confere que a instalação do Riot não mudou durante a preparação. Se esse destino já existir, preserve-o com seus arquivos e manifesto originais, remova somente o `app.asar` e o `manifest.json` desse destino depois de fechar o host e prepare novamente no mesmo caminho. Não apague as contas em `%APPDATA%`.
-6. **Verifique.** `npm run integration:probe-private` com os serviços Riot abertos. Espere `rendererReady` e `managerConnected` verdadeiros.
-7. **Confira visualmente** a tela de login com o painel, sem autenticar.
-8. **Registre.** Atualize [[Integração com o Riot Client]], [[Changelog]] e as notas dos módulos alterados.
+1. **Confira à vista.** Abra a Riot com o Eclipse e compare cartões, caixa "Ocultar contas" e cópias de minimizar e fechar com a tela da Riot, sem autenticar. Teste também a Riot com 1024 × 576, o menor tamanho dela.
+2. **Meça de novo o que mudou.** As constantes da tabela são frações da área cliente. Meça numa captura de tela da Riot em 1536 × 864 e atualize a fração.
+3. **Confira a API.** Se o login falhar, procure no `sign-in.log` a rota ou o estado que mudou. Para comparar versões, leia o `app.asar` e a `RiotGamesApi.dll` só para leitura.
+4. **Teste.** Ajuste os testes do módulo alterado. `npm test` tem de passar.
+5. **Registre.** Atualize a nota do módulo, [[Integração com o Riot Client]] e o [[Changelog]].
 
 ## Ferramenta útil: REA
 
-Para o passo 2, o REA (Reverse Engineer Anything, <https://github.com/morluto/rea>) analisa apps Electron e bundles JavaScript e compara versões de uma aplicação. Ele está configurado como servidor MCP no Claude Code desta máquina, mas não foi auditado. Use só leitura sobre a cópia, nunca sobre a instalação em uso durante uma atualização.
+Para comparar versões, o REA (Reverse Engineer Anything, <https://github.com/morluto/rea>) analisa apps Electron, bundles JavaScript e binários .NET. Ele está configurado como servidor MCP no Claude Code desta máquina, mas não foi auditado. Use só leitura, nunca escreva na instalação da Riot.
 
 > [!warning]
-> Nunca aplique uma cópia preparada para uma versão diferente da instalada, e nunca distribua o `app.asar` preparado.
+> Nunca escreva em `C:\Riot Games\` nem distribua arquivos tirados da instalação da Riot.

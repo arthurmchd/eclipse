@@ -8,14 +8,12 @@ const DEFAULT_SETTINGS = {
   riotTftApiKey: null,
   henrikApiKey: null,
   refreshMinutes: 30,
-  minimizeOnLaunch: true,
-  hideRiotClient: true,
-  closeRiotClient: true,
-  streamerMode: false,
   staySignedIn: true,
   riotClientPath: '',
   language: 'pt',
 };
+
+const RETIRED_SETTINGS = ['minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode'];
 
 const BACKUP_ACCOUNT_FIELDS = [
   'id', 'createdAt', 'gameName', 'tagLine', 'region', 'valRegion',
@@ -68,9 +66,11 @@ class Store {
       a.gameName = cleanName(a.gameName);
       a.tagLine = cleanName(a.tagLine);
     }
+    const settings = { ...DEFAULT_SETTINGS, ...(raw.settings || {}) };
+    for (const key of RETIRED_SETTINGS) delete settings[key];
     return {
       accounts: raw.accounts || [],
-      settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}) },
+      settings,
       lastRefresh: raw.lastRefresh || null,
       currentAccountId: raw.currentAccountId || null,
     };
@@ -217,6 +217,15 @@ class Store {
     }
   }
 
+  sessionSavedAt(id) {
+    const file = this.sessionFile(id);
+    try {
+      return fs.statSync(file).mtimeMs;
+    } catch {
+      return 0;
+    }
+  }
+
   loadSession(id) {
     try {
       return safeStorage.decryptString(fs.readFileSync(this.sessionFile(id)));
@@ -250,10 +259,6 @@ class Store {
     };
     return {
       refreshMinutes: s.refreshMinutes,
-      minimizeOnLaunch: s.minimizeOnLaunch,
-      hideRiotClient: s.hideRiotClient,
-      closeRiotClient: s.closeRiotClient,
-      streamerMode: s.streamerMode,
       staySignedIn: s.staySignedIn !== false,
       riotClientPath: s.riotClientPath,
       language: s.language === 'en' ? 'en' : 'pt',
@@ -265,7 +270,7 @@ class Store {
 
   updateSettings(input) {
     const s = this.data.settings;
-    for (const k of ['refreshMinutes', 'minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode', 'staySignedIn', 'riotClientPath', 'language']) {
+    for (const k of ['refreshMinutes', 'staySignedIn', 'riotClientPath', 'language']) {
       if (input[k] !== undefined) s[k] = input[k];
     }
     if (input.riotApiKey !== undefined) s.riotApiKey = encrypt(input.riotApiKey.trim());

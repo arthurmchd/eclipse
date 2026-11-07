@@ -47,20 +47,20 @@ test('headless services are asked to show their interface before any restart', a
   assert.match(f.logs.join('\n'), /background service/);
 });
 
-test('headless services that do not show an interface are restarted with it, hidden', async () => {
+test('headless services that do not show an interface are restarted with it, visible', async () => {
   for (const showStatus of [204, 404, new Error('connection refused')]) {
     const f = fixture({ client: true, showStatus });
-    assert.equal(await f.open({ visible: false }), 'launched');
+    assert.equal(await f.open(), 'launched');
     assert.deepEqual(f.events.map((event) => event[0]), ['api', 'stop', 'launch']);
-    assert.deepEqual(f.events[2], ['launch', 'C:/Riot/RiotClientServices.exe', { visible: false, interfaceRequired: true }]);
+    assert.deepEqual(f.events[2], ['launch', 'C:/Riot/RiotClientServices.exe', { visible: true }]);
     assert.match(f.logs.join('\n'), /restarting it with the interface/);
   }
 });
 
-test('stopped services start directly with the interface', async () => {
+test('stopped services start directly with the visible interface, even if asked for a hidden one', async () => {
   const f = fixture({ client: false });
-  assert.equal(await f.open({ visible: true }), 'launched');
-  assert.deepEqual(f.events, [['launch', 'C:/Riot/RiotClientServices.exe', { visible: true, interfaceRequired: true }]]);
+  assert.equal(await f.open({ visible: false }), 'launched');
+  assert.deepEqual(f.events, [['launch', 'C:/Riot/RiotClientServices.exe', { visible: true }]]);
 });
 
 test('services that refuse to stop are reported instead of starting a second client', async () => {

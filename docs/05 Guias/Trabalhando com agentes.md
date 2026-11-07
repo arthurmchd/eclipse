@@ -13,8 +13,9 @@ O projeto foi preparado para ser mantido junto com o Claude Code. O vault é a m
 |---|---|---|
 | `CLAUDE.md` | raiz do projeto | Regras que todo agente segue: ler a nota do módulo, manter o código sem comentários, atualizar o vault, rodar os testes |
 | `vault-keeper` | `.claude/agents/vault-keeper.md` | Depois de uma mudança de código, atualiza as notas afetadas e o [[Changelog]] |
-| `riot-update-checker` | `.claude/agents/riot-update-checker.md` | Quando a Riot atualiza, verifica as âncoras da cópia privada sem alterar nada e propõe as mudanças ([[Atualização do Riot Client]]) |
 | Templates | `docs/_templates/` | [[Módulo]], [[Decisão]], [[Tarefa]] |
+
+O agente `riot-update-checker` conferia as âncoras da cópia privada e saiu com ela em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
 
 ## Ciclo de uma mudança
 
@@ -28,7 +29,7 @@ O projeto foi preparado para ser mantido junto com o Claude Code. O vault é a m
 
 - "Use o vault-keeper para atualizar as notas do que mudou."
 - "Pegue o item 1 do Backlog e resolva com teste."
-- "A Riot atualizou; rode o riot-update-checker."
+- "A Riot atualizou; confira os pontos de [[Atualização do Riot Client]]."
 - "Explique o fluxo de troca de conta usando o vault."
 
 ## Abrir o vault

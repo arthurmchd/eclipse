@@ -1,27 +1,22 @@
 const fs = require('fs');
 const path = require('path');
-const { app, clipboard, shell, dialog, Tray, Menu, nativeImage } = require('electron');
+const { app, shell, dialog, Tray, Menu, nativeImage } = require('electron');
 const { APP_ICON, APP_TRAY_ICON } = require('../paths');
 const { Store } = require('../core/store');
 const { REGIONS, VAL_REGIONS, refreshAccount } = require('../core/rankApi');
 const riotClient = require('../riot/riotClient');
 const { createSignInService } = require('../core/signInService');
+const { createSessionKeeper } = require('../core/sessionKeeper');
+const { createRiotWakeup } = require('../core/riotWakeup');
 const { createManagerService, createManagerEvents } = require('../core/managerService');
-const { createClientBridge } = require('../integration/bridgeServer');
-const { createPrivateClient, inspectPrivateClient } = require('../integration/privateClient');
-const { protectString } = require('../platform/windows/windowsDpapi');
 const { createRiotOverlay } = require('../integration/overlay/riotOverlay');
 const { localize, mainText, normalizeLanguage } = require('../core/language');
 
 const APP_NAME = 'Eclipse';
-const overlayMode = !process.argv.includes('--private-client');
-if (overlayMode) {
-  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
-  app.commandLine.appendSwitch('wm-window-animations-disabled');
-}
-let store, launchService, managerService, clientBridge, privateClient, tray, overlay;
-let nativeIntegration = { active: false, mode: 'private' };
-let refreshing = null, refreshTimer = null, integrationStarting = null, riotOpening = null;
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('wm-window-animations-disabled');
+let store, launchService, managerService, tray, overlay, sessionKeeper, riotWakeup;
+let refreshing = null, refreshTimer = null, riotOpening = null;
 let startupComplete = false, quitting = false;
 const events = createManagerEvents();
 const send = (channel, payload) => events.publish(channel, payload);
@@ -37,6 +32,11 @@ function signInLog(line) {
   } catch {}
 }
 function saveLeavingSession({ riotId, yaml }) {
+  const owner = sessionKeeper?.keep(yaml);
+  if (owner) {
+    signInLog('updated the session of the account that was signed in');
+    return;
+  }
   const previous = store.data.currentAccountId && store.getAccount(store.data.currentAccountId);
   if (!previous || !riotClient.hasPersistedLogin(yaml)) return;
   if (!riotId || !riotClient.sameRiotId(riotId, previous)) {
@@ -90,14 +90,6 @@ async function refreshAll(ids) {
   try { return await refreshing; }
   finally { refreshing = null; scheduleRefresh(); }
 }
-async function nativeChallengePending() {
-  const operation = launchService?.getState();
-  if (!operation?.needsAttention || !operation.nativeClient) return false;
-  if (operation.status === 'running') return true;
-  if (operation.status !== 'failed') return false;
-  const state = await riotClient.readAuthenticationState().catch(() => null);
-  return !['auth', 'authenticated'].includes(state?.type) || Boolean(state?.error);
-}
 function notifyFailure(error) {
   const reason = typeof error?.message === 'string' ? error.message : 'Could not open the accounts in Riot.';
   signInLog(reason);
@@ -108,56 +100,14 @@ function notifyFailure(error) {
     buttons: [text.understood], noLink: true,
   }).catch(() => {});
 }
-async function ensureClientIntegration() {
-  if (clientBridge && nativeIntegration.active) return nativeIntegration;
-  if (integrationStarting) return integrationStarting;
-  integrationStarting = (async () => {
-    const prepared = inspectPrivateClient(riotClient.detectClientPath(store.data.settings.riotClientPath));
-    nativeIntegration = { active: prepared.active, mode: 'private', version: prepared.version, reason: prepared.reason };
-    if (!nativeIntegration.active) throw new Error(prepared.reason || 'Prepare the private copy to open the accounts inside Riot.');
-    let bridge;
-    try {
-      bridge = createClientBridge({
-        directory: store.dir, encodeToken: protectString,
-        listAccounts: () => store.listAccounts(), getState: () => launchService.getState(),
-        signIn: ({ accountId, game }) => launchService.start(accountId, game),
-        cancel: () => launchService.cancel(), openManager: () => openRiot({ accounts: true }),
-        manage: (method, args) => managerService.dispatch(method, args),
-        onError: (error) => signInLog(error.message),
-      });
-      await bridge.start();
-      clientBridge = bridge;
-    } catch {
-      await bridge?.stop().catch(() => {});
-      nativeIntegration = { ...nativeIntegration, active: false, reason: 'The local accounts connection could not be started.' };
-      throw new Error(nativeIntegration.reason);
-    }
-    return nativeIntegration;
-  })();
-  try { return await integrationStarting; } finally { integrationStarting = null; }
-}
 async function openRiot({ accounts = false, reportFailure = true } = {}) {
   if (riotOpening) return riotOpening;
   riotOpening = (async () => {
     try {
-      if (overlayMode) {
-        const operation = launchService.getState();
-        if (operation?.status === 'running' && !operation.needsAttention) throw new Error('The game is opening. Wait or cancel from the tray.');
-        await riotClient.openClient(store.data.settings.riotClientPath);
-        if (accounts && !operation?.needsAttention) await overlay.open();
-        return { ok: true };
-      }
-      if (await nativeChallengePending()) {
-        privateClient.hide();
-        await riotClient.openClient(store.data.settings.riotClientPath);
-        return { ok: true };
-      }
       const operation = launchService.getState();
-      if (operation?.status === 'running' && !operation.needsAttention) throw new Error('The game is opening in the background. Wait or use Cancel sign-in in the tray.');
-      await ensureClientIntegration();
-      const clientPath = riotClient.detectClientPath(store.data.settings.riotClientPath);
-      if (accounts) await privateClient.openManager(clientPath);
-      else await privateClient.open(clientPath);
+      if (operation?.status === 'running' && !operation.needsAttention) throw new Error('The game is opening. Wait or cancel from the tray.');
+      await riotClient.openClient(store.data.settings.riotClientPath);
+      if (accounts && !operation?.needsAttention) await overlay.open();
       return { ok: true };
     } catch (error) {
       if (reportFailure) notifyFailure(error);
@@ -199,14 +149,13 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', () => { if (startupComplete) openRiot({ accounts: true }); });
   app.whenReady().then(async () => {
     store = new Store();
-    if (!overlayMode) privateClient = createPrivateClient({ encodeToken: protectString, ensureBackend: (clientPath) => riotClient.ensureBackgroundClient(clientPath) });
     launchService = createSignInService({
       store, riotClient, log: signInLog, onClosed: saveLeavingSession,
       operationUpdated: (operation) => {
         send('sign-in-operation', operation);
-        if (operation.status === 'running') privateClient?.hide();
         overlay?.setBlocked(operation.status === 'running');
         overlay?.setOperation(operation);
+        if (operation.status !== 'running') sessionKeeper?.check();
         if (operation.status === 'failed') tray?.displayBalloon({ title: words().gameFailed, content: operation.text.slice(0, 240), noSound: true });
       },
       status: (payload) => {
@@ -215,36 +164,34 @@ if (!app.requestSingleInstanceLock()) {
       },
       accountUpdated: (account) => { if (account) send('account-updated', account); },
       translate: say,
-      releaseAfterLaunch: overlayMode,
-      visibleLogin: overlayMode,
     });
     managerService = createManagerService({
-      store, launchService, riotClient, clipboard, shell, dialog, events, refreshAll, scheduleRefresh,
-      showRiotClient: () => openRiot({ reportFailure: false }),
+      store, launchService, riotClient, shell, events, refreshAll, scheduleRefresh,
       settingsChanged: languageChanged,
       initContext: () => ({
         regions: REGIONS, valRegions: VAL_REGIONS, version: app.getVersion(),
         lastRefresh: store.data.lastRefresh, nextRefresh: nextRefreshAt(),
-        nativeIntegration: { ...nativeIntegration, requested: true },
-        clientFound: Boolean(riotClient.detectClientPath(store.data.settings.riotClientPath)),
       }),
     });
     await createTray();
-    if (overlayMode) {
-      nativeIntegration = { active: true, mode: 'overlay' };
-      overlay = createRiotOverlay({
-        readAuthenticationState: signal => riotClient.readLoginScreenState(signal),
-        closeClient: () => riotClient.closeClient(),
-        request: async (method, args) => ({ ok: true, value: await managerService.dispatch(method, args) }),
-        onError: (error) => { signInLog(error.message); tray?.displayBalloon({ title: APP_NAME, content: say(error.message).slice(0, 240), noSound: true }); },
-      });
-      overlay.setLanguage(language());
-      const clientPath = riotClient.detectClientPath(store.data.settings.riotClientPath);
-      if (!clientPath) throw new Error('Riot Client not found. Install the official client before starting Eclipse.');
-      await overlay.start(clientPath);
-    }
+    sessionKeeper = createSessionKeeper({
+      riot: riotClient, store, busy: () => launchService.isBusy(), log: signInLog,
+      onSaved: (account) => send('account-updated', store.publicAccount(account)),
+    });
+    sessionKeeper.start();
+    riotWakeup = createRiotWakeup({ riot: riotClient, busy: () => launchService.isBusy(), log: signInLog });
+    riotWakeup.start();
+    overlay = createRiotOverlay({
+      readAuthenticationState: signal => riotClient.readLoginScreenState(signal),
+      closeClient: () => riotClient.closeClient(),
+      request: async (method, args) => ({ ok: true, value: await managerService.dispatch(method, args) }),
+      onError: (error) => { signInLog(error.message); tray?.displayBalloon({ title: APP_NAME, content: say(error.message).slice(0, 240), noSound: true }); },
+    });
+    overlay.setLanguage(language());
+    const clientPath = riotClient.detectClientPath(store.data.settings.riotClientPath);
+    if (!clientPath) throw new Error('Riot Client not found. Install the official client before starting Eclipse.');
+    await overlay.start(clientPath);
     startupComplete = true;
-    if (!overlayMode) await openRiot();
     const next = nextRefreshAt();
     if (next && Date.parse(next) <= Date.now() + 1000 && store.data.accounts.length) refreshAll().catch(() => {});
     else scheduleRefresh();
@@ -255,7 +202,9 @@ if (!app.requestSingleInstanceLock()) {
     quitting = true;
     clearTimeout(refreshTimer);
     launchService?.cancel();
-    Promise.allSettled([overlay?.stop(), privateClient?.stop(), riotClient.dispose(), clientBridge?.stop()]).finally(() => { tray?.destroy(); app.quit(); });
+    sessionKeeper?.stop();
+    riotWakeup?.stop();
+    Promise.allSettled([overlay?.stop(), riotClient.dispose()]).finally(() => { tray?.destroy(); app.quit(); });
   });
   app.on('window-all-closed', () => {});
 }

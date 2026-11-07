@@ -18,7 +18,7 @@ function fixture(overrides = {}) {
   let received;
   const result = { gameStarted: true, riotId: { gameName: 'Example', tagLine: 'BR1' }, session: 'private-session', sessionRejected: false };
   const store = {
-    data: { settings: { riotClientPath: 'C:/Example/RiotClientServices.exe', hideRiotClient: true, closeRiotClient: true } },
+    data: { settings: { riotClientPath: 'C:/Example/RiotClientServices.exe' } },
     getAccount: (id) => accounts.get(id),
     getPassword: (id) => { calls.push(['get-password', id]); return 'decrypted-secret'; },
     loadSession: (id) => { calls.push(['load-session', id]); return 'remembered-session'; },
@@ -42,8 +42,22 @@ function fixture(overrides = {}) {
     onLaunched: () => { calls.push(['launched']); },
     ...overrides,
   };
+  const waiting = [];
+  const observe = options.operationUpdated || (() => {});
+  options.operationUpdated = (operation) => {
+    if (operation.finishedAt) waiting.splice(0).forEach((resolve) => resolve(operation));
+    return observe(operation);
+  };
   const service = createSignInService(options);
-  return { service, store, riotClient, accounts, result, calls, statuses, updates, logs, received: () => received };
+  function play(id = 'test-account', game = 'lol') {
+    let resolve;
+    const finished = new Promise((done) => { resolve = done; });
+    waiting.push(resolve);
+    try { service.startFromManager(id, game); }
+    catch (error) { waiting.splice(waiting.indexOf(resolve), 1); throw error; }
+    return finished;
+  }
+  return { service, play, store, riotClient, accounts, result, calls, statuses, updates, logs, received: () => received };
 }
 
 async function settle(service) {
@@ -52,14 +66,20 @@ async function settle(service) {
   return service.getState();
 }
 
-test('GUI sign-in waits for completion and passes decrypted credentials only to Riot', async () => {
+test('the service exposes only what the cards use', () => {
   const f = fixture();
-  const pending = f.service.signIn('test-account', 'lol');
+  assert.deepEqual(Object.keys(f.service).sort(), ['activeAccountId', 'cancel', 'getState', 'isBusy', 'startFromManager']);
+});
+
+test('a sign-in passes decrypted credentials only to Riot and finishes with public metadata', async () => {
+  const f = fixture();
+  const finished = f.play();
   assert.equal(f.service.isBusy(), true);
   assert.equal(f.service.activeAccountId(), 'test-account');
   assert.equal(f.received(), undefined);
-  const response = await pending;
-  assert.deepEqual(response, { ok: true, gameStarted: true });
+  const operation = await finished;
+  assert.equal(operation.status, 'succeeded');
+  assert.equal(operation.text, 'Game opened');
   assert.equal(f.received().account.password, 'decrypted-secret');
   assert.equal(f.received().account.username, 'private-login');
   assert.equal(typeof f.received().session, 'function');
@@ -67,16 +87,16 @@ test('GUI sign-in waits for completion and passes decrypted credentials only to 
   assert.equal(f.received().hasSavedSession, true);
   assert.equal(f.service.getState().status, 'succeeded');
   assert.equal(f.service.activeAccountId(), null);
-  const exposed = JSON.stringify([response, f.service.getState(), f.updates, f.logs, f.statuses]);
+  const exposed = JSON.stringify([operation, f.service.getState(), f.updates, f.logs, f.statuses]);
   for (const secret of ['private-login', 'encrypted-secret', 'decrypted-secret', 'private-session']) assert.equal(exposed.includes(secret), false);
 });
 
-test('bridge start returns immediately and its operation survives disappearance of a UI', async () => {
+test('the cards start returns immediately and its operation survives disappearance of a UI', async () => {
   const f = fixture();
   const hold = deferred();
   let called = false;
   f.riotClient.signIn = async () => { called = true; return hold.promise; };
-  const accepted = f.service.start('test-account', 'tft');
+  const accepted = f.service.startFromManager('test-account', 'tft');
   assert.equal(accepted.ok, true);
   assert.equal(accepted.operationId, f.service.getState().id);
   assert.equal(f.service.getState().operationId, accepted.operationId);
@@ -88,66 +108,40 @@ test('bridge start returns immediately and its operation survives disappearance 
   assert.equal((await settle(f.service)).status, 'succeeded');
 });
 
-test('GUI and bridge requests share a mutex', async () => {
+test('a second sign-in is refused while one is running', async () => {
   const f = fixture();
   const hold = deferred();
   f.riotClient.signIn = async () => hold.promise;
-  const pending = f.service.signIn('test-account', 'lol');
-  assert.throws(() => f.service.start('test-account', 'val'), /already in progress/);
-  assert.equal((await f.service.signIn('test-account', 'tft')).ok, false);
+  const finished = f.play();
+  assert.throws(() => f.service.startFromManager('test-account', 'val'), /already in progress/);
   await flush();
+  assert.throws(() => f.play('test-account', 'tft'), /already in progress/);
   hold.resolve(f.result);
-  await pending;
+  assert.equal((await finished).game, 'lol');
   assert.equal(f.service.isBusy(), false);
 });
 
-for (const runningGame of ['lol', 'val']) {
-  test(`Riot-login integration refuses a switch while ${runningGame} is running`, async () => {
-    const f = fixture();
-    f.riotClient.runningGames = async () => ({ [runningGame]: true });
-    f.service.start('test-account', 'lol');
-    const state = await settle(f.service);
-    assert.equal(state.status, 'failed');
-    assert.match(state.error, /Close League of Legends or VALORANT/);
-    assert.equal(f.calls.some(([name]) => name === 'get-password' || name === 'sign-in'), false);
-  });
-}
-
-test('GUI launch keeps its existing confirmation responsibility', async () => {
+test('the service never checks running games, because the cards confirm before signing in', async () => {
   const f = fixture();
-  f.riotClient.runningGames = async () => { throw new Error('GUI should have already confirmed switching'); };
-  assert.equal((await f.service.signIn('test-account', 'val')).ok, true);
+  f.riotClient.runningGames = async () => { throw new Error('The cards should have already confirmed switching'); };
+  assert.equal((await f.play('test-account', 'val')).status, 'succeeded');
+  f.service.startFromManager('test-account', 'lol');
+  assert.equal((await settle(f.service)).status, 'succeeded');
 });
 
-test('integrated launch always keeps the client hidden despite old visible-client preferences', async () => {
+test('the sign-in passes no window options, because the login is always visible', async () => {
   const f = fixture();
-  f.store.data.settings.hideRiotClient = false;
-  f.store.data.settings.closeRiotClient = false;
   f.store.hasSession = () => false;
-  f.service.start('test-account', 'lol');
+  f.service.startFromManager('test-account', 'lol');
   await settle(f.service);
-  assert.equal(f.received().hide, true);
-  assert.equal(f.received().closeClient, true);
+  for (const name of ['hide', 'closeClient', 'releaseAfterLaunch', 'visibleLogin']) assert.equal(Object.hasOwn(f.received(), name), false);
   assert.equal(f.received().hasSavedSession, false);
-  assert.equal(f.store.data.settings.hideRiotClient, false);
-  assert.equal(f.store.data.settings.closeRiotClient, false);
 });
 
-test('normal manager preserves explicit visible-client preferences', async () => {
-  const f = fixture();
-  f.store.data.settings.hideRiotClient = false;
-  f.store.data.settings.closeRiotClient = false;
-  await f.service.signIn('test-account', 'lol');
-  assert.equal(f.received().hide, false);
-  assert.equal(f.received().closeClient, false);
-});
-
-test('embedded manager acknowledges immediately, keeps Riot hidden and preserves the game confirmation', async () => {
+test('the cards start acknowledges immediately and leaves the game confirmation to the cards', async () => {
   const f = fixture();
   const hold = deferred();
-  f.store.data.settings.hideRiotClient = false;
-  f.store.data.settings.closeRiotClient = false;
-  f.riotClient.runningGames = async () => { throw new Error('The embedded UI already confirmed the switch'); };
+  f.riotClient.runningGames = async () => { throw new Error('The cards already confirmed the switch'); };
   f.riotClient.signIn = async (options) => { f.calls.push(['embedded-options', options]); return hold.promise; };
   const accepted = f.service.startFromManager('test-account', 'val');
   assert.equal(accepted.ok, true);
@@ -155,17 +149,15 @@ test('embedded manager acknowledges immediately, keeps Riot hidden and preserves
   assert.equal(f.calls.length, 0);
   await flush();
   const options = f.calls.find(([name]) => name === 'embedded-options')[1];
-  assert.equal(options.hide, true);
-  assert.equal(options.closeClient, true);
+  assert.equal(options.game, 'val');
   assert.throws(() => f.service.startFromManager('test-account', 'lol'), /already in progress/);
   hold.resolve(f.result);
   assert.equal((await settle(f.service)).status, 'succeeded');
-  assert.equal(f.store.data.settings.hideRiotClient, false);
 });
 
 test('cancellation before scheduled execution performs no client or credential work', async () => {
   const f = fixture();
-  f.service.start('test-account', 'lol');
+  f.service.startFromManager('test-account', 'lol');
   assert.deepEqual(f.service.cancel(), { ok: true });
   const state = await settle(f.service);
   assert.equal(state.status, 'cancelled');
@@ -177,10 +169,13 @@ test('cancellation before scheduled execution performs no client or credential w
 test('cancellation propagates to an active Riot operation and frees the mutex', async () => {
   const f = fixture();
   f.riotClient.signIn = async ({ signal }) => new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true }));
-  const pending = f.service.signIn('test-account', 'lol');
+  const finished = f.play();
   await flush();
   f.service.cancel();
-  assert.deepEqual(await pending, { ok: false, error: 'Sign-in cancelled', cancelled: true });
+  const operation = await finished;
+  assert.equal(operation.status, 'cancelled');
+  assert.equal(operation.cancelled, true);
+  assert.equal(operation.text, 'Sign-in cancelled');
   assert.equal(f.service.getState().status, 'cancelled');
   assert.equal(f.service.isBusy(), false);
 });
@@ -188,7 +183,7 @@ test('cancellation propagates to an active Riot operation and frees the mutex', 
 test('a rejected old session is forgotten before persisting the replacement', async () => {
   const f = fixture();
   f.result.sessionRejected = true;
-  await f.service.signIn('test-account', 'lol');
+  await f.play();
   const forgotten = f.calls.findIndex(([name]) => name === 'forget-session');
   const saved = f.calls.findIndex(([name]) => name === 'save-session');
   assert.ok(forgotten >= 0 && saved > forgotten);
@@ -200,12 +195,34 @@ test('authentication errors clear rejected sessions and cleanup failures remain 
   const f = fixture();
   f.riotClient.signIn = async () => { throw Object.assign(new Error('Wrong username or password'), { sessionRejected: true }); };
   f.store.forgetSession = () => { throw new Error('storage unavailable'); };
-  const response = await f.service.signIn('test-account', 'lol');
-  assert.equal(response.ok, false);
-  assert.equal(response.error, 'Wrong username or password');
+  const operation = await f.play();
+  assert.equal(operation.status, 'failed');
+  assert.equal(operation.error, 'Wrong username or password');
   assert.equal(f.service.getState().status, 'failed');
   assert.equal(f.service.isBusy(), false);
   assert.ok(f.logs.some((line) => /could not forget/.test(line)));
+});
+
+test('a saved session of another account is forgotten as soon as it is found, before Riot closes it', async () => {
+  const f = fixture();
+  f.riotClient.signIn = async (options) => {
+    f.calls.push(['sign-in']);
+    await options.onRejected();
+    f.calls.push(['close-other-account']);
+    return { ...f.result, sessionRejected: true };
+  };
+  assert.equal((await f.play()).status, 'succeeded');
+  const names = f.calls.map(([name]) => name);
+  assert.deepEqual(f.calls.find(([name]) => name === 'forget-session'), ['forget-session', 'test-account']);
+  assert.ok(names.indexOf('forget-session') < names.indexOf('close-other-account'));
+});
+
+test('a failure to forget a rejected session is logged without stopping the sign-in', async () => {
+  const f = fixture();
+  f.store.forgetSession = () => { throw new Error('storage unavailable'); };
+  f.riotClient.signIn = async (options) => { await options.onRejected(); return f.result; };
+  assert.equal((await f.play()).status, 'succeeded');
+  assert.ok(f.logs.includes('could not forget the rejected session: storage unavailable'));
 });
 
 test('progress is public metadata and getState returns an independent snapshot', async () => {
@@ -218,7 +235,7 @@ test('progress is public metadata and getState returns an independent snapshot',
     assert.equal(f.service.getState().text, 'Enter the 2FA code');
     return f.result;
   };
-  await f.service.signIn('test-account', 'lol');
+  await f.play();
   assert.deepEqual(f.statuses, [{ id: 'test-account', text: 'Enter the 2FA code', needsAttention: true, nativeClient: false }]);
   assert.equal(f.service.getState().needsAttention, false);
 });
@@ -229,7 +246,7 @@ test('native verification context is published for manual handoff and cleared by
   const hold = deferred();
   let report;
   f.riotClient.signIn = async (options) => { report = options.status; return hold.promise; };
-  const pending = f.service.signIn('test-account', 'lol');
+  const finished = f.play();
   assert.equal(f.service.getState().nativeClient, false);
   await flush();
   report('Complete the security check in Riot', { needsAttention: true, nativeClient: true });
@@ -241,14 +258,14 @@ test('native verification context is published for manual handoff and cleared by
   assert.equal(f.service.getState().nativeClient, false);
   assert.equal(f.statuses.at(-1).nativeClient, false);
   hold.resolve(f.result);
-  await pending;
+  await finished;
 });
 
 test('observer and logging failures do not change a successful launch or hang completion', async () => {
   const fail = () => { throw new Error('observer unavailable'); };
   const f = fixture({ log: fail, status: fail, accountUpdated: fail, onLaunched: fail });
   f.riotClient.signIn = async (options) => { options.status('Starting'); return f.result; };
-  assert.equal((await f.service.signIn('test-account', 'lol')).ok, true);
+  assert.equal((await f.play()).status, 'succeeded');
   assert.equal(f.service.getState().status, 'succeeded');
   assert.equal(f.service.isBusy(), false);
 });
@@ -262,7 +279,7 @@ test('failed native verification retains recovery metadata without keeping the l
     report('Complete verification', { needsAttention: true, nativeClient: true });
     throw Object.assign(new Error('Verification timed out'), { needsAttention: true, nativeClient: true });
   };
-  assert.equal((await f.service.signIn('test-account', 'lol')).ok, false);
+  assert.equal((await f.play()).status, 'failed');
   const state = f.service.getState();
   assert.equal(state.status, 'failed');
   assert.equal(state.needsAttention, true);
@@ -272,7 +289,7 @@ test('failed native verification retains recovery metadata without keeping the l
   report('Late progress');
   assert.deepEqual(f.service.getState(), state);
   f.riotClient.signIn = async () => f.result;
-  assert.equal((await f.service.signIn('test-account', 'lol')).ok, true);
+  assert.equal((await f.play()).status, 'succeeded');
   assert.equal(f.service.getState().needsAttention, false);
   assert.equal(f.service.getState().nativeClient, false);
 });
@@ -285,7 +302,7 @@ test('ordinary errors and cancellation do not retain stale verification notices'
       if (cancel) f.service.cancel();
       throw Object.assign(new Error('Stopped'), cancel ? { needsAttention: true, nativeClient: true } : {});
     };
-    await f.service.signIn('test-account', 'lol');
+    await f.play();
     assert.equal(f.service.getState().status, cancel ? 'cancelled' : 'failed');
     assert.equal(f.service.getState().needsAttention, false);
     assert.equal(f.service.getState().nativeClient, false);
@@ -294,11 +311,11 @@ test('ordinary errors and cancellation do not retain stale verification notices'
 
 test('credentials edited before execution are never mixed with the original username', async () => {
   const f = fixture();
-  const pending = f.service.signIn('test-account', 'lol');
+  const finished = f.play();
   f.accounts.get('test-account').password = 'different-encrypted-value';
-  const response = await pending;
-  assert.equal(response.ok, false);
-  assert.match(response.error, /credentials changed/);
+  const operation = await finished;
+  assert.equal(operation.status, 'failed');
+  assert.match(operation.error, /credentials changed/);
   assert.equal(f.calls.some(([name]) => name === 'get-password' || name === 'sign-in'), false);
   assert.equal(JSON.stringify(f.service.getState()).includes('different-encrypted-value'), false);
 });
@@ -310,19 +327,19 @@ test('client errors and progress cannot expose the decrypted password or usernam
     options.log(`Input failed: ${options.account.password}`);
     throw new Error(`Input failed: ${options.account.username} ${options.account.password}`);
   };
-  const response = await f.service.signIn('test-account', 'lol');
-  const exposed = JSON.stringify([response, f.service.getState(), f.logs, f.statuses]);
+  const operation = await f.play();
+  const exposed = JSON.stringify([operation, f.service.getState(), f.logs, f.statuses]);
   assert.equal(exposed.includes('private-login'), false);
   assert.equal(exposed.includes('decrypted-secret'), false);
-  assert.match(response.error, /\[redacted\]/);
+  assert.match(operation.error, /\[redacted\]/);
 });
 
 test('unsupported games and incomplete accounts never start an operation', async () => {
   const f = fixture();
-  assert.throws(() => f.service.start('test-account', 'unknown'), /supported game/);
-  assert.throws(() => f.service.start('missing-account', 'lol'), /not found/);
+  assert.throws(() => f.service.startFromManager('test-account', 'unknown'), /supported game/);
+  assert.throws(() => f.service.startFromManager('missing-account', 'lol'), /not found/);
   f.accounts.get('test-account').password = '';
-  assert.equal((await f.service.signIn('test-account', 'lol')).ok, false);
+  assert.throws(() => f.service.startFromManager('test-account', 'lol'), /username and password first/);
   assert.equal(f.service.getState(), null);
   assert.equal(f.service.isBusy(), false);
 });
@@ -330,9 +347,9 @@ test('unsupported games and incomplete accounts never start an operation', async
 test('a launch that did not open the game is not reported as success', async () => {
   const f = fixture();
   f.result.gameStarted = false;
-  const response = await f.service.signIn('test-account', 'lol');
-  assert.equal(response.ok, false);
-  assert.equal(f.service.getState().status, 'failed');
+  const operation = await f.play();
+  assert.equal(operation.status, 'failed');
+  assert.equal(operation.error, 'The game did not open. Open the Riot Client to see what happened');
   assert.equal(f.calls.some(([name]) => name === 'launched'), false);
   const fields = f.calls.find(([name]) => name === 'update')[2];
   assert.equal(fields.lastPlayed, undefined);
@@ -342,9 +359,8 @@ test('a launch that did not open the game is not reported as success', async () 
 test('Riot Client only succeeds when the client is signed in, without recording a played game', async () => {
   const f = fixture();
   Object.assign(f.result, { gameStarted: false, clientOpened: true });
-  assert.deepEqual(await f.service.signIn('test-account', 'riot'), { ok: true, clientOpened: true });
+  const state = await f.play('test-account', 'riot');
   assert.equal(f.received().game, 'riot');
-  const state = f.service.getState();
   assert.equal(state.status, 'succeeded');
   assert.equal(state.text, 'Riot Client opened');
   assert.ok(f.calls.some(([name, id, session]) => name === 'save-session' && id === 'test-account' && session === 'private-session'));
@@ -355,21 +371,21 @@ test('Riot Client only succeeds when the client is signed in, without recording 
 
   const unfinished = fixture();
   Object.assign(unfinished.result, { gameStarted: false, clientOpened: false });
-  const response = await unfinished.service.signIn('test-account', 'riot');
-  assert.equal(response.ok, false);
-  assert.match(response.error, /Riot Client did not finish/);
+  const failed = await unfinished.play('test-account', 'riot');
+  assert.equal(failed.status, 'failed');
+  assert.equal(failed.error, 'The Riot Client did not finish signing in. Open it to see what happened');
   const game = fixture();
   Object.assign(game.result, { gameStarted: false, clientOpened: true });
-  assert.equal((await game.service.signIn('test-account', 'lol')).ok, false);
+  assert.equal((await game.play('test-account', 'lol')).status, 'failed');
 });
 
 test('non-Error failures and asynchronous observers do not leave an operation pending', async () => {
   const fail = async () => { throw new Error('async observer unavailable'); };
   const f = fixture({ log: fail, status: fail });
   f.riotClient.signIn = async (options) => { options.status('Starting'); throw null; };
-  const response = await f.service.signIn('test-account', 'lol');
-  assert.equal(response.ok, false);
-  assert.equal(response.error, 'Sign-in failed');
+  const operation = await f.play();
+  assert.equal(operation.status, 'failed');
+  assert.equal(operation.error, 'Sign-in failed');
   assert.equal(f.service.isBusy(), false);
   await flush();
 });
@@ -385,9 +401,9 @@ test('stay signed in follows the setting and the signed-in stage is published on
     return f.result;
   };
   const received = [];
-  await f.service.signIn('test-account', 'lol');
+  await f.play();
   f.store.data.settings.staySignedIn = false;
-  await f.service.signIn('test-account', 'lol');
+  await f.play();
   assert.deepEqual(received, [true, false]);
   const running = published.filter((operation) => operation.status === 'running').map((operation) => operation.signedIn);
   assert.deepEqual(running.slice(0, 4), [false, false, true, true]);
@@ -399,7 +415,7 @@ test('published texts follow the chosen language while the log stays in English'
   const operations = [];
   const f = fixture({ translate: (text) => localize(text, language), operationUpdated: (operation) => operations.push(operation) });
   f.riotClient.signIn = async (options) => { options.status('Signing in in the background…', { needsAttention: false }); return f.result; };
-  assert.deepEqual(await f.service.signIn('test-account', 'lol'), { ok: true, gameStarted: true });
+  assert.equal((await f.play()).text, 'Jogo aberto');
   assert.equal(operations[0].text, 'Preparando o login…');
   assert.deepEqual(f.statuses.map((status) => status.text), ['Entrando em segundo plano…']);
   assert.equal(f.service.getState().text, 'Jogo aberto');
@@ -410,13 +426,14 @@ test('published texts follow the chosen language while the log stays in English'
 
   language = 'pt';
   f.riotClient.signIn = async () => { throw new Error('Wrong username or password'); };
-  const failed = await f.service.signIn('test-account', 'lol');
-  assert.deepEqual(failed, { ok: false, error: 'Usuário ou senha incorretos', cancelled: false });
+  const failed = await f.play();
+  assert.equal(failed.status, 'failed');
+  assert.equal(failed.text, 'Usuário ou senha incorretos');
+  assert.equal(failed.error, 'Usuário ou senha incorretos');
   assert.equal(f.service.getState().error, 'Usuário ou senha incorretos');
   assert.ok(f.logs.includes('sign-in failed: Wrong username or password'));
-  assert.deepEqual(await f.service.signIn('missing', 'lol'), { ok: false, error: 'Conta não encontrada' });
 
   const broken = fixture({ translate: () => { throw new Error('no catalog'); } });
-  assert.deepEqual(await broken.service.signIn('test-account', 'lol'), { ok: true, gameStarted: true });
+  assert.equal((await broken.play()).text, 'Game opened');
   assert.equal(broken.service.getState().text, 'Game opened');
 });

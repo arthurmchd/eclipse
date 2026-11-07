@@ -9,14 +9,8 @@
   },
   "scripts": {
     "start": "electron .",
-    "start:riot-login": "electron . --riot-login",
-    "start:private": "electron . --private-client",
     "test": "node --test \"test/**/*.test.js\"",
-    "preview": "node scripts/dev/preview-server.js",
-    "preview:riot-login": "electron scripts/dev/preview-riot-integration.js",
-    "integration:prepare-private": "node scripts/integration/prepare-private-riot-host.js",
-    "integration:probe-private": "electron scripts/integration/probe-private-riot-host.js",
-    "legacy:prepare-install": "node scripts/legacy/prepare-riot-integration.js"
+    "preview": "node scripts/dev/preview-server.js"
   },
   "devDependencies": {
     "electron": "44.9.3"

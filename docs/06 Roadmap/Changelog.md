@@ -7,6 +7,240 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-07 · Resto do código morto sai
+
+- A pedido do usuário, fecha o item 17 do [[Backlog]].
+- **[[riotInterface]] e [[riotProcess]]:** saem a opção `visible` do `openInterface` e o `interfaceRequired` do `launchClient`. A interface só é pedida com a janela visível.
+- **[[riotClient]]:** sai o ramo `error:focus`, que o [[login.ps1]] nunca emitia.
+- **[[signInFlow]] e [[login.ps1]]:** saem o `dryRun` e o campo `submit`; o script sempre clica em entrar.
+- **[[signInService]]:** sai `signIn(id, game)`, usado só nos testes. O app continua chamando `startFromManager`.
+- **[[language]]:** as mensagens em inglês param de citar o botão "Show Riot Client" e dizem para olhar ou abrir a janela da Riot, como as traduções já diziam. Saem três traduções sem uso.
+- [[ADR-003 Sem contornar CAPTCHA ou 2FA]] ganha uma nota: o desafio é concluído na própria tela da Riot, sem botão nem monitor. A regra não muda.
+- O comportamento do app não muda, salvo o texto das mensagens em inglês.
+- Testes: os do [[signInService]] passam a usar `startFromManager` e esperar o fim pelo `operationUpdated`; sai o teste do `dryRun`; entram testes de que o serviço só expõe o que os cartões usam, de que o pedido de digitação não leva `submit` e de que a interface nunca é criada escondida. 329 testes.
+
+## 2026-11-07 · Monitor de janelas sai do windowController e do windowGuard.ps1
+
+- A pedido do usuário, depois de o login escondido sair do [[signInFlow]]: ninguém mais armava o monitor que escondia a Riot.
+- **[[windowController]]:** fica só com `reveal`, `closeClient`, `gameWindow` e `stop`, cada um num PowerShell avulso e um de cada vez. Saem `hide`, `conceal`, `park`, `assertHealthy`, `drainIncidents`, o monitor persistente, a recuperação (`handoff`, `maxRecoveries`, `recoveryWindowMs`, `guardReason`) e a restauração final no `stop`.
+- **[[windowGuard.ps1]]:** fica só com `reveal` (antes `restore`), `close-client`, `game-window` e `self-test`. Saem o modo `watch`, os ganchos de eventos, as varreduras, o snapshot e a troca de estilos, o worker com prazo, `park`, `hide-auxiliary`, `inspect` e `diagnostics`. A classe C# passa a se chamar `RiotWindowHelper`.
+- **[[language]]:** saem "The background window guard has stopped" e o padrão "…stopped (motivo). Try Play again".
+- [[ADR-004 Monitor persistente de janelas]] e [[ADR-008 Recuperação visual sem reexibir o Riot]] passam a substituídas pela [[ADR-028 Modo antigo removido]].
+- O comportamento do app não muda: o login visível já só trazia a Riot à frente, fechava a janela dela e procurava o jogo.
+- Testes: os do controlador passam a cobrir só os pedidos avulsos; o do helper confere que o monitor antigo e as ações de esconder são recusados. 329 testes.
+
+## 2026-11-07 · Login escondido sai do signInFlow
+
+- A pedido do usuário, depois da [[ADR-028 Modo antigo removido]]: o [[main]] já pedia sempre o login visível, então os ramos do login escondido não rodavam.
+- **[[signInFlow]]:** saem as opções `hide`, `closeClient`, `releaseAfterLaunch` e `visibleLogin`, o monitor de ocultação (`hide`, `conceal`, `park`, `assertHealthy`, `drainIncidents`), a espera de até 180 s por desafio numa sessão restaurada e o atalho do backend desconectado. O fluxo só usa `reveal`, `gameWindow` e `closeClient` da janela.
+- **[[signInService]] e [[main]]:** param de passar essas opções. **[[riotClient]]:** o formulário sempre abre a interface visível. **[[language]]:** sai "Finishing sign-in through the hidden Riot interface…".
+- O comportamento do app não muda.
+- Testes: os do signInFlow passam a partir do login visível; saem os que só testavam o esconder (park, queda do monitor, espera de 2FA na restauração escondida, troca de conta escondida). 339 testes.
+- Fica para depois ([[Backlog]], item 17): o monitor de ocultação no [[windowController]] e no [[windowGuard.ps1]], o `visible: false` do [[riotInterface]] e as mensagens em inglês com "Show Riot Client".
+
+## 2026-11-07 · Modo antigo removido
+
+- Item 17 da análise de remendos, a pedido do usuário. A tag local `modo-antigo-final` (`a4fe748`) guarda o último código com o modo antigo.
+- **Código removido:** a cópia privada e seu host (`privateClient`, `host/`, `bootstrapChannel`, `bridgeServer`, `status`), os addons, a janela antiga (`src/renderer/index.html`, `app.js`, `styles.css`), a página de sobreposição sem uso (`overlay.*`), `windowsDpapi`, `scripts/integration/`, `scripts/legacy/`, `scripts/dev/preview-riot-integration.js` e os testes deles.
+- **Comandos:** `package.json` fica com `start`, `test` e `preview`. O `.bat` inicia o Electron sem `--private-client`.
+- **Só leitura na instalação da Riot:** [[asar]] fica só com `openArchive`, e [[backend]] perde `verifyBackend`.
+- **API da view de contas menor** ([[managerService]], [[managerHost]], [[manager-preload]]): saem `patchAccount`, `forgetSession`, `copy`, `showRiotClient`, `pickClientPath`, `openDataFolder` e `closeManager`.
+- **Opções antigas limpas** ([[store]]): `minimizeOnLaunch`, `hideRiotClient`, `closeRiotClient` e `streamerMode` saem dos padrões e de um `data.json` antigo ao carregar.
+- **[[signInService]]:** `begin(id, game)` sem opções; o login visível nunca esconde a Riot e sempre a fecha depois do jogo. Saem `start` e a recusa com jogo aberto, que era do painel antigo; os [[cards]] já confirmam antes.
+- **[[riotClient]]:** saem `ensureBackgroundClient`, `showClient` e o export `readAuthenticationState`.
+- **[[main]]:** um modo só, sem ponte nem cópia privada. O aviso de falha da bandeja diz que não foi possível abrir as contas no Riot.
+- **Prévia:** `npm run preview` abre os cartões; o `mock-api.js` só tem o que eles usam.
+- **Vault:** 13 notas foram para `03 Módulos/Removidos/`; nota nova [[ranks]]; ADR-001 e ADR-007 substituídas; guias, arquitetura, [[Backlog]] e [[Glossário]] revistos. O agente `riot-update-checker` saiu.
+- `.client-integration/` e um `riot-client-bridge.json` antigo ficam onde estão, sem uso; o usuário pode apagá-los.
+- Decisão: [[ADR-028 Modo antigo removido]].
+
+## 2026-11-07 · Saída pela Riot apaga a sessão guardada na hora
+
+- Item 6 da análise de remendos: uma conta que saía pela Riot (ou pelo "Sign Out" do League) só era descoberta no Jogar seguinte, com a Riot fechando, a sessão recusada e a Riot reabrindo.
+- O log real da Riot v142 separa os dois casos: a saída manual regrava o login lembrado no arquivo e volta à tela de login com a Riot aberta; o fim do jogo em segundo plano solta a conta sem regravar o arquivo.
+- **Percepção da saída** ([[sessionKeeper]]): o guardião anota a conta que a Riot está segurando. Se o arquivo perde o login com a Riot aberta e o serviço local responde sem conta, apaga a sessão guardada dessa conta e avisa o cartão. A olhada nos processos confere de novo se o aviso do arquivo falhar.
+- Login em andamento, troca de conta, Riot fechada, outra conta conectada, resposta desconhecida ou sessão guardada diferente nunca apagam nada.
+- `authorization()` exportada pelo [[riotClient]].
+- O serviço único de estado (item 4) ficou para depois de conferir o canal de eventos da API local; foi para o [[Backlog]].
+- Decisão: [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]].
+- Testes novos em `test/core/sessionKeeper.test.js`. Falta o teste com a Riot real.
+
+## 2026-11-06 · Riot fechada depois do jogo volta na tela de login
+
+- Relato do usuário: abriu a Riot pela bandeja enquanto o League fechava, viu a conta conectada e a Riot fechou sozinha segundos depois. O log da Riot confirma: com a janela aberta ela não solta a conta, e o [[sessionKeeper]] pediu a saída normal, como manda a [[ADR-020 Riot conectada é encerrada quando fica sem jogo]].
+- **Reabertura** ([[sessionKeeper]]): quando a Riot fechada pelo guardião estava com a janela aberta, ele espera ela sair e o login ser guardado e limpo, e a inicia de novo, desconectada, com os cartões. São até 5 olhadas (uns 20 s). Login em andamento, jogo, "Manter login" desligado ou o Eclipse fechando cancelam.
+- **`startClient`** ([[riotClient]]): inicia a Riot com a interface só se nenhum processo dela estiver rodando. Nunca pede a janela ao serviço nem usa `taskkill`, diferente de `openClient`.
+- Regra nova em [[Segurança e privacidade]]: fora de um login, o Eclipse só inicia a Riot nesse caso.
+- Decisão: [[ADR-026 Riot fechada depois do jogo reabre na tela de login]].
+- Testes novos em `test/core/sessionKeeper.test.js` e `test/riot/riotClient.test.js`. Falta o teste com a Riot real.
+
+## 2026-11-06 · Gravação atômica, troca de conta sem `DELETE` e saída normal primeiro
+
+- Pedido do usuário: atacar primeiro os "riscos baratos" da análise de remendos (itens 3, 9 e 10), sem mudar nada do que aparece na tela.
+- **Arquivo da Riot** ([[riotClient]]):
+  - `writeSettingsYaml` grava num temporário `eclipse-<uuid>.tmp` na mesma pasta e troca com `rename`, com o conteúdo já no disco;
+  - tenta de novo até 5 vezes com o arquivo em uso e apaga temporários próprios esquecidos;
+  - com `expected`, não grava se a Riot mudou o arquivo; o [[sessionKeeper]] usa isso no lugar da releitura separada;
+  - a gravação ficou assíncrona, e o [[signInFlow]] espera cada uma antes de subir a Riot;
+  - uma falha vira "Could not update the Riot Client settings file", sem caminho;
+  - a cópia do último arquivo bom, sugerida na análise, ficou de fora: deixaria mais uma cópia dos tokens em texto puro.
+- **`DELETE` de risco** ([[signInFlow]]):
+  - sessão restaurada de outra conta: a Riot é fechada com a saída normal, em vez de desconectada no servidor. O novo `onRejected` faz o [[signInService]] apagar a cópia errada antes do fechamento, para o `onClosed` guardar a sessão renovada na dona certa;
+  - antes do formulário visível, o `DELETE` "por garantia" saiu. Uma conta que a Riot restaurou sozinha é fechada normalmente e a interface reabre. O `DELETE` só limpa um 2FA ou um erro pendente quando a Riot responde 404 (sem conta);
+  - o estado da conta passou a ter três valores (`authorization`: `yes`, `no`, `unknown`), para um erro de leitura nunca contar como "sem conta".
+- **Fechamento** ([[riotClient]]): `closeEverything` também pede a saída normal com o estado da conta desconhecido e não espera 10 s se a Riot recusa o pedido. Virou fábrica (`createCloseEverything`) e ganhou testes.
+- Correção da análise: os jogos não são fechados "por conta própria". Os [[cards]] e a janela antiga perguntam antes, e o addon recusa com mensagem. Isso não mudou.
+- Testes: gravação real numa pasta temporária, estado da conta, fechamento, os dois casos de sessão de outra conta, conta restaurada sozinha, limpeza de login pela metade e `onRejected` no [[signInService]]. Mutações conferidas no fluxo: tirar um `await`, limpar qualquer estado, tirar o `onRejected` ou devolver o `DELETE` derrubam testes. `npm test`: 468 testes, 467 passam e 1 é pulado.
+- Ainda não conferido num login real.
+
+## 2026-11-06 · Leitura da caixa "Stay signed in" na Riot v142
+
+- Pedido do usuário: corrigir a leitura da caixa no [[login.ps1]] ("Sim, corrija"). Cinco logins visíveis de 2026-11-06 registraram `remember:unknown` no `sign-in.log`.
+- Duas causas:
+  - as cores eram as da v141 (marcada = escura), e a caixa marcada da v142 é vermelha;
+  - a grade de amostras era lida no quadro da janela inteira, que tem 8 px de borda invisível à esquerda, e caía 7 px à esquerda e 4 px abaixo do centro da caixa.
+- [[login.ps1]]: lê os pixels no quadro da área cliente, o mesmo dos cliques, e reconhece a caixa pelas cores da v142 (cinza → `off`, vermelha → `on`). Painel sem caixa agora dá `unknown`; antes contava como `off` e podia receber o clique.
+- Efeito: com "Manter login" ligado, o resultado não muda (a caixa cinza já era marcada). Com ele desligado, a caixa marcada da Riot agora é desmarcada. O log passa a mostrar `remember:on` ou `remember:off`.
+- Testes: `test/platform/windows/login.test.js` (novo) roda o `self-test` e confere o quadro da leitura. Conferido também numa réplica do formulário (janela Electron com a mesma borda invisível) em 1280×720 e 1024×576: cinza → `off`, vermelha → `on`, sem caixa → `unknown`, e o formulário reconhecido como pronto. `npm test`: 447 testes, 446 passam e 1 é pulado.
+- Ainda não conferido num login real.
+
+## 2026-11-06 · Caixa some junto com o formulário da Riot
+
+- Pedido do usuário: "ainda continua ali a caixa, de um jeito dela sumir apos eu clicar para entrar na conta seja manualmente ou pelo play do eclipse". O teste que mostrou a caixa sozinha foi um login manual, com 2FA; a versão anterior só a escondia durante o Jogar.
+- No Riot Client v142 (lido na instalação, sem alterar nada), o clique em entrar troca o formulário inteiro por um carregamento, antes do hCaptcha.
+- [[riotWindowObserver]]: a cada 180 ms lê também um quadrado de 7 × 7 px no centro da caixa "Stay signed in" da Riot e manda `formHidden: true` quando ela some depois de ter sido vista.
+- [[riotOverlay]]: com `formHidden`, esconde a caixa "Ocultar contas" e tira o retângulo dela da região. Com as contas ocultas, esconde a janela em vez de passar uma região vazia ao Electron, que deixaria a janela pegar os cliques da Riot inteira.
+- Decisão: [[ADR-025 Caixa some junto com o formulário da Riot]], que revisa a [[ADR-024 Coluna de login coberta durante o login]] e a [[ADR-013 Caixa para ocultar as contas na coluna de login]].
+- Testes: autoteste do helper (classificação da caixa e estado), 2 no [[riotWindowObserver]], 1 no [[riotOverlay]] e casos novos de geometria. `npm test`: 445 testes, 444 passam e 1 é pulado (o do instalador, que não roda com a Riot aberta).
+- Ainda não conferido sobre a Riot real.
+
+## 2026-11-06 · Coluna de login coberta durante o login
+
+- Pedido do usuário: enquanto o login roda, tudo na coluna de login da Riot some e fica só um carregamento. A primeira versão deixava a caixa "Ocultar contas" à vista; testando, o usuário pediu que ela também sumisse ("o botao continuou ali... continua aparecendo").
+- Conferido pelo usuário no login visível de 18:07 UTC: a coluna ficou coberta, o login digitou e entrou, e o VALORANT abriu. Só a caixa sobrava.
+- [[overlayCover]] (novo): uma view sem script na janela da sobreposição, com o fundo do painel da Riot (`#fcfcfc`) e um carregamento vermelho no centro da coluna.
+- [[overlayToggle]] ganhou `setVisible`: a caixa some enquanto a coluna está coberta.
+- [[riotOverlay]]:
+  - cobre a coluna com a operação rodando e sem `needsAttention`;
+  - 2FA, CAPTCHA, demora, falha, cancelamento e sucesso descobrem;
+  - a região deixa um furo de 11 × 11 DIP no ponto que o [[riotWindowObserver]] lê, para os modais da Riot continuarem escondendo a sobreposição;
+  - os cantos da esquerda seguem o arredondado da Riot.
+- [[riotWindowObserver]] exporta `PANEL_POINT`; [[paths]] ganhou `OVERLAY_COVER_FILE`.
+- Decisão: [[ADR-024 Coluna de login coberta durante o login]], que revisa [[ADR-013 Caixa para ocultar as contas na coluna de login]].
+- Testes: 3 do módulo novo (1 com Electron real), 2 no [[riotOverlay]], 1 no [[overlayToggle]] e 1 no [[riotWindowObserver]].
+- A caixa escondida e o carregamento no centro ainda não foram conferidos sobre a Riot real.
+
+## 2026-11-06 · Ícone da Riot na bandeja abre no primeiro clique
+
+- Pedido do usuário: depois de jogar, o ícone da Riot na bandeja precisava de dois cliques. O primeiro só fazia o ícone sumir e voltar.
+- Causa, pelo log da Riot v142:
+  - o login em segundo plano inicia a Riot com `--headless`;
+  - depois do jogo ela vai para o segundo plano e, ao voltar, mantém o `--headless`, sem abrir a janela ("We are now in AppFull" sem "launch default product");
+  - só o segundo clique ("SystemTrayPlugin Show") abria a janela, e o atalho da área de trabalho também não abria;
+  - Riots iniciadas normalmente abriam no primeiro clique.
+- [[riotWakeup]] (novo): observa o `lockfile` da Riot. Quando ela volta do segundo plano sem janela, espera 2 s e, sem janela nem jogo, pede `POST /riot-client-lifecycle/v1/show`. Não age durante login, com jogo ou janela aberta, nem quando a Riot entra no segundo plano.
+- [[riotClient]]: ganhou `watchLockfile` e `showInterface`, e passou a exportar `sessionState`.
+- [[main]]: cria o módulo no modo cartões e o para ao sair.
+- Decisão: [[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]].
+- Testes: 6 do módulo novo e 1 no início do main. `npm test`: 435 testes, 434 passam, 0 falham, 1 pulado.
+- Ainda não conferido no Riot real.
+
+## 2026-11-06 · Primeiro login sem reiniciar a Riot
+
+- Pedido do usuário: no primeiro login de outra conta, a Riot reiniciou antes de entrar.
+- Causa, pelo `sign-in.log` (15:12 UTC): a conta tinha uma sessão de 2026-11-04, guardada por um fluxo anterior e já sem validade. O Eclipse fechou a Riot para tentar essa sessão, a Riot a recusou em 15 s, e o Eclipse reabriu a Riot para o login visível.
+- [[sessionKeeper]]: ao iniciar, apaga as sessões gravadas antes de 2026-11-06 13:00 UTC e avisa o cartão. Essas contas fazem o login visível direto na Riot aberta.
+- [[store]]: ganhou `sessionSavedAt(id)`, a data do arquivo da sessão.
+- Decisão: [[ADR-022 Sessões de antes do modo cartões são descartadas]].
+- Testes: 1 novo no guardião e `sessionSavedAt` no store. `npm test`: 428 testes, 427 passam, 0 falham, 1 pulado.
+- Ainda não conferido no Riot real.
+
+## 2026-11-06 · A Riot sempre abre desconectada
+
+- Pedido do usuário: "quero que SEMPRE que eu abrir a riot games eu esteja desconectado de qualquer conta".
+- Causa, pelo `sign-in.log` e pelo log da Riot v142:
+  - quando o LoL fechou (14:15:46 UTC), a Riot passou ao modo segundo plano em vez de sair, com o login ainda no arquivo;
+  - o guardião só limpava com a Riot parada;
+  - às 14:16:00 a Riot abriu e restaurou a conta a partir do arquivo;
+  - a desconexão às 14:16:17 encerrou a sessão no servidor, e o Jogar seguinte foi recusado.
+- [[sessionKeeper]]:
+  - limpa o login do arquivo sempre que a Riot não segura uma conta conectada (fechada, em segundo plano ou na tela de login), sem esperar ela sair;
+  - limpa também login de conta fora do Eclipse;
+  - relê o arquivo antes de limpar e nunca sobrescreve uma gravação mais nova;
+  - a olhada de 4 s também agenda a limpeza;
+  - a conferência roda 1 s depois da mudança, sem repetições;
+  - a mesma falha vai ao log uma vez.
+- Decisão: [[ADR-021 Riot sempre abre desconectada]], que revisa [[ADR-019 Sessão salva por conta no modo cartões]] e [[ADR-020 Riot conectada é encerrada quando fica sem jogo]].
+- Testes: 19 do guardião (dois novos: Riot soltando a conta e arquivo regravado durante a conferência). `npm test`: 427 testes, 426 passam, 0 falham, 1 pulado.
+- Ainda não conferido no Riot real.
+
+## 2026-11-06 · Só o primeiro login de cada conta é visível
+
+- Pedido do usuário: a sessão salva "funcionou apenas uma vez". Só o primeiro login de cada conta deve ser visível; dali em diante, clicar em Jogar deve levar direto ao jogo.
+- Causa, pelo `sign-in.log` real: a sessão restaurada entrou duas vezes (13:54:36 e 13:56:05 UTC) e foi recusada às 13:57:40. No meio, a Riot ficou aberta e conectada, e sair da conta pela Riot para ver os cartões encerrou a sessão no servidor. Além disso, o `refresh_token` é de uso único, e a cópia guardada só era atualizada quando a Riot saía.
+- [[sessionKeeper]]: guarda cada versão nova do login de uma conta conhecida, mesmo com a Riot aberta, e só limpa o arquivo depois que ela sai. A cada 4 s olha os processos e pede à Riot a saída normal quando ela está conectada e um jogo fechou, ou quando ficou sem janela e sem jogo (duas olhadas seguidas). Ganhou `keep(yaml)`.
+- [[signInFlow]]: depois de restaurar, só captura um YAML diferente do que escreveu. O login visível com outra conta conectada fecha a Riot com a saída normal, guarda a sessão de quem sai e não faz mais `DELETE` com ela autorizada.
+- [[main]]: `saveLeavingSession` usa primeiro o `keep` do guardião, para a sessão de quem sai ir para a dona provada.
+- [[riotClient]]: passou a exportar `isAuthorized` e `quitClient`.
+- Decisão: [[ADR-020 Riot conectada é encerrada quando fica sem jogo]], que complementa [[ADR-019 Sessão salva por conta no modo cartões]].
+- Testes: 19 do guardião (reescritos, com relógios separados para a conferência e a olhada nos processos), 2 novos no fluxo e o `keep` no início do main. `npm test`: 427 testes, 426 passam, 0 falham.
+- Ainda não conferido no Riot real.
+
+## 2026-11-06 · Jogar com sessão salva em segundo plano
+
+- Pedido do usuário: escolher a conta e clicar em Jogar sem precisar da Riot nem do Eclipse em primeiro plano. Com "Manter login", a Riot não pode abrir já conectada, para os cartões continuarem aparecendo.
+- [[signInFlow]]: no modo cartões, uma conta com sessão guardada e "Manter login" ligado entra em segundo plano. O fluxo fecha a Riot, grava o YAML da conta, sobe só os serviços e confere o Riot ID. Sessão recusada ou de outra conta cai no login visível. Em `riot`, a interface abre depois da restauração.
+- [[sessionKeeper]] (novo): quando a Riot sai, guarda o login lembrado na conta dona dele e o tira do arquivo da Riot. A dona é a conta com o mesmo `sub` numa sessão guardada ou, sem ela, a única com o mesmo Riot ID. Sem dona comprovada, não mexe. Não age com login em andamento, com a Riot aberta ou com "Manter login" desligado.
+- [[riotClient]]: ganhou `persistedSubject`, `persistedRiotId`, `watchSettings` e `clientRunning`, e passou a exportar `readSettingsYaml` e `writeSettingsYaml`. Ganhou também o primeiro teste do módulo (`test/riot/riotClient.test.js`).
+- [[main]]: cria o guardião no modo cartões, confere de novo ao fim de cada operação e o para ao sair.
+- [[cards]]: a ajuda do "Manter login" descreve o novo comportamento.
+- Decisão: [[ADR-019 Sessão salva por conta no modo cartões]], que revisa [[ADR-010 Login visível com progresso]].
+- Testes: 6 novos no fluxo, 13 do guardião, 5 do `riotClient` e 2 no início do main.
+- Teste real, primeira rodada (13:47 a 13:48 UTC): a sessão foi guardada, mas a Riot v141 não grava o cookie `sub`, e o guardião deixou o login no arquivo. A Riot reabriu conectada. A identidade passou a vir do `id_token` (`sub` e `acct`), conferida no arquivo real em memória.
+- Teste real, segunda rodada (13:53 a 13:54 UTC), confirmado pelo usuário: a sessão antiga foi recusada em 15 s e caiu no login visível. Ao sair da Riot, o guardião guardou a sessão nova e limpou o arquivo. O Jogar seguinte entrou em segundo plano, sem digitar, e a Riot autorizou em 0,5 s.
+
+## 2026-11-06 · Cartões sem sombra, perfil da Riot só com as contas ocultas e adicionar no rodapé
+
+- Pedido do usuário: tirar a sombra em volta dos cartões, tirar o botão de perfil da Riot (o real aparece só ao ocultar as contas), diminuir o ícone do League no rodapé e levar o adicionar conta para a área do rodapé.
+- [[cards]]: caixa e banner do League sem sombra nem brilho no fundo. Ícone do League com 24 px (os outros têm 28). Adicionar virou o botão + no início do rodapé; o cartão tracejado saiu. Contador em duas linhas e rodapé mais justo até 800 px, para tudo caber na Riot de 1024 × 576.
+- Cópia do perfil removida: `#riot-profile` nos [[cards]], `revealRiot` no [[manager-preload]] e a ação `reveal` no [[managerHost]] e no [[riotOverlay]]. Revisão anotada na [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]].
+- Testes: o Electron confere a caixa sem sombra externa, ícones de 28, 24 e 28 px, o + abrindo o cadastro, nenhuma cópia do perfil e só `minimize` e `close`; host, preload e sobreposição recusam `reveal`.
+
+## 2026-11-06 · Fundo branco de volta, sem o desfoque
+
+- Pedido do usuário: "pode reverter e colocar o fundo branco novamente e retirar o blur". Todo o código da [[ADR-018 Arte da Riot desfocada atrás dos cartões]] saiu: comando `backdrop` e cópia por `PrintWindow` no [[riotWindowObserver]], pedido no [[riotOverlay]], canal no [[managerHost]] e no [[manager-preload]], canvas nos [[cards]] e `backdrop.js` no [[renderer]]. A ADR fica como revertida, com o que foi testado.
+- O fundo volta a ser `#f2f2f2` e a [[Segurança e privacidade]] volta a uma só leitura visual (o quadrado da [[ADR-017 Cartões cedem a vez aos avisos da Riot]]).
+- O League espaçoso e o banner solto ficaram.
+
+## 2026-11-05 · League mais espaçoso e banner solto
+
+- Pedido do usuário: o cartão do League menos compacto e, depois, o banner solto, com a caixa só na área do texto.
+- [[cards]]: League com coluna de 420 px, banner e ícone maiores, filete dourado e consultas de contêiner para janelas menores. A caixa (fundo, borda, sombra, filete e seleção) fica só na área do texto; o banner fica solto ao lado dela.
+
+## 2026-11-05 · Cartões no visual do League e do VALORANT
+
+- Pedido do usuário: no lugar das caixas, o banner e o ícone reais do League, na estética do jogo, e o mesmo com o VALORANT. Protótipo montado direto nos [[cards]], com os dados que o Eclipse já guarda.
+- League: banner vertical (o escolhido em `stats.lol.banner` ou o banner ranqueado do melhor elo, padrão do cliente), ícone de perfil num círculo dourado, nível numa placa, Cinzel e a paleta azul e dourada do cliente.
+- VALORANT: arte larga do cartão de jogador salvo (ou o cartão padrão), nome em Teko, selo de nível, barra de RR e a variação da última partida, moldura vermelha e canto cortado.
+- [[renderer]]: `lolBanner` e `valCardArt` em `ranks.js`, montando as URLs só a partir de nome ou UUID. Texto novo `lastMatch`. Grade com colunas de 350 px. O fundo claro continua.
+- Testes novos de `lolBanner`, `valCardArt` e `lastMatch`. Conferido na prévia; falta ver no app com as contas reais e ler o banner escolhido (Backlog).
+
+## 2026-11-05 · Cartões cedem a vez aos avisos da Riot
+
+- Pedido do usuário: o aviso "Você ainda está aí?", que a Riot mostra depois de muito tempo parada no login, ficava atrás dos cartões. A Riot deve ter prioridade. Decisão em [[ADR-017 Cartões cedem a vez aos avisos da Riot]].
+- Causa, conferida na cópia da interface da Riot (só leitura): o aviso é um modal da página (`AFKModal`), aberto por um cronômetro de 20 min (2 min com uma opção da Riot) contado da criação da sessão de login. O estado de login que o Eclipse consulta não muda.
+- [[riotWindowObserver]]: a cada leitura, o helper confere a cor de um quadrado de 7 × 7 px na coluna de login (ponto `PANEL`), só com a Riot à vista ali, e manda `dimmed:true` quando o fundo escuro dos modais da Riot está na tela.
+- [[riotOverlay]]: com `dimmed`, esconde cartões e caixa sem zerar a sessão; volta quando o modal fecha.
+- Testes novos: autoteste do helper com a classificação e o estado, `dimmed` no `validTarget` e a sobreposição escondendo e voltando. Conferido com o helper real e uma Riot falsa em Electron (97 ms para esconder, 221 ms para voltar). Não foi conferido com o aviso real da Riot.
+
+## 2026-11-05 · Riot ID renomeado e cortes de Grão-Mestre e Desafiante
+
+- Pedido do usuário, depois de trocar para a chave pessoal da Riot: seguir contas renomeadas e mostrar quantos PdL faltam para Grão-Mestre ou Desafiante.
+- [[rankApi]]: virou fábrica (`createRankApi`) com rede e relógio injetáveis. Com o PUUID em cache, cada atualização confere o nome por `account-v1 /accounts/by-puuid` e devolve o Riot ID novo quando mudou. Em Mestre+, baixa as listas de Desafiante, Grão-Mestre e Mestre da fila e da região (cache de 10 min) e grava os cortes estimados na entrada.
+- [[cards]]: linha com o brasão do tier alvo e "faltam N PdL", "acima do corte" ou a margem do Desafiante, com o corte no `title`. [[renderer]]: `climbOf` e `rankOf(...).climb`.
+- Corrigido junto: o nome devolvido pela Riot agora chega à conta também quando o LoL falha depois de achar o PUUID ou quando só há chave de TFT.
+- Testes novos: `test/core/rankApi.test.js`, `test/renderer/ranks.test.js`, `test/renderer/cardsText.test.js` e a linha do corte no teste Electron dos cartões. Não foi conferido com a API real.
+
 ## 2026-11-04 · Cartões aparecem de uma vez ao restaurar a Riot
 
 - Pedido do usuário: depois de minimizar, ao abrir a Riot de novo a arte aparecia por menos de 1 s antes dos cartões; por Alt+Tab, não. Revisão em [[ADR-016 Riot sem animação de minimizar e cartões com os cantos dela]].

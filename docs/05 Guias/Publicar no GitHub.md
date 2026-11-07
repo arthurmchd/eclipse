@@ -19,9 +19,9 @@ Antes de tornar o repositório público, confira a origem e as condições de di
 ## O que fica fora
 
 - `node_modules/`, `dist/`, `out/`, temporários
-- **Toda a pasta `.client-integration/`**: cópias da interface Riot, perfis, logs e resultados de testes. Nunca envie em Releases, ZIPs ou issues.
+- **Toda a pasta `.client-integration/`**, se ainda existir: sobra do modo antigo, com cópias da interface Riot, perfis e logs. Nunca envie em Releases, ZIPs ou issues; o usuário pode apagá-la.
 - `app.asar`, executáveis e bibliotecas da instalação Riot
-- Contas, usuários, senhas, chaves, sessões, backups e `riot-client-bridge.json`, **mesmo criptografados**
+- Contas, usuários, senhas, chaves, sessões, backups e um `riot-client-bridge.json` antigo, **mesmo criptografados**
 - Logs, capturas de tela e dumps que mostrem contas
 - `.env`, chaves privadas, configurações pessoais (`.claude/` exceto `agents/`)
 - `scripts/merge-claude-*` e `scripts/verify-decrypt/`: ferramentas locais de recuperação de dados

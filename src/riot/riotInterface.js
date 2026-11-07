@@ -14,7 +14,7 @@ function createInterfaceOpener({ runningGames, localApi, stopClient, launchClien
     }
   }
 
-  return async function openInterface({ exe, visible = false, signal, log = () => {} }) {
+  return async function openInterface({ exe, signal, log = () => {} }) {
     check(signal);
     const running = await runningGames();
     check(signal);
@@ -35,7 +35,7 @@ function createInterfaceOpener({ runningGames, localApi, stopClient, launchClien
       if (!stopped) throw new Error('Could not restart the Riot Client with its interface');
     }
     check(signal);
-    await launchClient(exe, { visible, interfaceRequired: true });
+    await launchClient(exe, { visible: true });
     log('started the Riot Client with its interface');
     return 'launched';
   };

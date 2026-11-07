@@ -51,6 +51,17 @@ public static class RiotWindowObserver {
   [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
   [DllImport("user32.dll")] static extern uint GetDpiForWindow(IntPtr h);
   [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr h);
+  [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(POINT p);
+  [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr h, uint flags);
+  [DllImport("user32.dll")] static extern IntPtr GetDC(IntPtr h);
+  [DllImport("user32.dll")] static extern int ReleaseDC(IntPtr h, IntPtr dc);
+  [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleDC(IntPtr dc);
+  [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleBitmap(IntPtr dc, int width, int height);
+  [DllImport("gdi32.dll")] static extern IntPtr SelectObject(IntPtr dc, IntPtr item);
+  [DllImport("gdi32.dll")] static extern bool BitBlt(IntPtr target, int x, int y, int width, int height, IntPtr source, int sourceX, int sourceY, uint operation);
+  [DllImport("gdi32.dll")] static extern uint GetPixel(IntPtr dc, int x, int y);
+  [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr item);
+  [DllImport("gdi32.dll")] static extern bool DeleteDC(IntPtr dc);
   [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);
   [DllImport("kernel32.dll", CharSet=CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, uint flags, StringBuilder name, ref int length);
   [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
@@ -60,8 +71,12 @@ public static class RiotWindowObserver {
   const uint WM_CLOSE = 0x0010, WM_RIOT_COMMAND = 0x8001;
   const int GWLP_HWNDPARENT = -8, SW_MINIMIZE = 6, SW_SHOWNOACTIVATE = 4, RELEASE = 3;
   const int DWMWA_TRANSITIONS_FORCEDISABLED = 3, DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+  const uint GA_ROOT = 2, SRCCOPY = 0x00CC0020, CLR_INVALID = 0xFFFFFFFF;
+  const double PANEL_X = 0.026, PANEL_Y = 0.5;
+  const double BOX_X = 0.0417, BOX_Y = 0.5023;
   static uint mainThread = 0;
-  static IntPtr stilled = IntPtr.Zero;
+  static bool dimmed = false, boxSeen = false, formHidden = false;
+  static IntPtr stilled = IntPtr.Zero, sensed = IntPtr.Zero;
   static int lastCorner = 0;
   static WinEventProc onEvent = OnEvent;
   static IntPtr chosen = IntPtr.Zero, hook = IntPtr.Zero, overlay = IntPtr.Zero, measured = IntPtr.Zero;
@@ -111,7 +126,68 @@ public static class RiotWindowObserver {
     return (int)Math.Round(size * (dpi == 0 ? 96 : dpi) / 96.0);
   }
   static string Format(IntPtr h, RECT r, bool minimized, int corner) {
-    return "{\"target\":{\"id\":\"" + h.ToInt64() + "\",\"x\":" + r.Left + ",\"y\":" + r.Top + ",\"width\":" + (r.Right-r.Left) + ",\"height\":" + (r.Bottom-r.Top) + ",\"corner\":" + corner + (minimized ? ",\"minimized\":true" : "") + "}}";
+    return "{\"target\":{\"id\":\"" + h.ToInt64() + "\",\"x\":" + r.Left + ",\"y\":" + r.Top + ",\"width\":" + (r.Right-r.Left) + ",\"height\":" + (r.Bottom-r.Top) + ",\"corner\":" + corner + (minimized ? ",\"minimized\":true" : "") + (dimmed ? ",\"dimmed\":true" : "") + (formHidden ? ",\"formHidden\":true" : "") + "}}";
+  }
+  static int Shade(uint[] colors) {
+    if (colors == null || colors.Length == 0) return 0;
+    int dark = 0, light = 0;
+    foreach (uint color in colors) {
+      if (color == CLR_INVALID) return 0;
+      int red = (int)(color & 0xFF), green = (int)((color >> 8) & 0xFF), blue = (int)((color >> 16) & 0xFF);
+      if (Math.Max(red, Math.Max(green, blue)) <= 140) dark++;
+      else if (Math.Min(red, Math.Min(green, blue)) >= 230) light++;
+    }
+    return dark == colors.Length ? 1 : light == colors.Length ? -1 : 0;
+  }
+  static int Box(uint[] colors) {
+    if (colors == null || colors.Length == 0) return 0;
+    int box = 0, light = 0;
+    foreach (uint color in colors) {
+      if (color == CLR_INVALID) return 0;
+      int red = (int)(color & 0xFF), green = (int)((color >> 8) & 0xFF), blue = (int)((color >> 16) & 0xFF);
+      int high = Math.Max(red, Math.Max(green, blue)), low = Math.Min(red, Math.Min(green, blue));
+      if (high <= 140) return 0;
+      if (low >= 246) light++;
+      else if ((low >= 205 && high <= 243 && high - low <= 12) || (red >= 150 && green <= 110 && blue <= 110)) box++;
+    }
+    return light == colors.Length ? -1 : box >= 3 ? 1 : 0;
+  }
+  static uint[] Sample(IntPtr h, RECT r, double x, double y) {
+    POINT p = new POINT();
+    p.X = r.Left + (int)Math.Round((r.Right - r.Left) * x);
+    p.Y = r.Top + (int)Math.Round((r.Bottom - r.Top) * y);
+    IntPtr root = GetAncestor(WindowFromPoint(p), GA_ROOT);
+    if (root == IntPtr.Zero || root != h && (overlay == IntPtr.Zero || root != overlay)) return null;
+    IntPtr screen = GetDC(IntPtr.Zero);
+    if (screen == IntPtr.Zero) return null;
+    IntPtr memory = IntPtr.Zero, bitmap = IntPtr.Zero, previous = IntPtr.Zero;
+    try {
+      memory = CreateCompatibleDC(screen);
+      bitmap = CreateCompatibleBitmap(screen, 7, 7);
+      if (memory == IntPtr.Zero || bitmap == IntPtr.Zero) return null;
+      previous = SelectObject(memory, bitmap);
+      if (!BitBlt(memory, 0, 0, 7, 7, screen, p.X - 3, p.Y - 3, SRCCOPY)) return null;
+      var colors = new uint[9];
+      for (int i = 0; i < 9; i++) colors[i] = GetPixel(memory, (i % 3) * 3, (i / 3) * 3);
+      return colors;
+    } finally {
+      if (previous != IntPtr.Zero) SelectObject(memory, previous);
+      if (bitmap != IntPtr.Zero) DeleteObject(bitmap);
+      if (memory != IntPtr.Zero) DeleteDC(memory);
+      ReleaseDC(IntPtr.Zero, screen);
+    }
+  }
+  static void Sense(IntPtr h) {
+    if (h != sensed) { sensed = h; dimmed = false; boxSeen = false; formHidden = false; }
+    RECT r;
+    if (h == IntPtr.Zero || !Measure(h, out r)) return;
+    int shade = Shade(Sample(h, r, PANEL_X, PANEL_Y));
+    if (shade != 0) dimmed = shade > 0;
+    if (!dimmed) Notice(Box(Sample(h, r, BOX_X, BOX_Y)));
+  }
+  static void Notice(int box) {
+    if (box > 0) { boxSeen = true; formHidden = false; }
+    else if (box < 0 && boxSeen) formHidden = true;
   }
   static string Describe(IntPtr h) {
     RECT r;
@@ -168,6 +244,7 @@ public static class RiotWindowObserver {
     Still(chosen);
     Raise(chosen);
     Hook(chosen);
+    Sense(chosen);
     Write(Describe(chosen));
   }
   static int Code(string line) {
@@ -237,12 +314,62 @@ public static class RiotWindowObserver {
       if (DwmSetWindowAttribute(riot, DWMWA_WINDOW_CORNER_PREFERENCE, ref square, 4) == 0 && Corner(riot) != 0) throw new InvalidOperationException("self-test-square");
       Still(IntPtr.Zero);
       if (stilled != IntPtr.Zero) throw new InvalidOperationException("self-test-release");
+      uint[] sample = new uint[9];
+      for (int i = 0; i < 9; i++) sample[i] = 0x535353;
+      if (Shade(sample) != 1) throw new InvalidOperationException("self-test-dimmed");
+      for (int i = 0; i < 9; i++) sample[i] = 0xFCFCFC;
+      if (Shade(sample) != -1) throw new InvalidOperationException("self-test-clear");
+      sample[4] = 0x535353;
+      if (Shade(sample) != 0 || Shade(null) != 0) throw new InvalidOperationException("self-test-mixed");
+      sample[4] = CLR_INVALID;
+      if (Shade(sample) != 0) throw new InvalidOperationException("self-test-invalid");
+      for (int i = 0; i < 9; i++) sample[i] = 0xE9E9E9;
+      if (Box(sample) != 1) throw new InvalidOperationException("self-test-box-off");
+      for (int i = 0; i < 9; i++) sample[i] = i % 2 == 0 ? 0x3532D5u : 0xF9F9F9u;
+      if (Box(sample) != 1) throw new InvalidOperationException("self-test-box-on");
+      for (int i = 0; i < 9; i++) sample[i] = 0xFCFCFC;
+      if (Box(sample) != -1) throw new InvalidOperationException("self-test-box-gone");
+      sample[0] = 0xDCDCDC; sample[1] = 0xDCDCDC;
+      if (Box(sample) != 0) throw new InvalidOperationException("self-test-box-few");
+      sample[2] = 0x2A25BC;
+      if (Box(sample) != 1) throw new InvalidOperationException("self-test-box-hover");
+      sample[3] = 0x292929;
+      if (Box(sample) != 0 || Box(null) != 0) throw new InvalidOperationException("self-test-box-dark");
+      sample[3] = CLR_INVALID;
+      if (Box(sample) != 0) throw new InvalidOperationException("self-test-box-invalid");
+      RECT away = new RECT();
+      away.Left = -20000; away.Top = -20000; away.Right = -19500; away.Bottom = -19600;
+      if (Sample(riot, away, PANEL_X, PANEL_Y) != null || Sample(riot, away, BOX_X, BOX_Y) != null) throw new InvalidOperationException("self-test-unseen");
+      Notice(-1);
+      if (formHidden) throw new InvalidOperationException("self-test-form-unseen");
+      Notice(1);
+      Notice(0);
+      if (!boxSeen || formHidden) throw new InvalidOperationException("self-test-form-seen");
+      Notice(-1);
+      Notice(0);
+      if (!formHidden || !Format(riot, away, false, 0).EndsWith(",\"formHidden\":true}}")) throw new InvalidOperationException("self-test-form-hidden");
+      Notice(1);
+      if (formHidden || Format(riot, away, false, 0).Contains("formHidden")) throw new InvalidOperationException("self-test-form-back");
+      dimmed = true;
+      if (!Format(riot, away, false, 0).Contains(",\"dimmed\":true}")) throw new InvalidOperationException("self-test-format");
+      formHidden = true;
+      Sense(riot);
+      if (dimmed || boxSeen || formHidden || sensed != riot) throw new InvalidOperationException("self-test-sense");
+      dimmed = true; boxSeen = true; formHidden = true;
+      Sense(riot);
+      if (!dimmed || !boxSeen || !formHidden) throw new InvalidOperationException("self-test-keep");
+      dimmed = false; boxSeen = false; formHidden = false;
+      if (Format(riot, away, false, 0).Contains("dimmed")) throw new InvalidOperationException("self-test-plain");
       Apply(cards, 2);
       Pump();
       if (IsWindow(cards)) throw new InvalidOperationException("self-test-close");
       cards = IntPtr.Zero;
     } finally {
       Still(IntPtr.Zero);
+      dimmed = false;
+      boxSeen = false;
+      formHidden = false;
+      sensed = IntPtr.Zero;
       overlay = IntPtr.Zero;
       if (cards != IntPtr.Zero) DestroyWindow(cards);
       if (riot != IntPtr.Zero) DestroyWindow(riot);

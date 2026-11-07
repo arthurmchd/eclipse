@@ -1,11 +1,13 @@
 ---
 tipo: decisão
-status: aceita
+status: substituída
 data: 2026-10-27
 tags: [adr, arquitetura, janelas, recuperação]
 ---
 
 # ADR-008 Recuperação visual sem reexibir o Riot
+
+> Substituída em 2026-11-07 pela [[ADR-028 Modo antigo removido]]. O monitor que escondia o Riot saiu do código, e com ele a recuperação, o `handoff` e os snapshots de estilo.
 
 ## Contexto
 

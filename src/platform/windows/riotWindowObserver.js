@@ -8,7 +8,9 @@ function validTarget(value) {
     && ['x', 'y', 'width', 'height'].every((key) => Number.isSafeInteger(value[key]) && Math.abs(value[key]) <= 100000)
     && value.width >= 320 && value.height >= 240
     && (value.corner === undefined || Number.isSafeInteger(value.corner) && value.corner >= 0 && value.corner <= 64)
-    && (value.minimized === undefined || value.minimized === true);
+    && (value.minimized === undefined || value.minimized === true)
+    && (value.dimmed === undefined || value.dimmed === true)
+    && (value.formHidden === undefined || value.formHidden === true);
 }
 
 function createRiotWindowObserver({ spawn = spawnProcess, ownerPid = process.pid, onState, onError = () => {}, setInterval: repeat = setInterval, clearInterval: clear = clearInterval, setTimeout: wait = setTimeout, now = Date.now } = {}) {
@@ -57,4 +59,6 @@ function createRiotWindowObserver({ spawn = spawnProcess, ownerPid = process.pid
   };
 }
 
-module.exports = { createRiotWindowObserver, validTarget, COMMANDS };
+const PANEL_POINT = Object.freeze({ x: 0.026, y: 0.5 });
+
+module.exports = { createRiotWindowObserver, validTarget, COMMANDS, PANEL_POINT };

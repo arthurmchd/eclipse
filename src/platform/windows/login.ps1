@@ -15,6 +15,7 @@ using System.Threading;
 
 public static class RiotWindow {
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
   delegate bool EnumProc(IntPtr h, IntPtr l);
 
   [DllImport("user32.dll", SetLastError = true)] static extern bool PostMessage(IntPtr h, uint message, IntPtr w, IntPtr l);
@@ -25,6 +26,7 @@ public static class RiotWindow {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder text, int count);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT rect);
   [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out RECT rect);
+  [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT point);
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
 
@@ -107,11 +109,30 @@ public static class RiotWindow {
     return $null
   }
 
+  function Read-Shot($bitmap, $frame) {
+    $pixels = @{}
+    foreach ($point in @($PANEL, $USERNAME, $PASSWORD)) {
+      $pixels["$point"] = $bitmap.GetPixel($frame.Left + [int]($frame.Width * $point[0]), $frame.Top + [int]($frame.Height * $point[1]))
+    }
+    $x = $frame.Left + [int]($frame.Width * $REMEMBER[0]); $y = $frame.Top + [int]($frame.Height * $REMEMBER[1])
+    $rememberPixels = @()
+    foreach ($dx in @(-4, -2, 0, 2, 4)) {
+      foreach ($dy in @(-4, -2, 0, 2, 4)) {
+        $rememberPixels += $bitmap.GetPixel($x + $dx, $y + $dy)
+      }
+    }
+    return @{ Width = $frame.Width; Height = $frame.Height; Pixels = $pixels; RememberPixels = $rememberPixels }
+  }
+
   function Get-WindowPixels($hwnd) {
     $rect = New-Object RiotWindow+RECT
-    if (-not [RiotWindow]::GetWindowRect($hwnd, [ref]$rect)) { return $null }
+    $client = New-Object RiotWindow+RECT
+    $origin = New-Object RiotWindow+POINT
+    if (-not [RiotWindow]::GetWindowRect($hwnd, [ref]$rect) -or -not [RiotWindow]::GetClientRect($hwnd, [ref]$client) -or -not [RiotWindow]::ClientToScreen($hwnd, [ref]$origin)) { return $null }
     $width = $rect.Right - $rect.Left; $height = $rect.Bottom - $rect.Top
     if ($width -le 0 -or $height -le 0 -or $width -gt 10000 -or $height -gt 10000) { return $null }
+    $frame = @{ Left = $origin.X - $rect.Left; Top = $origin.Y - $rect.Top; Width = $client.Right; Height = $client.Bottom }
+    if ($frame.Width -le 0 -or $frame.Height -le 0 -or $frame.Left -lt 0 -or $frame.Top -lt 0 -or $frame.Left + $frame.Width -gt $width -or $frame.Top + $frame.Height -gt $height) { return $null }
     $bitmap = $null; $graphics = $null; $dc = [IntPtr]::Zero
     try {
       $bitmap = New-Object System.Drawing.Bitmap $width, $height
@@ -119,17 +140,7 @@ public static class RiotWindow {
       $dc = $graphics.GetHdc()
       if (-not [RiotWindow]::PrintWindow($hwnd, $dc, 2)) { return $null }
       $graphics.ReleaseHdc($dc); $dc = [IntPtr]::Zero
-      $pixels = @{}
-      foreach ($point in @($PANEL, $USERNAME, $PASSWORD)) {
-        $pixels["$point"] = $bitmap.GetPixel([int]($width * $point[0]), [int]($height * $point[1]))
-      }
-      $rememberPixels = @()
-      foreach ($dx in @(-4, -2, 0, 2, 4)) {
-        foreach ($dy in @(-4, -2, 0, 2, 4)) {
-          $rememberPixels += $bitmap.GetPixel([int]($width * $REMEMBER[0]) + $dx, [int]($height * $REMEMBER[1]) + $dy)
-        }
-      }
-      return @{ Width = $width; Height = $height; Pixels = $pixels; RememberPixels = $rememberPixels }
+      return Read-Shot $bitmap $frame
     } catch {
       return $null
     } finally {
@@ -145,13 +156,16 @@ public static class RiotWindow {
 
   function Get-RememberState($shot) {
     if (-not $shot -or $shot.RememberPixels.Count -lt 25) { return 'unknown' }
-    $dark = 0; $light = 0
+    $red = 0; $gray = 0
     foreach ($color in $shot.RememberPixels) {
-      if ($color.R -lt 120 -and $color.G -lt 120 -and $color.B -lt 120) { $dark++ }
-      if (Test-Light $color 180) { $light++ }
+      $high = [Math]::Max([int]$color.R, [Math]::Max([int]$color.G, [int]$color.B))
+      $low = [Math]::Min([int]$color.R, [Math]::Min([int]$color.G, [int]$color.B))
+      if ($high -le 140) { return 'unknown' }
+      if ($color.R -ge 150 -and $color.G -le 110 -and $color.B -le 110) { $red++ }
+      elseif ($low -ge 205 -and $high -le 243 -and $high - $low -le 12) { $gray++ }
     }
-    if ($dark -ge 10) { return 'on' }
-    if ($light -ge 22) { return 'off' }
+    if ($red -ge 10 -and $gray -eq 0) { return 'on' }
+    if ($gray -ge 20 -and $red -eq 0) { return 'off' }
     return 'unknown'
   }
 
@@ -167,12 +181,41 @@ public static class RiotWindow {
 
   if ($req.action -eq 'self-test') {
     [RiotWindow]::SelfTest()
-    $checkedPixels = @([System.Drawing.Color]::FromArgb(40, 40, 40)) * 20 + @([System.Drawing.Color]::White) * 5
-    $uncheckedPixels = @([System.Drawing.Color]::FromArgb(230, 230, 230)) * 25
-    $unclearPixels = @([System.Drawing.Color]::FromArgb(150, 150, 150)) * 25
-    if ((Get-RememberState @{ RememberPixels = $checkedPixels }) -ne 'on' -or
-        (Get-RememberState @{ RememberPixels = $uncheckedPixels }) -ne 'off' -or
-        (Get-RememberState @{ RememberPixels = $unclearPixels }) -ne 'unknown') { throw 'checkbox-test-failed' }
+    $background = [System.Drawing.Color]::FromArgb(252, 252, 252)
+    $gray = [System.Drawing.Color]::FromArgb(233, 233, 233)
+    $grayHover = [System.Drawing.Color]::FromArgb(220, 220, 220)
+    $red = [System.Drawing.Color]::FromArgb(213, 50, 53)
+    $redHover = [System.Drawing.Color]::FromArgb(188, 37, 42)
+    $mark = [System.Drawing.Color]::FromArgb(249, 249, 249)
+    $dark = [System.Drawing.Color]::FromArgb(40, 40, 40)
+    $unclear = [System.Drawing.Color]::FromArgb(150, 150, 150)
+    function Assert-Remember($pixels, $expected) {
+      if ((Get-RememberState @{ RememberPixels = $pixels }) -ne $expected) { throw 'checkbox-test-failed' }
+    }
+    Assert-Remember (@($gray) * 25) 'off'
+    Assert-Remember (@($grayHover) * 25) 'off'
+    Assert-Remember (@($red) * 20 + @($mark) * 5) 'on'
+    Assert-Remember (@($redHover) * 20 + @($mark) * 5) 'on'
+    Assert-Remember (@($background) * 25) 'unknown'
+    Assert-Remember (@($gray) * 19 + @($background) * 6) 'unknown'
+    Assert-Remember (@($red) * 9 + @($mark) * 16) 'unknown'
+    Assert-Remember (@($red) * 12 + @($gray) * 13) 'unknown'
+    Assert-Remember (@($dark) * 20 + @($mark) * 5) 'unknown'
+    Assert-Remember (@($gray) * 24 + @($dark)) 'unknown'
+    Assert-Remember (@($unclear) * 25) 'unknown'
+    $bitmap = New-Object System.Drawing.Bitmap 416, 308
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $brush = New-Object System.Drawing.SolidBrush $red
+    try {
+      $graphics.Clear($background)
+      $frame = @{ Left = 8; Top = 0; Width = 400; Height = 300 }
+      $x = $frame.Left + [int]($frame.Width * $REMEMBER[0]); $y = $frame.Top + [int]($frame.Height * $REMEMBER[1])
+      $graphics.FillRectangle($brush, $x - 6, $y - 6, 13, 13)
+      if ((Get-RememberState (Read-Shot $bitmap $frame)) -ne 'on') { throw 'checkbox-test-failed' }
+      if ((Get-RememberState (Read-Shot $bitmap @{ Left = 0; Top = 0; Width = 416; Height = 308 })) -ne 'unknown') { throw 'checkbox-test-failed' }
+    } finally {
+      $brush.Dispose(); $graphics.Dispose(); $bitmap.Dispose()
+    }
     [Console]::Out.WriteLine('ok')
     exit 0
   }
@@ -210,7 +253,7 @@ public static class RiotWindow {
   }
   [Console]::Out.WriteLine("remember:$rememberState")
 
-  if ($req.submit) { [RiotWindow]::Click($hwnd, $SUBMIT[0], $SUBMIT[1]) }
+  [RiotWindow]::Click($hwnd, $SUBMIT[0], $SUBMIT[1])
   [Console]::Out.WriteLine('ok')
   [Console]::Out.Flush()
   exit 0

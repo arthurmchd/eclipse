@@ -16,17 +16,14 @@ tags: [glossário]
 | **`tdid`** | Cookie de identificação do dispositivo, mantido ao limpar uma sessão para a Riot ainda reconhecer o PC |
 | **`--headless`** | Opção do `RiotClientServices` que sobe só os serviços, sem interface ([[riotProcess]]) |
 | **Produto** | Nome do jogo na API local: `league_of_legends` (LoL e TFT) ou `valorant` |
-| **Monitor / guard** | `windowGuard.ps1`, que mantém as janelas do Riot ocultas ([[windowGuard.ps1]]) |
-| **Interface nativa escondida** | O próprio formulário do Riot, invisível, usado quando a API de login não serve ([[login.ps1]]) |
-| **Cópia privada** | `app.asar` da interface do Riot preparado dentro do projeto, com addons ([[Integração com o Riot Client]]) |
-| **Candidate** | O `app.asar` preparado, no vocabulário do manifesto |
-| **Addon** | Código anexado às entradas `main`, `preload` e `renderer` da cópia ([[addons]]) |
-| **Host privado** | Processo Electron que carrega a cópia com perfil próprio ([[privateHost]], [[hostEntry]]) |
-| **Ponte (bridge)** | Servidor HTTP em `127.0.0.1` que liga o painel ao gerenciador ([[bridgeServer]]) |
-| **Canal de bootstrap** | Named pipe aleatório que entrega ao host o pedido de abertura ([[bootstrapChannel]]) |
-| **Âncora** | Trecho literal do JavaScript minificado do Riot que o código procura para aplicar um ajuste ([[privateHostCore]], [[privateRendererCore]]) |
-| **Marcador `RAM_*`** | Texto que prova que um ajuste foi aplicado; "RAM" = Riot Account Manager |
-| **DPAPI** | Data Protection API do Windows, criptografia amarrada ao usuário ([[windowsDpapi]]) |
+| **Cartões** | O painel de contas sobre a arte da janela da Riot ([[cards]], [[riotOverlay]]) |
+| **Sobreposição** | A janela transparente presa à janela da Riot que hospeda os cartões, a caixa e a cobertura ([[riotOverlay]]) |
+| **Caixa "Ocultar contas"** | Caixa sobre a coluna de login que esconde os cartões e mostra a arte da Riot ([[overlayToggle]]) |
+| **Cobertura** | Carregamento sobre a coluna de login enquanto o Eclipse entra na conta ([[overlayCover]]) |
+| **Guardião** | O [[sessionKeeper]], que guarda a sessão de cada conta e deixa a Riot sempre abrir desconectada |
+| **Helper de janelas / guard** | `windowGuard.ps1`, rodado uma vez por pedido: traz a janela do Riot à frente, fecha a janela dele e procura a janela do jogo. O monitor persistente que escondia a Riot no modo antigo saiu em 2026-11-07 ([[windowGuard.ps1]]) |
+| **Preenchimento nativo** | O Eclipse digitando no formulário visível da Riot quando a API de login não serve ([[login.ps1]]) |
+| **DPAPI** | Data Protection API do Windows, criptografia amarrada ao usuário; usada pelo `safeStorage` do Electron no [[store]] |
 | **ASAR** | Formato de pacote do Electron ([[asar]]) |
 | **HenrikDev** | API não oficial usada para o elo do VALORANT |
 | **needsAttention** | Estado da operação que pede ação do usuário (2FA, CAPTCHA…) |
