@@ -26,9 +26,12 @@ Nada é exportado para o app. `ranks.js` exporta para `app.js`:
 |---|---|---|
 | `LOL_TIERS`, `VAL_GROUPS` | constantes | Tiers com nome e cor; grupos de VALORANT com seus números de tier |
 | `QUEUES` | constante | `lol`: `solo`, `flex`; `tft`: `ranked`, `doubleUp`; `val`: `competitive` |
-| `rankOf(acc, game, queue)` | função | Tudo que um card precisa para mostrar o elo de uma conta num jogo e fila: `group`, `color`, `emblem`, `emblemKind`, `label`, `sub`, `progress`, `score`, `level`, `wins`, `losses`, `winrate`, `hotStreak`, `extra`, `lastSeason`, `lastChange`, `updatedAt`, `error` |
+| `rankOf(acc, game, queue)` | função | Tudo que um card precisa para mostrar o elo de uma conta num jogo e fila: `group`, `color`, `emblem`, `emblemKind`, `label`, `sub`, `progress`, `score`, `level`, `wins`, `losses`, `winrate`, `hotStreak`, `climb`, `extra`, `lastSeason`, `lastChange`, `updatedAt`, `error` |
+| `climbOf(entry)` | função | Desde 2026-11-05: para uma entrada de Mestre+ com `cutoffs`, `{ tier, cutoff, gap, holding }`. Mestre mira Grão-Mestre; Grão-Mestre e Desafiante miram Desafiante (`holding` no Desafiante); `gap` é corte menos PdL. Sem corte, `null`. Usado pelos [[cards]] |
 | `distributionGroups(game)` | função | Grupos da barra lateral, com ícone |
 | `lolEmblem`, `lolCrest`, `valIcon`, `valGroupIcon`, `profileIcon` | funções | URLs no CommunityDragon e no valorant-api |
+| `lolBanner(lol)` | função | Desde 2026-11-05: URL do banner do League. `lol.banner` (só `[a-z0-9_]`, em minúsculas) ou o banner ranqueado do melhor elo entre `solo` e `flex`; sem elo, `default`. Usado pelos [[cards]] |
+| `valCardArt(card)` | função | Desde 2026-11-05: URL da arte larga (`wideart.png`) do cartão de jogador. Tira o UUID de `card` (URL ou UUID puro); sem UUID, o cartão padrão do VALORANT. Usado pelos [[cards]] |
 
 Chamadas a `window.api`: `init`, `saveAccount`, `deleteAccount`, `patchAccount`, `forgetSession`, `copy`, `refresh`, `runningGames`, `signIn`, `showRiotClient`, `cancelSignIn`, `saveSettings`, `pickClientPath`, `openDataFolder`, `closeManager`. Eventos: `onAccountUpdated`, `onSignInStatus`, `onSignInOperation`, `onRefreshProgress`, `onNextRefresh`.
 
@@ -61,6 +64,7 @@ Chamadas a `window.api`: `init`, `saveAccount`, `deleteAccount`, `patchAccount`,
 
 - **CSP fechada.** `script-src 'self'`, `connect-src 'none'`, imagens só de `self`, `data:`, CommunityDragon e valorant-api. O renderer não faz requisições; tudo vem do main.
 - **Escapar texto do usuário.** `esc()` em nome, tag, usuário, nota, erros e URL do card antes de `innerHTML`.
+- **Banner e cartão só por ID.** `lolBanner` aceita só letras minúsculas, números e `_` no nome do banner, e `valCardArt` só aproveita um UUID. O host e o caminho são sempre montados em `ranks.js`, então um valor salvo estranho não vira outra URL.
 - **Chave em branco mantém a salva.** Campos de chave vazios não são enviados. Chave nova com contas existentes dispara refresh.
 - **Senha vazia mantém a atual.** `password` vai `undefined`; o campo só é obrigatório se a conta ainda não tem senha.
 - **Colar "Name#TAG" divide.** No campo de nome, o que vem depois de `#` vai para a tag e o foco passa para ela.

@@ -85,6 +85,11 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
             notify(operationUpdated, shown(current));
           },
           log: writeLog, onClosed,
+          onRejected: () => {
+            if (!store.getAccount(id)) return;
+            try { store.forgetSession(id); }
+            catch (storageError) { writeLog(`could not forget the rejected session: ${safeText(storageError?.message)}`); }
+          },
         });
         if (result.sessionRejected && store.getAccount(id)) store.forgetSession(id);
         if (result.session && store.getAccount(id)) store.saveSession(id, result.session);

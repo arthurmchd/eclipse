@@ -16,7 +16,7 @@ Expõe `window.api` por `contextBridge`, encaminha métodos nomeados ao IPC de [
 
 ## API pública
 
-`createManagerApi(options)` permite testes com `ipcRenderer`, relógio e temporizadores falsos. O preload expõe os métodos de contas (`init`, `saveAccount`, `deleteAccount`, `patchAccount`, `forgetSession`, `copy`), elos (`refresh`), login (`runningGames`, `signIn`, `showRiotClient`, `cancelSignIn`), configurações (`saveSettings`, `pickClientPath`, `openDataFolder`) `closeManager` e as ações das cópias dos controles do Riot: `minimizeRiot()`, `closeRiot()` e `revealRiot()`. Cada uma manda `windowAction` com um valor fixo e ignora argumentos (revisão de 2026-11-04, [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]; substituem `setModal`).
+`createManagerApi(options)` permite testes com `ipcRenderer`, relógio e temporizadores falsos. O preload expõe os métodos de contas (`init`, `saveAccount`, `deleteAccount`, `patchAccount`, `forgetSession`, `copy`), elos (`refresh`), login (`runningGames`, `signIn`, `showRiotClient`, `cancelSignIn`), configurações (`saveSettings`, `pickClientPath`, `openDataFolder`) `closeManager` e as ações das cópias dos controles do Riot: `minimizeRiot()` e `closeRiot()`. Cada uma manda `windowAction` com um valor fixo e ignora argumentos (revisão de 2026-11-04, [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]; substituem `setModal`). `revealRiot()` saiu em 2026-11-06, com a cópia do perfil nos [[cards]].
 
 As assinaturas públicas continuam `onAccountUpdated`, `onRefreshProgress`, `onNextRefresh`, `onSignInStatus` e `onSignInOperation`; cada uma devolve o cancelamento do listener.
 

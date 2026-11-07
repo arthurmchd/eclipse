@@ -100,7 +100,6 @@ function createManagerApi({ ipcRenderer, setInterval: repeat = setInterval, clea
     closeManager: () => invoke('closeManager'),
     minimizeRiot: () => invoke('windowAction', ['minimize']),
     closeRiot: () => invoke('windowAction', ['close']),
-    revealRiot: () => invoke('windowAction', ['reveal']),
     onAccountUpdated: on('account-updated'),
     onRefreshProgress: on('refresh-progress'),
     onNextRefresh: on('next-refresh'),

@@ -52,6 +52,7 @@ const MESSAGES = [
   ['Could not start the Riot Client. Check its path and Windows permissions', 'Não foi possível iniciar o Riot Client. Confira o caminho e as permissões do Windows'],
   ['Could not restart the Riot Client with its interface', 'Não foi possível reabrir o Riot Client com a interface'],
   ['Could not close the Riot Client', 'Não foi possível fechar o Riot Client'],
+  ['Could not update the Riot Client settings file', 'Não foi possível atualizar o arquivo de configurações do Riot Client'],
   ['Could not bring the Riot Client to the front', 'Não foi possível trazer o Riot Client para a frente'],
   ['Could not check running Riot games. No accounts were switched', 'Não foi possível verificar os jogos abertos. Nenhuma conta foi trocada'],
   ['Close League of Legends or VALORANT before switching from the Riot login screen', 'Feche o League of Legends ou o VALORANT antes de trocar de conta pela tela de login da Riot'],

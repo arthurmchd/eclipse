@@ -18,7 +18,7 @@ function fixture(options = {}) {
   parent.contentView = { children: [], addChildView(view) { this.children.push(view); } };
   class FakeView {
     constructor(options) {
-      this.options = options; views.push(this);
+      this.options = options; this.visibility = []; views.push(this);
       const contents = this.webContents = new EventEmitter();
       contents.isDestroyed = () => Boolean(contents.closed);
       contents.getURL = () => contents.url || '';
@@ -30,6 +30,7 @@ function fixture(options = {}) {
     }
     setBackgroundColor(color) { this.background = color; }
     setBounds(bounds) { this.bounds = bounds; }
+    setVisible(visible) { this.visibility.push(visible); }
   }
   const electron = { WebContentsView: FakeView, ipcMain: { handle: (name, fn) => handlers.set(name, fn), removeHandler: (name) => handlers.delete(name) } };
   const toggle = createOverlayToggle({ electron, onChange: (value) => changes.push(value), ...options });
@@ -108,6 +109,24 @@ test('the main process can check the box without calling onChange, only after th
   f.toggle.dispose();
   f.toggle.setHidden(false);
   assert.equal(f.sent.length, 4);
+});
+
+test('the main process can hide the toggle view before or after it opens, and nothing changes after dispose', async () => {
+  const f = fixture();
+  f.toggle.setVisible(false);
+  await f.toggle.open(f.parent);
+  const [view] = f.views;
+  assert.deepEqual(view.visibility, [false]);
+  f.toggle.setVisible(true);
+  f.toggle.setVisible('yes');
+  assert.deepEqual(view.visibility, [false, true, false]);
+  f.toggle.dispose();
+  f.toggle.setVisible(true);
+  assert.deepEqual(view.visibility, [false, true, false]);
+  const shown = fixture();
+  await shown.toggle.open(shown.parent);
+  assert.deepEqual(shown.views[0].visibility, [true]);
+  shown.toggle.dispose();
 });
 
 test('Electron renders the toggle unchecked; a click reports hidden and a second click shows again', { timeout: 30000, skip: process.platform !== 'win32' }, async (t) => {

@@ -87,7 +87,7 @@ function fixture() {
     detectClientPath: () => 'C:/Example/RiotClientServices.exe',
     closeEverything: async () => { events.push('closed'); return { yaml: null }; },
     readSettingsYaml: () => 'token:current',
-    writeSettingsYaml: (yaml) => { events.push(['write', yaml]); },
+    writeSettingsYaml: async (yaml) => { await new Promise((resolve) => setImmediate(resolve)); events.push(['write', yaml]); return true; },
     hasPersistedLogin: (yaml) => typeof yaml === 'string' && yaml.startsWith('token:'),
     stripPersistedLogin: () => 'stripped',
     sameRiotId: (a, b) => Boolean(a && b && a.gameName === b.gameName && a.tagLine === b.tagLine),
@@ -289,9 +289,24 @@ test('rejects a different signed-in account after credential entry before saving
   assert.equal(f.events.at(-1), 'conceal');
 });
 
-test('signs a mismatched saved session out and falls back to the selected credentials', async () => {
+test('a mismatched saved session is closed normally, never signed out, before the selected credentials are typed', async () => {
   const f = fixture();
-  f.state.identity = { gameName: 'AnotherAccount', tagLine: 'BR1' };
+  const leaving = [];
+  let launches = 0, closes = 0;
+  f.options.onRejected = () => f.events.push('rejected');
+  f.options.onClosed = (closed) => { leaving.push(closed.yaml); f.events.push('persist-leaving'); };
+  f.io.closeEverything = async () => {
+    f.events.push('closed');
+    f.state.authorized = false;
+    return { yaml: ++closes === 2 ? 'token:another-renewed' : null };
+  };
+  f.io.launchProduct = async () => {
+    f.events.push('launch');
+    if (++launches === 1) {
+      f.state.authorized = true;
+      f.state.identity = { gameName: 'AnotherAccount', tagLine: 'BR1' };
+    }
+  };
   f.io.typeCredentials = async () => {
     f.events.push(['type', true]);
     f.state.identity = { gameName: account.gameName, tagLine: account.tagLine };
@@ -302,9 +317,16 @@ test('signs a mismatched saved session out and falls back to the selected creden
   assert.equal(result.gameStarted, true);
   assert.equal(result.sessionRejected, true);
   assert.equal(result.usedSavedSession, false);
-  const signOutIndex = f.events.findIndex((entry) => Array.isArray(entry) && entry[0] === 'DELETE');
-  const typeIndex = f.events.findIndex((entry) => Array.isArray(entry) && entry[0] === 'type');
-  assert.ok(signOutIndex >= 0 && typeIndex > signOutIndex);
+  assert.equal(f.events.some((entry) => Array.isArray(entry) && entry[0] === 'DELETE'), false);
+  assert.deepEqual(leaving, [null, 'token:another-renewed']);
+  const stripped = f.events.findIndex((entry) => Array.isArray(entry) && entry[0] === 'write' && entry[1] === 'stripped');
+  const typed = f.events.findIndex((entry) => Array.isArray(entry) && entry[0] === 'type');
+  assert.equal(f.events.filter((event) => event === 'rejected').length, 1);
+  assert.ok(f.events.indexOf('rejected') < f.events.lastIndexOf('closed'));
+  assert.ok(f.events.lastIndexOf('closed') < f.events.lastIndexOf('persist-leaving'));
+  assert.ok(f.events.lastIndexOf('persist-leaving') < stripped);
+  assert.ok(stripped < f.events.lastIndexOf('launch'));
+  assert.ok(f.events.lastIndexOf('launch') < typed);
 });
 
 test('cancelling while the guard starts never closes games afterward', async () => {
@@ -869,4 +891,243 @@ test('a launch refused for another reason is not repeated and keeps the open tim
   await assert.rejects(f.run(), /game did not open/);
   assert.equal(f.events.filter((event) => event === 'request-launch').length, 1);
   assert.ok(f.elapsed() < 200000);
+});
+
+function cardsFixture() {
+  const f = fixture();
+  f.options.visibleLogin = true;
+  f.options.hasSavedSession = true;
+  f.state.authorized = false;
+  f.state.launched = false;
+  f.io.runningGames = async () => ({ lol: f.state.launched, val: false });
+  f.io.launchProduct = async (_exe, game, visible) => { f.events.push(['launch', game, visible]); };
+  f.io.openVisibleInterface = async () => f.events.push('visible-interface');
+  f.io.windows.closeClient = async () => f.events.push('close-client-window');
+  f.io.authenticate = async () => ({ supported: false });
+  f.io.requestLaunch = async () => { f.events.push('request-launch'); f.state.launched = true; return { status: 200 }; };
+  const at = (match) => f.events.findIndex((event) => match(event));
+  f.index = (name) => at((event) => event === name || (Array.isArray(event) && event[0] === name));
+  return f;
+}
+
+test('cards mode restores a saved session in the background without opening Riot or typing', async () => {
+  const f = cardsFixture();
+  f.io.launchProduct = async (_exe, game, visible) => { f.events.push(['launch', game, visible]); f.state.authorized = true; };
+  const result = await f.run();
+  assert.equal(result.usedSavedSession, true);
+  assert.equal(result.gameStarted, true);
+  assert.equal(result.session, 'token:current');
+  assert.deepEqual(f.events.find((event) => Array.isArray(event) && event[0] === 'write'), ['write', 'token:saved']);
+  assert.deepEqual(f.events.find((event) => Array.isArray(event) && event[0] === 'launch'), ['launch', undefined, undefined]);
+  for (const name of ['visible-interface', 'type', 'DELETE']) assert.equal(f.index(name), -1, name);
+  assert.ok(f.index('closed') < f.index('write'));
+  assert.ok(f.index('write') < f.index('launch'));
+  assert.ok(f.index('launch') < f.index('request-launch'));
+  assert.equal(f.events.at(-1), 'close-client-window');
+  assert.ok(f.statuses.some((status) => status.text === 'Signing in with the saved session…'));
+});
+
+test('cards mode falls back to the visible Riot form when the saved session is no longer accepted', async () => {
+  const f = cardsFixture();
+  const result = await f.run();
+  assert.equal(result.sessionRejected, true);
+  assert.equal(result.usedSavedSession, false);
+  assert.equal(result.gameStarted, true);
+  assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'launch').length, 1);
+  assert.ok(f.index('launch') < f.index('visible-interface'));
+  assert.equal(f.index('DELETE'), -1);
+  assert.ok(f.index('visible-interface') < f.index('type'));
+  assert.ok(f.index('type') < f.index('request-launch'));
+  assert.equal(f.events.at(-1), 'close-client-window');
+});
+
+test('cards mode closes a restored session of another account normally, hands it over before closing and types the selected one in the visible form', async () => {
+  const f = cardsFixture();
+  const leaving = [];
+  f.io.authorization = async () => (f.state.authorized ? 'yes' : 'no');
+  f.options.onRejected = () => f.events.push('rejected');
+  f.options.onClosed = (closed) => { leaving.push(closed.yaml); f.events.push('persist-leaving'); };
+  f.io.closeEverything = async () => {
+    f.events.push('closed');
+    const signedIn = f.state.authorized;
+    f.state.authorized = false;
+    return { signedIn, riotId: signedIn ? f.state.identity : null, yaml: signedIn ? 'token:another-renewed' : null };
+  };
+  f.io.launchProduct = async (_exe, game, visible) => {
+    f.events.push(['launch', game, visible]);
+    f.state.authorized = true;
+    f.state.identity = { gameName: 'AnotherAccount', tagLine: 'BR1' };
+  };
+  f.io.typeCredentials = async () => {
+    f.events.push(['type', true]);
+    f.state.identity = { gameName: account.gameName, tagLine: account.tagLine };
+    f.state.authorized = true;
+    return ['remember:on'];
+  };
+  const result = await f.run();
+  assert.equal(result.sessionRejected, true);
+  assert.equal(result.usedSavedSession, false);
+  assert.equal(result.gameStarted, true);
+  assert.equal(f.index('DELETE'), -1);
+  assert.deepEqual(leaving, [null, 'token:another-renewed']);
+  const stripped = f.events.findIndex((event) => Array.isArray(event) && event[0] === 'write' && event[1] === 'stripped');
+  assert.equal(f.events.filter((event) => event === 'rejected').length, 1);
+  assert.ok(f.index('rejected') < f.events.lastIndexOf('closed'));
+  assert.ok(f.events.lastIndexOf('closed') < f.events.lastIndexOf('persist-leaving'));
+  assert.ok(f.events.lastIndexOf('persist-leaving') < stripped);
+  assert.ok(stripped < f.index('visible-interface'));
+  assert.ok(f.index('visible-interface') < f.index('type'));
+});
+
+test('an account Riot restores on its own is closed normally before the visible form, never signed out', async () => {
+  const f = cardsFixture();
+  const leaving = [];
+  let opened = 0;
+  f.options.hasSavedSession = false;
+  f.options.onClosed = (closed) => { leaving.push(closed.yaml); f.events.push('persist-leaving'); };
+  f.io.authorization = async () => (f.state.authorized ? 'yes' : 'no');
+  f.io.openVisibleInterface = async () => {
+    f.events.push('visible-interface');
+    if (++opened > 1) return;
+    f.state.authorized = true;
+    f.state.identity = { gameName: 'AnotherAccount', tagLine: 'BR1' };
+  };
+  f.io.closeEverything = async () => {
+    f.events.push('closed');
+    f.state.authorized = false;
+    return { signedIn: true, riotId: { gameName: 'AnotherAccount', tagLine: 'BR1' }, yaml: 'token:another' };
+  };
+  f.io.typeCredentials = async () => {
+    f.events.push(['type', true]);
+    f.state.identity = { gameName: account.gameName, tagLine: account.tagLine };
+    f.state.authorized = true;
+    return ['remember:on'];
+  };
+  const result = await f.run();
+  assert.equal(result.gameStarted, true);
+  assert.equal(f.index('DELETE'), -1);
+  assert.deepEqual(leaving, ['token:another']);
+  const reopened = f.events.lastIndexOf('visible-interface');
+  assert.ok(f.index('visible-interface') < f.index('closed'));
+  assert.ok(f.index('closed') < f.index('persist-leaving'));
+  assert.ok(f.index('persist-leaving') < f.index('write'));
+  assert.ok(f.index('write') < reopened);
+  assert.ok(reopened < f.index('type'));
+});
+
+test('an account that stays signed in after a normal close stops the switch without being signed out', async () => {
+  const f = cardsFixture();
+  f.options.hasSavedSession = false;
+  f.io.authorization = async () => 'yes';
+  f.io.closeEverything = async () => { f.events.push('closed'); return { signedIn: true, riotId: null, yaml: null }; };
+  await assert.rejects(f.run(), /Could not sign out the previous account/);
+  assert.equal(f.index('DELETE'), -1);
+  assert.equal(f.index('type'), -1);
+  assert.equal(f.events.filter((event) => event === 'closed').length, 1);
+  assert.equal(f.events.filter((event) => event === 'visible-interface').length, 2);
+});
+
+for (const scenario of [
+  { label: 'a pending 2FA', state: { type: 'multifactor' }, account: 'no', cleared: true },
+  { label: 'a failed attempt', state: { type: 'error', error: 'auth_failure' }, account: 'no', cleared: true },
+  { label: 'a clean form', state: { type: 'auth' }, account: 'no', cleared: false },
+  { label: 'a pending 2FA with an unreadable account state', state: { type: 'multifactor' }, account: 'unknown', cleared: false },
+  { label: 'a pending security check', state: { type: 'challenge' }, account: 'no', cleared: false },
+]) {
+  test(`the visible form ${scenario.cleared ? 'clears' : 'never clears'} ${scenario.label} left in Riot`, async () => {
+    const f = cardsFixture();
+    let pending = true;
+    f.options.hasSavedSession = false;
+    f.io.authorization = async () => scenario.account;
+    f.io.sessionState = async () => (f.state.authorized ? { type: 'authenticated' } : pending ? scenario.state : { type: 'auth' });
+    f.io.localApi = async (method, endpoint) => { f.events.push([method, endpoint]); pending = false; return { status: 204 }; };
+    f.io.typeCredentials = async () => {
+      f.events.push(['type', true]);
+      pending = false;
+      f.state.identity = { gameName: account.gameName, tagLine: account.tagLine };
+      f.state.authorized = true;
+      return ['remember:on'];
+    };
+    const result = await f.run();
+    assert.equal(result.gameStarted, true);
+    if (!scenario.cleared) {
+      assert.equal(f.index('DELETE'), -1);
+      return;
+    }
+    assert.deepEqual(f.events[f.index('DELETE')], ['DELETE', '/rso-auth/v1/session']);
+    assert.ok(f.index('visible-interface') < f.index('DELETE'));
+    assert.ok(f.index('DELETE') < f.index('type'));
+  });
+}
+
+test('cards mode with stay signed in off never restarts Riot for a stored session', async () => {
+  const f = cardsFixture();
+  f.options.remember = false;
+  const result = await f.run();
+  assert.equal(result.gameStarted, true);
+  assert.equal(result.usedSavedSession, false);
+  for (const name of ['closed', 'write', 'launch']) assert.equal(f.index(name), -1, name);
+  assert.ok(f.index('visible-interface') < f.index('type'));
+});
+
+test('cards mode without a stored session keeps the visible form path', async () => {
+  const f = cardsFixture();
+  f.options.hasSavedSession = false;
+  await f.run();
+  for (const name of ['closed', 'write', 'launch']) assert.equal(f.index(name), -1, name);
+  assert.ok(f.index('visible-interface') < f.index('type'));
+});
+
+test('Riot Client only in cards mode opens the interface after the background restore', async () => {
+  const f = cardsFixture();
+  f.options.game = 'riot';
+  f.io.launchProduct = async (_exe, game, visible) => { f.events.push(['launch', game, visible]); f.state.authorized = true; };
+  const result = await f.run();
+  assert.equal(result.clientOpened, true);
+  assert.equal(result.usedSavedSession, true);
+  for (const name of ['type', 'DELETE', 'request-launch', 'close-client-window']) assert.equal(f.index(name), -1, name);
+  assert.ok(f.index('launch') < f.index('visible-interface'));
+  assert.equal(f.events.at(-1), 'reveal');
+});
+
+test('after a background restore, only a session Riot has renewed is kept, never the copy that was just consumed', async () => {
+  const f = cardsFixture();
+  const logs = [];
+  f.options.log = (line) => logs.push(line);
+  f.io.launchProduct = async (_exe, game, visible) => { f.events.push(['launch', game, visible]); f.state.authorized = true; };
+  f.io.readSettingsYaml = () => 'token:saved';
+  const stale = await f.run();
+  assert.equal(stale.usedSavedSession, true);
+  assert.equal(stale.session, null);
+  assert.ok(logs.includes('Riot has not renewed the restored session yet'));
+  const renewed = cardsFixture();
+  let reads = 0;
+  renewed.io.launchProduct = async (_exe, game, visible) => { renewed.events.push(['launch', game, visible]); renewed.state.authorized = true; };
+  renewed.io.readSettingsYaml = () => (++reads < 3 ? 'token:saved' : 'token:renewed');
+  assert.equal((await renewed.run()).session, 'token:renewed');
+});
+
+test('cards mode closes another signed-in account normally, keeping its session, instead of signing it out', async () => {
+  const f = cardsFixture();
+  f.options.hasSavedSession = false;
+  f.state.authorized = true;
+  f.state.identity = { gameName: 'AnotherAccount', tagLine: 'BR1' };
+  let leaving = null;
+  f.options.onClosed = (closed) => { leaving = closed; f.events.push('persist-leaving'); };
+  f.io.closeEverything = async () => { f.events.push('closed'); f.state.authorized = false; return { signedIn: true, riotId: { gameName: 'AnotherAccount', tagLine: 'BR1' }, yaml: 'token:other' }; };
+  f.io.typeCredentials = async () => {
+    f.events.push(['type', true]);
+    f.state.identity = { gameName: account.gameName, tagLine: account.tagLine };
+    f.state.authorized = true;
+    return ['remember:on'];
+  };
+  const result = await f.run();
+  assert.equal(result.gameStarted, true);
+  assert.equal(leaving.yaml, 'token:other');
+  assert.equal(f.index('DELETE'), -1);
+  assert.ok(f.index('closed') < f.index('persist-leaving'));
+  assert.ok(f.index('persist-leaving') < f.index('write'));
+  assert.deepEqual(f.events.find((event) => Array.isArray(event) && event[0] === 'write'), ['write', 'stripped']);
+  assert.ok(f.index('write') < f.index('visible-interface'));
+  assert.ok(f.index('visible-interface') < f.index('type'));
 });

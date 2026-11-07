@@ -36,6 +36,7 @@ Exporta só a classe `Store`.
 | `updateAccountFields(id, fields)` | método | `Object.assign` e `save`; `null` se a conta não existe |
 | `getPassword(id)` | método | Senha em texto puro, ou `''` |
 | `sessionFile`, `hasSession`, `saveSession`, `loadSession`, `forgetSession` | métodos | Sessões salvas |
+| `sessionSavedAt(id)` | método | Data da última gravação da sessão (`mtimeMs` do `sessions/<id>.bin`), ou `0` sem sessão. ID inválido lança erro. |
 | `setCurrentAccount(id)` | método | Grava a última conta conectada |
 | `publicSettings()` | método | Configurações com chaves mascaradas (`riotApiKeyMasked`, `riotTftApiKeyMasked`, `henrikApiKeyMasked`) |
 | `updateSettings(input)` | método | Aplica configurações e chaves |
@@ -65,6 +66,7 @@ Exporta só a classe `Store`.
 - **ID validado antes do disco.** Hoje os IDs são UUIDs; IDs simples antigos continuam aceitos. `sessionFile` rejeita separadores, pontos e sintaxe de caminho ou stream do Windows antes de tocar no disco: exige `^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$` e recusa `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`.
 - **Troca de sessão segura.** `saveSession` grava num `.tmp` único (`flag: 'wx'`, `mode: 0o600`) e renomeia. Uma substituição que falha precisa deixar a sessão anterior utilizável; o `.tmp` sai no `finally`.
 - **Sessão só de conta existente.** `saveSession` e `forgetSession` lançam `Account not found`. `loadSession` devolve `null` em qualquer erro.
+- **A data da sessão é a do arquivo.** `sessionSavedAt` lê só a data do `sessions/<id>.bin`, sem decifrar. O [[sessionKeeper]] a usa para apagar sessões de antes do modo cartões ([[ADR-022 Sessões de antes do modo cartões são descartadas]]). Adicionado em 2026-11-06.
 - **Chave ilegível não trava as contas.** Uma chave que não pode ser descriptografada não pode impedir as contas de carregar. `publicSettings` registra o erro e mostra `(unreadable, paste it again)`.
 - **Máscara.** Primeiros 8 e últimos 4 caracteres da chave.
 - **Chaves em `updateSettings`.** `undefined` = não mexe, `''` = remove, outro valor = substitui (com `trim`).
@@ -72,7 +74,7 @@ Exporta só a classe `Store`.
 
 ## Testes
 
-`test/core/store.test.js` carrega o módulo em `vm`, com `safeStorage` falso e pasta temporária. Cobre: rejeição de travessia de caminho, nomes reservados, IDs inválidos e contas desconhecidas; ida e volta de sessão criptografada com UUID e ID legado; falha de `rename` preservando a sessão anterior sem sobrar `.tmp`; backup disparado por nota e configuração, mas não por `stats`, `puuidCache`, `lastPlayed`, `lastGame` ou `setCurrentAccount`.
+`test/core/store.test.js` carrega o módulo em `vm`, com `safeStorage` falso e pasta temporária. Cobre: rejeição de travessia de caminho, nomes reservados, IDs inválidos e contas desconhecidas; ida e volta de sessão criptografada com UUID e ID legado; `sessionSavedAt` com a data do arquivo, `0` sem sessão e erro para ID inválido; falha de `rename` preservando a sessão anterior sem sobrar `.tmp`; backup disparado por nota e configuração, mas não por `stats`, `puuidCache`, `lastPlayed`, `lastGame` ou `setCurrentAccount`.
 
 Fora: recuperação de `data.json` corrompido, limite de 30 backups, `cleanName` e chave ilegível.
 

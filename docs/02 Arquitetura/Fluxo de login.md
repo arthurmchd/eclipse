@@ -56,8 +56,27 @@ sequenceDiagram
 - Nunca digitar credenciais sobre um desafio pendente, mesmo que ele expire.
 - Nunca associar uma sessão de identidade desconhecida à conta anterior ([[main]], função `saveLeavingSession`).
 - Erros comuns não podem revelar a tela de login sozinhos.
+- Nunca tirar da Riot um login lembrado de uma conta do Eclipse sem antes guardá-lo na conta dona dele, provada pelo `sub` ou por um Riot ID único ([[sessionKeeper]]).
+- Nunca limpar o login lembrado com a Riot conectada: a conta está na memória dela, e o jogo depende disso ([[sessionKeeper]]).
+- Nunca sair da conta conectada (`DELETE`) para trocar de conta, em nenhum modo: a saída normal da Riot mantém a sessão dela válida. O `DELETE` só limpa um login pela metade com a Riot sem conta ([[signInFlow]]).
 
 Ver também [[Segurança e privacidade]] e [[ADR-003 Sem contornar CAPTCHA ou 2FA]].
+
+## Modo cartões
+
+O diagrama acima é o modo privado. No modo cartões (padrão), o login é visível desde [[ADR-010 Login visível com progresso]]. Desde [[ADR-024 Coluna de login coberta durante o login]], o formulário fica coberto por um carregamento enquanto o Eclipse o preenche, e a caixa "Ocultar contas" some até o formulário da Riot voltar, também no login manual ([[ADR-025 Caixa some junto com o formulário da Riot]]); 2FA, CAPTCHA ou outro pedido de atenção tira a cobertura. Desde [[ADR-019 Sessão salva por conta no modo cartões]], uma conta com sessão guardada e "Manter login" ligado entra em segundo plano:
+
+1. **Jogar fecha a Riot.** A saída é normal, para a Riot gravar os tokens novos. Depois o Eclipse grava o YAML da conta e sobe só os serviços, sem interface.
+2. **Confere e pede o jogo.** Com o Riot ID conferido, pede o jogo. Nenhuma janela precisa de foco e nada é digitado.
+3. **Sessão recusada volta ao visível.** Sessão recusada ou de outra conta: fecha a Riot com a saída normal se ela estiver conectada, abre a interface oficial e segue o login visível, como na primeira entrada.
+4. **Cada renovação é guardada.** O `refresh_token` é de uso único. Toda vez que a Riot regrava o login de uma conta conhecida, o [[sessionKeeper]] guarda essa versão, mesmo com a Riot aberta. O [[signInFlow]] nunca captura de volta o YAML que ele mesmo restaurou.
+5. **A Riot sempre abre desconectada.** Desde [[ADR-021 Riot sempre abre desconectada]], o guardião limpa o login do arquivo assim que a Riot solta a conta. Isso acontece quando:
+   - ela fecha;
+   - passa ao modo segundo plano depois do jogo;
+   - ou volta à tela de login.
+
+   Antes de limpar, guarda o login na conta dona (mesmo `sub`, ou Riot ID único). Login de conta fora do Eclipse é limpo sem ser guardado. Quando o jogo fecha com a Riot ainda conectada (ou ela fica conectada sem janela e sem jogo), o guardião pede a saída normal ([[ADR-020 Riot conectada é encerrada quando fica sem jogo]]). Ela volta a abrir na tela de login, com os cartões, e o usuário nunca precisa sair da conta pela Riot. Se a janela dela estava aberta, o guardião a inicia de novo assim que ela sai e o arquivo fica limpo ([[ADR-026 Riot fechada depois do jogo reabre na tela de login]]).
+6. **Trocar de conta não encerra a sessão de quem sai.** O login visível com outra conta conectada fecha a Riot com a saída normal, em vez de `DELETE`, e a sessão de quem sai é guardada na dona provada. Vale também para uma sessão restaurada que se revela de outra conta: a cópia errada é apagada antes, e a sessão renovada vai para a dona dela.
 
 ## Registro
 

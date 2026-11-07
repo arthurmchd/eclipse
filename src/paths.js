@@ -18,6 +18,7 @@ const OVERLAY_PRELOAD_FILE = path.join(SOURCE_DIR, 'integration', 'overlay', 'ov
 const ACCOUNT_CARDS_FILE = path.join(RENDERER_DIR, 'cards.html');
 const OVERLAY_TOGGLE_FILE = path.join(SOURCE_DIR, 'integration', 'overlay', 'toggle.html');
 const OVERLAY_TOGGLE_PRELOAD_FILE = path.join(SOURCE_DIR, 'integration', 'overlay', 'toggle-preload.js');
+const OVERLAY_COVER_FILE = path.join(SOURCE_DIR, 'integration', 'overlay', 'cover.html');
 
 function unpackedPath(file) {
   return file.replace('app.asar', 'app.asar.unpacked');
@@ -46,6 +47,7 @@ module.exports = {
   ACCOUNT_CARDS_FILE,
   OVERLAY_TOGGLE_FILE,
   OVERLAY_TOGGLE_PRELOAD_FILE,
+  OVERLAY_COVER_FILE,
   unpackedPath,
   windowsHelper,
 };

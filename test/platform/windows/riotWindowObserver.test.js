@@ -1,12 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const { EventEmitter } = require('node:events');
 const { PassThrough } = require('node:stream');
 const { execFile } = require('node:child_process');
 const os = require('node:os');
 const path = require('node:path');
 const { windowsHelper } = require('../../../src/paths');
-const { createRiotWindowObserver, validTarget } = require('../../../src/platform/windows/riotWindowObserver');
+const { createRiotWindowObserver, validTarget, PANEL_POINT } = require('../../../src/platform/windows/riotWindowObserver');
 
 test('observer validates metadata, handles fragmented messages, hides on timeout and terminates its own helper', () => {
   const child = new EventEmitter();
@@ -59,6 +60,37 @@ test('a minimized window keeps its last area and needs an explicit flag', () => 
   assert.ok(validTarget({ ...target, minimized: true }));
   for (const minimized of [false, 'true', 1, null]) assert.ok(!validTarget({ ...target, minimized }));
   assert.ok(!validTarget({ id: '123', minimized: true }));
+});
+
+test('a Riot window dimmed by one of its own dialogs needs an explicit flag', () => {
+  const target = { id: '123', x: 10, y: 20, width: 1000, height: 800, corner: 8 };
+  assert.ok(validTarget({ ...target, dimmed: true }));
+  assert.ok(validTarget({ ...target, dimmed: true, minimized: true }));
+  for (const dimmed of [false, 'true', 1, null, {}]) assert.ok(!validTarget({ ...target, dimmed }));
+  assert.ok(!validTarget({ id: '123', dimmed: true }));
+});
+
+test('a Riot sign-in form that left the screen needs an explicit flag', () => {
+ const target = { id: '123', x: 10, y: 20, width: 1000, height: 800, corner: 8 };
+ assert.ok(validTarget({ ...target, formHidden: true }));
+ assert.ok(validTarget({ ...target, formHidden: true, dimmed: true, minimized: true }));
+ for (const formHidden of [false, 'true', 1, null, {}]) assert.ok(!validTarget({ ...target, formHidden }));
+ assert.ok(!validTarget({ id: '123', formHidden: true }));
+});
+
+test('the helper watches the Riot Stay signed in box at the point the login helper clicks', () => {
+ const box = fs.readFileSync(windowsHelper('riotWindowObserver.ps1'), 'utf8').match(/const double BOX_X = ([\d.]+), BOX_Y = ([\d.]+);/);
+ const remember = fs.readFileSync(windowsHelper('login.ps1'), 'utf8').match(/\$REMEMBER = @\(([\d.]+), ([\d.]+)\)/);
+ assert.ok(box && remember);
+ assert.deepEqual(box.slice(1), remember.slice(1));
+ assert.deepEqual(box.slice(1).map(Number), [0.0417, 0.5023]);
+});
+
+test('the panel point the overlay leaves uncovered is the one the helper reads', () => {
+  const source = fs.readFileSync(windowsHelper('riotWindowObserver.ps1'), 'utf8');
+  assert.ok(source.includes(`const double PANEL_X = ${PANEL_POINT.x}, PANEL_Y = ${PANEL_POINT.y};`));
+  assert.deepEqual(PANEL_POINT, { x: 0.026, y: 0.5 });
+  assert.equal(Object.isFrozen(PANEL_POINT), true);
 });
 
 test('observer sends only a numeric overlay handle to the helper', () => {

@@ -18,8 +18,8 @@ Cria e redimensiona um `WebContentsView`, carrega o HTML local do [[renderer]], 
 
 | Export | Tipo | Descrição |
 |---|---|---|
-| `createManagerHost(options)` | função | Recebe Electron e transporte `request(method, args)` injetáveis, os caminhos do renderer/preload, os recuos superior (`topInset`) e esquerdo (`leftInset(largura)`, padrão zero) da visualização e `onWindowAction(ação)`, chamado com `minimize`, `close` ou `reveal` quando a página pede uma ação na janela do Riot (padrão: devolve `false`). |
-| `WINDOW_ACTIONS` | constante | `minimize`, `close` e `reveal`. |
+| `createManagerHost(options)` | função | Recebe Electron e transporte `request(method, args)` injetáveis, os caminhos do renderer/preload, os recuos superior (`topInset`) e esquerdo (`leftInset(largura)`, padrão zero) da visualização e `onWindowAction(ação)`, chamado com `minimize` ou `close` quando a página pede uma ação na janela do Riot (padrão: devolve `false`). |
+| `WINDOW_ACTIONS` | constante | `minimize` e `close`. |
 | `open(window)` | método assíncrono | Cria ou reaproveita a visualização dentro da janela Riot e devolve `{ ready: true, embedded: true }`. |
 | `close()` | método | Desanexa e oculta a visualização, preservando seu estado em memória para a próxima abertura. |
 | `dispose()` | método | Remove o handler IPC, fecha o `webContents` e impede reabertura. |
@@ -44,14 +44,14 @@ Cria e redimensiona um `WebContentsView`, carrega o HTML local do [[renderer]], 
 - **Comandos fechados.** Só os métodos de gerenciamento conhecidos, com array de até quatro argumentos e conteúdo limitado, atravessam o IPC. O [[managerService]] faz a validação semântica adicional.
 - **Recuo esquerdo limitado.** Desde 2026-11-04, `leftInset` recebe a largura da janela e desloca a visualização para a direita; o valor fica entre zero e largura − 1, então a visualização nunca fica sem largura. O [[riotOverlay]] usa isso para deixar a coluna de login livre ([[ADR-013 Caixa para ocultar as contas na coluna de login]]).
 - **Voltar é local.** `closeManager` sem argumentos fecha somente a visualização e não atravessa a ponte.
-- **Ações na janela do Riot são locais.** Revisão de 2026-11-04 ([[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]): `windowAction` com exatamente um texto de `WINDOW_ACTIONS` chama `onWindowAction` e não atravessa a ponte nem o serviço de contas. Responde `{ ok: true }` só quando o handler devolve `true`; falha ou outro valor vira `{ ok: false }`, sem detalhes. Outros formatos são recusados como comando inválido. Substitui o aviso `setModal`, que saiu junto com a região própria de diálogo do [[riotOverlay]].
+- **Ações na janela do Riot são locais.** Revisão de 2026-11-04 ([[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]): `windowAction` com exatamente um texto de `WINDOW_ACTIONS` chama `onWindowAction` e não atravessa a ponte nem o serviço de contas. Responde `{ ok: true }` só quando o handler devolve `true`; falha ou outro valor vira `{ ok: false }`, sem detalhes. Outros formatos são recusados como comando inválido. Substitui o aviso `setModal`, que saiu junto com a região própria de diálogo do [[riotOverlay]]. Desde 2026-11-06 a lista tem só `minimize` e `close`: `reveal` saiu com a cópia do perfil dos [[cards]] e passou a ser recusado como comando inválido.
 - **Redimensionamento solidário.** A visualização acompanha o tamanho de conteúdo da janela Riot e reserva uma faixa superior para os controles da janela.
 - **Fechamento durante a carga.** Uma geração de carga impede que uma promessa antiga reative uma visualização descartada.
 - **Falha sem dados do formulário.** Erros do transporte voltam com uma mensagem fixa, sem ecoar argumentos de cadastro, senhas ou chaves.
 
 ## Testes
 
-Testes com Electron e transporte falsos conferem criação como filho da janela, isolamento, redimensionamento, confiança do remetente, recuo esquerdo com limites, recusa de navegação e comandos, `windowAction` só com as três ações, sem chegar ao serviço, com resposta `ok: false` quando o handler falha ou não existe, `setModal` recusado, fechamento e descarte. Um teste com Electron real carrega o HTML completo e seu preload sandboxed, confirma o cartão fictício, configurações e retorno ao Riot em uma única janela; nos cartões, os cliques nas cópias de minimizar, fechar e perfil chegam a `onWindowAction` como `minimize`, `close` e `reveal`. Não carregam contas reais nem autenticam no Riot.
+Testes com Electron e transporte falsos conferem criação como filho da janela, isolamento, redimensionamento, confiança do remetente, recuo esquerdo com limites, recusa de navegação e comandos, `windowAction` só com as duas ações (`reveal` recusado), sem chegar ao serviço, com resposta `ok: false` quando o handler falha ou não existe, `setModal` recusado, fechamento e descarte. Um teste com Electron real carrega o HTML completo e seu preload sandboxed, confirma o cartão fictício, configurações e retorno ao Riot em uma única janela; nos cartões, os cliques nas cópias de minimizar e fechar chegam a `onWindowAction` como `minimize` e `close`, e não há cópia do perfil. Não carregam contas reais nem autenticam no Riot.
 
 ## Pontos de atenção
 

@@ -61,7 +61,7 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 - **Integração sempre oculta.** Em `start` e `startFromManager`, `hide` e `closeClient` são sempre `true`, ignorando preferências antigas de janela independente. O método legado `signIn` conserva o contrato anterior para compatibilidade interna/testes.
 - **Redação de segredos.** `safeText` troca usuário e senha por `[redacted]` em status, log, erro e estado. Se um segredo com menos de 4 caracteres aparecer no texto, a mensagem inteira vira `Sign-in failed`. Valor que não é string também vira `Sign-in failed`.
 - **Observadores não derrubam o login.** `notify` e `writeLog` engolem exceções e promessas rejeitadas. Falha de observador vira só uma linha de log.
-- **Sessão rejeitada sai antes da nova.** Com `sessionRejected` no resultado, a sessão antiga é apagada antes de salvar a nova. Num erro com `sessionRejected`, a sessão é apagada; falha ao apagar só é registrada.
+- **Sessão rejeitada sai antes da nova.** Com `sessionRejected` no resultado, a sessão antiga é apagada antes de salvar a nova. Num erro com `sessionRejected`, a sessão é apagada; falha ao apagar só é registrada. Desde 2026-11-06, o [[signInFlow]] também chama `onRejected` assim que descobre que a sessão restaurada é de outra conta, e a cópia é apagada na hora, antes de a Riot fechar. Assim o `onClosed` guarda a sessão renovada na dona certa, em vez de achar a conta errada pelo `sub` da cópia. Falha ao apagar só é registrada ("could not forget the rejected session").
 - **Sucesso só se o jogo abriu.** Sem `gameStarted`, a operação falha com `The game did not open…`; `onLaunched` não roda e `lastPlayed`/`lastGame` não são gravados. Conta atual e Riot ID devolvido são gravados mesmo assim.
 - **Cancelado é decidido pelo sinal.** Qualquer erro depois de `abort()` vira `cancelled`.
 - **Recuperação após timeout.** Cada `status` redefine `needsAttention` e `nativeClient`. Uma falha preserva somente as flags explícitas devolvidas pelo erro do fluxo, sem deduzir verificação pendente de avisos genéricos. Sucesso e cancelamento limpam ambas. A operação terminada libera o mutex, mas mantém a recuperação da verificação nativa disponível.
@@ -72,6 +72,8 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 ## Testes
 
 `test/core/signInService.test.js` cobre: senha descriptografada só para o [[riotClient]] e ausente de estado, log e status; `start` devolvendo antes de executar e a operação sobrevivendo; mutex entre janela e ponte; recusa com LoL ou VALORANT abertos só no fluxo da ponte; `hide`/`closeClient` forçados na ponte e respeitados na janela; cancelamento antes e durante; ordem apagar/salvar de sessão rejeitada; erro de autenticação com falha ao apagar; `nativeClient` publicado e limpo pelo progresso seguinte; observadores que falham; credenciais trocadas no meio; redação; jogo e conta inválidos; jogo que não abriu; erro que não é `Error`.
+
+Desde 2026-11-06 também cobre o `onRejected`: a sessão da conta escolhida é apagada antes de a Riot fechar a outra conta, e uma falha ao apagar só vai ao log.
 
 ## Pontos de atenção
 

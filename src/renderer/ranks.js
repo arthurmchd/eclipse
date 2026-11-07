@@ -46,7 +46,32 @@ export const valGroupIcon = (group) => valIcon(group.id === 'UNRATED' ? 0 : grou
 export const profileIcon = (id) =>
   `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${id}.jpg`;
 
+const BANNERS = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/regalia/bannerskins';
+const PLAYER_CARDS = 'https://media.valorant-api.com/playercards';
+const DEFAULT_CARD = '9fb348bc-41a0-91ad-8a3e-818035c4e561';
+
+export function lolBanner(lol) {
+  const name = String(lol?.banner || '').toLowerCase();
+  if (/^[a-z0-9_]{1,80}$/.test(name)) return `${BANNERS}/${name}.png`;
+  const best = LOL_TIERS.find((t) => t.id !== 'UNRANKED' && [lol?.solo?.tier, lol?.flex?.tier].includes(t.id));
+  return `${BANNERS}/${best ? best.id.toLowerCase() : 'default'}.png`;
+}
+
+export function valCardArt(card) {
+  const id = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(String(card || ''))?.[0] || DEFAULT_CARD;
+  return `${PLAYER_CARDS}/${id.toLowerCase()}/wideart.png`;
+}
+
 const title = (s) => s.charAt(0) + s.slice(1).toLowerCase();
+
+export function climbOf(entry) {
+  const cutoffs = entry?.cutoffs;
+  if (!cutoffs || !Number.isFinite(entry.lp)) return null;
+  const tier = entry.tier === 'MASTER' ? 'GRANDMASTER' : ['GRANDMASTER', 'CHALLENGER'].includes(entry.tier) ? 'CHALLENGER' : null;
+  const cutoff = tier ? cutoffs[tier.toLowerCase()] : null;
+  if (!Number.isFinite(cutoff)) return null;
+  return { tier, cutoff, gap: cutoff - entry.lp, holding: entry.tier === 'CHALLENGER' };
+}
 
 export function rankOf(acc, game, queue) {
   if (game === 'val') {
@@ -94,6 +119,7 @@ export function rankOf(acc, game, queue) {
     losses: e ? e.losses : null,
     winrate: games ? Math.round((e.wins / games) * 100) : null,
     hotStreak: e?.hotStreak || false,
+    climb: climbOf(e),
     extra: '',
     lastSeason: acc.lastSeason?.[game] || '',
     updatedAt: block?.updatedAt || null,

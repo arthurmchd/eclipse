@@ -15,7 +15,7 @@ function toggleRect({ width, height }) {
 function createOverlayToggle({ electron = require('electron'), onChange = () => {}, language = 'pt', file = OVERLAY_TOGGLE_FILE, preload = OVERLAY_TOGGLE_PRELOAD_FILE } = {}) {
   const { WebContentsView, ipcMain } = electron;
   const expectedUrl = pathToFileURL(file).href;
-  let view = null, parent = null, disposed = false, loaded = false, current = normalizeLanguage(language), hidden = false;
+  let view = null, parent = null, disposed = false, loaded = false, current = normalizeLanguage(language), hidden = false, visible = true;
   function trusted(event) {
     try {
       return !disposed && view && !view.webContents.isDestroyed() && event.sender === view.webContents
@@ -48,6 +48,7 @@ function createOverlayToggle({ electron = require('electron'), onChange = () => 
       parent = window;
       view = new WebContentsView({ webPreferences: { preload, contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true, partition: 'ram-overlay-toggle' } });
       view.setBackgroundColor('#00000000');
+      view.setVisible(visible);
       view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
       view.webContents.on('will-navigate', event => event.preventDefault());
       view.webContents.on('will-attach-webview', event => event.preventDefault());
@@ -69,6 +70,10 @@ function createOverlayToggle({ electron = require('electron'), onChange = () => 
     setHidden(value) {
       hidden = value === true;
       sendHidden();
+    },
+    setVisible(value) {
+      visible = value === true;
+      if (view && !disposed) view.setVisible(visible);
     },
     dispose() {
       if (disposed) return;

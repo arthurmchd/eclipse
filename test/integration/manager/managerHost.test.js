@@ -112,12 +112,11 @@ test('the embedded view asks for Riot window actions locally and only from a fix
   await f.host.open(f.parent);
   const handler = f.handlers.get(CHANNEL);
   assert.deepEqual(await handler(f.event(), 'windowAction', ['minimize']), { ok: true });
-  assert.deepEqual(await handler(f.event(), 'windowAction', ['reveal']), { ok: false });
   assert.deepEqual(await handler(f.event(), 'windowAction', ['close']), { ok: false });
-  for (const args of [['quit'], [], ['minimize', 'close'], [1], [{ action: 'close' }]]) await assert.rejects(handler(f.event(), 'windowAction', args), /Invalid account command/);
+  for (const args of [['quit'], ['reveal'], [], ['minimize', 'close'], [1], [{ action: 'close' }]]) await assert.rejects(handler(f.event(), 'windowAction', args), /Invalid account command/);
   await assert.rejects(handler(f.event(), 'setModal', [true]), /Invalid account command/);
   await assert.rejects(handler({ sender: {}, senderFrame: {} }, 'windowAction', ['minimize']), /only available/);
-  assert.deepEqual(actions, ['minimize', 'reveal', 'close']);
+  assert.deepEqual(actions, ['minimize', 'close']);
   assert.equal(f.requests.length, 0);
 });
 

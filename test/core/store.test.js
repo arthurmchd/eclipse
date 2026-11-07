@@ -41,6 +41,7 @@ test('session operations reject traversal and unknown accounts', (t) => {
     assert.throws(() => store.sessionFile(id), /Invalid account ID/);
     assert.throws(() => store.forgetSession(id), /Invalid account ID/);
     assert.throws(() => store.saveSession(id, 'fictional-session'), /Invalid account ID/);
+    assert.throws(() => store.sessionSavedAt(id), /Invalid account ID/);
   }
   assert.equal(fs.readFileSync(outside, 'utf8'), 'sentinel');
   assert.throws(() => store.saveSession('unknown-account', 'fictional-session'), /Account not found/);
@@ -53,8 +54,11 @@ test('sessions round trip using encrypted bytes for UUID and legacy IDs', (t) =>
   assert.equal(store.loadSession(account.id), 'fictional-session');
   assert.ok(fs.readFileSync(store.sessionFile(account.id), 'utf8').startsWith('test-encrypted:'));
   assert.equal(fs.readFileSync(store.sessionFile(account.id), 'utf8').includes('fictional-session'), false);
+  const savedAt = store.sessionSavedAt(account.id);
+  assert.ok(Math.abs(savedAt - fs.statSync(store.sessionFile(account.id)).mtimeMs) < 1 && savedAt > Date.now() - 60000);
   store.forgetSession(account.id);
   assert.equal(store.hasSession(account.id), false);
+  assert.equal(store.sessionSavedAt(account.id), 0);
   store.data.accounts[0].id = 'legacy-account_01';
   store.saveSession('legacy-account_01', 'legacy-fictional-session');
   assert.equal(store.loadSession('legacy-account_01'), 'legacy-fictional-session');

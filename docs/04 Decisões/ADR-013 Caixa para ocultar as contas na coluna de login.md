@@ -33,6 +33,11 @@ A caixa precisa ficar fora dos cartões, senão sumiria junto com eles e não da
 - O teste de geometria agora confere que, na coluna de login, a região contém só o retângulo da caixa.
 - Nenhuma janela ou arquivo da Riot é alterado. O preload da caixa só aceita um booleano e confere o remetente.
 
+## Revisões
+
+- 2026-11-06, [[ADR-024 Coluna de login coberta durante o login]]: durante um login, a coluna inteira entra na região, coberta por uma view com um carregamento, menos um furo no ponto lido pelo [[riotWindowObserver]]. A caixa some durante o login. Fora do login, vale a regra acima.
+- 2026-11-06, [[ADR-025 Caixa some junto com o formulário da Riot]]: a caixa também some, e o retângulo dela sai da região, quando a caixa "Stay signed in" da Riot some da tela, como no clique em entrar do login manual. Ela volta quando a da Riot reaparece.
+
 ## Relacionado
 
 - [[riotOverlay]]

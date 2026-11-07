@@ -7,6 +7,10 @@ tags: [adr, arquitetura, interface, janelas, segurança]
 
 # ADR-015 Controles da janela do Riot desenhados pelo Eclipse
 
+## Revisão de 2026-11-06
+
+A cópia do perfil saiu, a pedido do usuário: "retire do eclipse o botão de gerenciar a conta da riot, faça com que ela apareça apenas quando o usuário clicar para esconder contas (modo padrão de acessar da riot)". Os [[cards]] desenham só minimizar e fechar. O botão real do perfil fica escondido embaixo da página e volta a funcionar quando o usuário marca "Ocultar contas", que devolve a arte inteira à Riot. A ação `reveal` saiu do [[managerHost]], do [[manager-preload]] e do [[riotOverlay]]. O resto da decisão continua; o item "O perfil oculta as contas" abaixo fica como registro.
+
 ## Contexto
 
 Em 2026-11-04 o usuário pediu para usar toda a área do Riot Client, menos a coluna de login. No canto superior direito da arte ficam três controles nativos da Riot: minimizar, fechar e o botão redondo do perfil. Até aqui a região de cliques da sobreposição deixava de fora uma faixa à direita para esses controles continuarem funcionando ([[ADR-011 Cartões sobre a arte do Riot]], [[ADR-012 Sobreposição presa à janela do Riot]]). O usuário achou o recorte estranho e, sem ele, os controles ficariam embaixo da janela do Eclipse, visíveis mas sem receber cliques.

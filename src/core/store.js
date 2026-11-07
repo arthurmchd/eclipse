@@ -217,6 +217,15 @@ class Store {
     }
   }
 
+  sessionSavedAt(id) {
+    const file = this.sessionFile(id);
+    try {
+      return fs.statSync(file).mtimeMs;
+    } catch {
+      return 0;
+    }
+  }
+
   loadSession(id) {
     try {
       return safeStorage.decryptString(fs.readFileSync(this.sessionFile(id)));

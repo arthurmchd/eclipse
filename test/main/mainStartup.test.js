@@ -20,10 +20,61 @@ test('default overlay startup waits for the official client without starting a p
   f.launchOptions().operationUpdated({ status: 'running', needsAttention: true });
   assert.equal(f.events.at(-1), 'overlay-blocked');
   f.launchOptions().operationUpdated({ status: 'succeeded' });
-  assert.equal(f.events.at(-1), 'overlay-unblocked');
+  assert.deepEqual(f.events.slice(-2), ['overlay-unblocked', 'keeper-check']);
   f.app.emit('before-quit', { preventDefault() {} });
   await flush();
   assert.equal(f.events.includes('overlay-stop'), true);
+});
+
+test('cards mode keeps each account session when Riot quits, checks again after a sign-in and stops on quit', async () => {
+  const f = fixture({ overlayMode: true });
+  await flush();
+  assert.ok(f.events.indexOf('keeper-start') >= 0 && f.events.indexOf('keeper-start') < f.events.indexOf('overlay-start'));
+  const options = f.keeperOptions();
+  assert.equal(options.riot, f.riotClient);
+  assert.equal(options.store, f.store);
+  assert.equal(options.busy(), false);
+  f.setBusy(true);
+  assert.equal(options.busy(), true);
+  options.onSaved({ id: 'synthetic-account' });
+  assert.deepEqual(f.publicEvents.at(-1), { channel: 'account-updated', payload: { id: 'synthetic-account', public: true } });
+  f.launchOptions().operationUpdated({ status: 'running' });
+  assert.equal(f.events.includes('keeper-check'), false);
+  f.launchOptions().operationUpdated({ status: 'failed', text: 'synthetic failure' });
+  assert.equal(f.events.includes('keeper-check'), true);
+  f.launchOptions().onClosed({ riotId: null, yaml: 'owned' });
+  assert.equal(f.events.at(-1), 'keeper-keep');
+  f.launchOptions().onClosed({ riotId: null, yaml: 'unknown' });
+  assert.equal(f.events.filter((event) => event === 'keeper-keep').length, 2);
+  f.app.emit('before-quit', { preventDefault() {} });
+  await flush();
+  assert.ok(f.events.indexOf('keeper-stop') > f.events.indexOf('cancel'));
+});
+
+test('cards mode opens the window of a Riot that leaves background mode without one, and stops watching on quit', async () => {
+  const f = fixture({ overlayMode: true });
+  await flush();
+  assert.ok(f.events.indexOf('wakeup-start') > f.events.indexOf('keeper-start') && f.events.indexOf('wakeup-start') < f.events.indexOf('overlay-start'));
+  const options = f.wakeupOptions();
+  assert.equal(options.riot, f.riotClient);
+  assert.equal(options.busy(), false);
+  f.setBusy(true);
+  assert.equal(options.busy(), true);
+  f.app.emit('before-quit', { preventDefault() {} });
+  await flush();
+  assert.ok(f.events.indexOf('wakeup-stop') > f.events.indexOf('cancel'));
+  const plain = fixture();
+  await flush();
+  assert.equal(plain.wakeupOptions(), undefined);
+  assert.equal(plain.events.includes('wakeup-start'), false);
+});
+
+test('private mode never starts the session keeper', async () => {
+  const f = fixture();
+  await flush();
+  assert.equal(f.keeperOptions(), undefined);
+  f.launchOptions().operationUpdated({ status: 'succeeded' });
+  assert.equal(f.events.includes('keeper-check'), false);
 });
 
 test('overlay mode keeps Chromium drawing the cards when they start covered by Riot and shows them without fading in; private mode leaves Chromium defaults', async () => {
@@ -48,7 +99,7 @@ test('tray opens the official Riot client and requests its overlay; ordinary lau
 function fixture({ overlayMode = false, trayIcon = 'C:/app/src/renderer/assets/icon.ico', prepared = true, openFailure = false, bridgeFailure = false, waitForReady = false, openGate, nativeOpenGate, operation = null, singleInstance = true } = {}) {
   const events = [], publicEvents = [], dialogs = [], openedClientPaths = [], managerCalls = [], languages = [], balloons = [];
   const app = new EventEmitter();
-  let releaseReady, privateOptions, bridgeOptions, managerOptions, launchOptions, overlayOptions, trayMenu;
+  let releaseReady, privateOptions, bridgeOptions, managerOptions, launchOptions, overlayOptions, keeperOptions, wakeupOptions, trayMenu, busy = false;
   let windows = 0;
   const ready = waitForReady ? new Promise((resolve) => { releaseReady = resolve; }) : Promise.resolve();
   const switches = [];
@@ -79,7 +130,7 @@ function fixture({ overlayMode = false, trayIcon = 'C:/app/src/renderer/assets/i
   const store = {
     dir: 'C:/synthetic-data',
     data: { accounts: [], settings: { refreshMinutes: 0, riotClientPath: 'C:/configured/RiotClientServices.exe' } },
-    listAccounts: () => [], publicSettings: () => ({}), log: () => {},
+    listAccounts: () => [], publicSettings: () => ({}), log: () => {}, publicAccount: (account) => ({ id: account.id, public: true }),
   };
   const deps = {
     electron, fs: { existsSync: () => false, appendFileSync: () => {} }, path,
@@ -97,8 +148,13 @@ function fixture({ overlayMode = false, trayIcon = 'C:/app/src/renderer/assets/i
     '../riot/riotClient': riotClient,
     '../core/signInService': { createSignInService: (options) => {
       launchOptions = options;
-      return { getState: () => operation, cancel: () => events.push('cancel'), start: () => ({ ok: true, operationId: 'synthetic' }) };
+      return { getState: () => operation, cancel: () => events.push('cancel'), isBusy: () => busy, start: () => ({ ok: true, operationId: 'synthetic' }) };
     } },
+    '../core/sessionKeeper': { createSessionKeeper: (options) => (keeperOptions = options, {
+      start: () => events.push('keeper-start'), check: () => events.push('keeper-check'), stop: () => events.push('keeper-stop'),
+      keep: (yaml) => { events.push('keeper-keep'); return yaml === 'owned' ? { id: 'owner' } : null; },
+    }) },
+    '../core/riotWakeup': { createRiotWakeup: (options) => (wakeupOptions = options, { start: () => events.push('wakeup-start'), stop: () => events.push('wakeup-stop') }) },
     '../core/managerService': {
       createManagerEvents: () => ({ publish: (channel, payload) => publicEvents.push({ channel, payload }) }),
       createManagerService: (options) => {
@@ -129,7 +185,8 @@ function fixture({ overlayMode = false, trayIcon = 'C:/app/src/renderer/assets/i
   return { app, events, publicEvents, dialogs, openedClientPaths, managerCalls, riotClient, store, languages, balloons, windowCount: () => windows,
     setOperation: (value) => { operation = value; }, releaseReady: () => releaseReady(),
     privateOptions: () => privateOptions, bridgeOptions: () => bridgeOptions, managerOptions: () => managerOptions,
-    launchOptions: () => launchOptions, overlayOptions: () => overlayOptions, trayMenu: () => trayMenu, trayState };
+    launchOptions: () => launchOptions, overlayOptions: () => overlayOptions, keeperOptions: () => keeperOptions, wakeupOptions: () => wakeupOptions, trayMenu: () => trayMenu, trayState,
+    setBusy: (value) => { busy = value; } };
 }
 
 test('the tray is named Eclipse and uses the Eclipse icon, falling back to the executable icon', async () => {

@@ -2,7 +2,7 @@ const { pathToFileURL } = require('node:url');
 const { MANAGER_RENDERER_FILE, MANAGER_PRELOAD_FILE } = require('../../paths');
 
 const CHANNEL = 'ram-manager:invoke';
-const WINDOW_ACTIONS = new Set(['minimize', 'close', 'reveal']);
+const WINDOW_ACTIONS = new Set(['minimize', 'close']);
 const METHODS = new Set(['init', 'saveAccount', 'deleteAccount', 'patchAccount', 'forgetSession', 'copy', 'refresh', 'runningGames', 'signIn', 'showRiotClient', 'cancelSignIn', 'saveSettings', 'pickClientPath', 'openDataFolder', 'events', 'operation', 'openExternal']);
 
 function createManagerHost({ electron = require('electron'), request, rendererFile = MANAGER_RENDERER_FILE, preloadFile = MANAGER_PRELOAD_FILE, topInset = 38, leftInset = () => 0, onClose = () => {}, onWindowAction = async () => false, backgroundColor = '#05080d' } = {}) {

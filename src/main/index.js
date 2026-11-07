@@ -6,6 +6,8 @@ const { Store } = require('../core/store');
 const { REGIONS, VAL_REGIONS, refreshAccount } = require('../core/rankApi');
 const riotClient = require('../riot/riotClient');
 const { createSignInService } = require('../core/signInService');
+const { createSessionKeeper } = require('../core/sessionKeeper');
+const { createRiotWakeup } = require('../core/riotWakeup');
 const { createManagerService, createManagerEvents } = require('../core/managerService');
 const { createClientBridge } = require('../integration/bridgeServer');
 const { createPrivateClient, inspectPrivateClient } = require('../integration/privateClient');
@@ -19,7 +21,7 @@ if (overlayMode) {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
   app.commandLine.appendSwitch('wm-window-animations-disabled');
 }
-let store, launchService, managerService, clientBridge, privateClient, tray, overlay;
+let store, launchService, managerService, clientBridge, privateClient, tray, overlay, sessionKeeper, riotWakeup;
 let nativeIntegration = { active: false, mode: 'private' };
 let refreshing = null, refreshTimer = null, integrationStarting = null, riotOpening = null;
 let startupComplete = false, quitting = false;
@@ -37,6 +39,11 @@ function signInLog(line) {
   } catch {}
 }
 function saveLeavingSession({ riotId, yaml }) {
+  const owner = sessionKeeper?.keep(yaml);
+  if (owner) {
+    signInLog('updated the session of the account that was signed in');
+    return;
+  }
   const previous = store.data.currentAccountId && store.getAccount(store.data.currentAccountId);
   if (!previous || !riotClient.hasPersistedLogin(yaml)) return;
   if (!riotId || !riotClient.sameRiotId(riotId, previous)) {
@@ -207,6 +214,7 @@ if (!app.requestSingleInstanceLock()) {
         if (operation.status === 'running') privateClient?.hide();
         overlay?.setBlocked(operation.status === 'running');
         overlay?.setOperation(operation);
+        if (operation.status !== 'running') sessionKeeper?.check();
         if (operation.status === 'failed') tray?.displayBalloon({ title: words().gameFailed, content: operation.text.slice(0, 240), noSound: true });
       },
       status: (payload) => {
@@ -232,6 +240,13 @@ if (!app.requestSingleInstanceLock()) {
     await createTray();
     if (overlayMode) {
       nativeIntegration = { active: true, mode: 'overlay' };
+      sessionKeeper = createSessionKeeper({
+        riot: riotClient, store, busy: () => launchService.isBusy(), log: signInLog,
+        onSaved: (account) => send('account-updated', store.publicAccount(account)),
+      });
+      sessionKeeper.start();
+      riotWakeup = createRiotWakeup({ riot: riotClient, busy: () => launchService.isBusy(), log: signInLog });
+      riotWakeup.start();
       overlay = createRiotOverlay({
         readAuthenticationState: signal => riotClient.readLoginScreenState(signal),
         closeClient: () => riotClient.closeClient(),
@@ -255,6 +270,8 @@ if (!app.requestSingleInstanceLock()) {
     quitting = true;
     clearTimeout(refreshTimer);
     launchService?.cancel();
+    sessionKeeper?.stop();
+    riotWakeup?.stop();
     Promise.allSettled([overlay?.stop(), privateClient?.stop(), riotClient.dispose(), clientBridge?.stop()]).finally(() => { tray?.destroy(); app.quit(); });
   });
   app.on('window-all-closed', () => {});

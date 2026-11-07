@@ -21,7 +21,7 @@ O modo integrado só aceita versões da interface do Riot validadas (**141.0.0**
 | Log com argumentos | `UNSAFE_STARTUP_LOG` em [[privateHostCore]] e [[Scripts de integração]] | O filtro precisa encontrar a chamada exata |
 | Hook do formulário e MFA | `HOOK_START`, `HOOK_END`, `ORIGINAL_INITIALIZE`, `ORIGINAL_EFFECTS` em [[privateRendererCore]] | Nomes minificados mudam a cada build |
 | Seletores do formulário | `addon-renderer.js` ([[addons]]) | O painel procura o `LoginForm` |
-| Posições do preenchimento nativo | `login.ps1` ([[login.ps1]]) | Frações medidas na v141 |
+| Posições e cores do preenchimento nativo | `login.ps1` ([[login.ps1]]) e o ponto da caixa no [[riotWindowObserver]] | Frações medidas na v141; cores da caixa "Stay signed in" medidas na v142 |
 | Estados da sessão do jogador | `NON_BLOCKING_SESSION_STATES` em [[riotAuthentication]] | Estado automático novo fica bloqueado até entrar na lista. Compare com a enumeração `PlayerSessionStateType` em `C:\Riot Games\Riot Client\RiotGamesApi.dll` (só leitura) |
 
 Os serviços do Riot (`RiotGamesApi.dll`) atualizam junto com a interface e também afetam o login em segundo plano.

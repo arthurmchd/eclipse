@@ -208,6 +208,30 @@ test('authentication errors clear rejected sessions and cleanup failures remain 
   assert.ok(f.logs.some((line) => /could not forget/.test(line)));
 });
 
+test('a saved session of another account is forgotten as soon as it is found, before Riot closes it', async () => {
+  const f = fixture();
+  f.riotClient.signIn = async (options) => {
+    f.calls.push(['sign-in']);
+    await options.onRejected();
+    f.calls.push(['close-other-account']);
+    return { ...f.result, sessionRejected: true };
+  };
+  const response = await f.service.signIn('test-account', 'lol');
+  assert.equal(response.ok, true);
+  const names = f.calls.map(([name]) => name);
+  assert.deepEqual(f.calls.find(([name]) => name === 'forget-session'), ['forget-session', 'test-account']);
+  assert.ok(names.indexOf('forget-session') < names.indexOf('close-other-account'));
+});
+
+test('a failure to forget a rejected session is logged without stopping the sign-in', async () => {
+  const f = fixture();
+  f.store.forgetSession = () => { throw new Error('storage unavailable'); };
+  f.riotClient.signIn = async (options) => { await options.onRejected(); return f.result; };
+  const response = await f.service.signIn('test-account', 'lol');
+  assert.equal(response.ok, true);
+  assert.ok(f.logs.includes('could not forget the rejected session: storage unavailable'));
+});
+
 test('progress is public metadata and getState returns an independent snapshot', async () => {
   const f = fixture();
   f.riotClient.signIn = async (options) => {

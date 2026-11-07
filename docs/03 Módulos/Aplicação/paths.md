@@ -45,6 +45,7 @@ Calcula caminhos absolutos uma vez, a partir da posição do próprio arquivo, e
 
 - `ACCOUNT_CARDS_FILE` aponta para `src/renderer/cards.html`, a interface compacta do modo sobreposto.
 - `OVERLAY_TOGGLE_FILE` e `OVERLAY_TOGGLE_PRELOAD_FILE` apontam para a página e o preload da caixa "Ocultar contas" ([[overlayToggle]]), em `src/integration/overlay/`.
+- `OVERLAY_COVER_FILE` aponta para `src/integration/overlay/cover.html`, a cobertura da coluna de login durante o login ([[overlayCover]]).
 
 - `OVERLAY_RENDERER_FILE` e `OVERLAY_PRELOAD_FILE` centralizam os arquivos locais do botão de [[riotOverlay]]. O observador usa `windowsHelper('riotWindowObserver.ps1')`.
 

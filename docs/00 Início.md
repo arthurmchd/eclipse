@@ -25,12 +25,12 @@ Este vault é o cérebro do projeto. O código não tem comentários: o **porqu�
 
 ## Módulos
 
-Modo padrão: [[riotOverlay]] · [[overlayToggle]] · [[riotWindowObserver]].
+Modo padrão: [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[riotWindowObserver]].
 Interface compacta: [[cards]].
 
 | Camada | Notas |
 |---|---|
-| Aplicação | [[main]] · [[preload]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[language]] · [[rankApi]] |
+| Aplicação | [[main]] · [[preload]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] |
 | Riot | [[riotClient]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
 | Windows | [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[windowsDpapi]] |
 | Integração | [[privateClient]] · [[hostEntry]] · [[privateHost]] · [[privateHostCore]] · [[privateRendererCore]] · [[managerHost]] · [[manager-preload]] · [[addons]] · [[bridgeServer]] · [[bootstrapChannel]] · [[backend]] · [[asar]] · [[status]] · [[Scripts de integração]] |
@@ -46,7 +46,16 @@ Interface compacta: [[cards]].
 - [[ADR-014 Interface em português e inglês]]
 - [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]
 - [[ADR-016 Riot sem animação de minimizar e cartões com os cantos dela]]
-- [[ADR-010 Login visível com progresso]]
+- [[ADR-017 Cartões cedem a vez aos avisos da Riot]]
+- [[ADR-018 Arte da Riot desfocada atrás dos cartões]]
+- [[ADR-019 Sessão salva por conta no modo cartões]]
+- [[ADR-020 Riot conectada é encerrada quando fica sem jogo]]
+- [[ADR-021 Riot sempre abre desconectada]]
+- [[ADR-022 Sessões de antes do modo cartões são descartadas]]
+- [[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]]
+- [[ADR-024 Coluna de login coberta durante o login]]
+- [[ADR-025 Caixa some junto com o formulário da Riot]]
+- [[ADR-026 Riot fechada depois do jogo reabre na tela de login]]
 
 - [[ADR-001 Cópia privada da interface do Riot]]
 - [[ADR-002 Segredos protegidos pelo DPAPI]]
