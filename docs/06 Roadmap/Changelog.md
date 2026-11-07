@@ -7,6 +7,16 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-07 · Estado da Riot num lugar só
+
+- A pedido do usuário, item 4 da análise de remendos de 2026-11-06 ([[ADR-029 Estado da Riot definido num lugar só]]).
+- **[[riotState]] (novo):** define fechada, em jogo, com janela, sem janela, em segundo plano e conta `'yes'`/`'no'`/`'unknown'`. Cada olhada consulta a Riot no máximo uma vez por pergunta.
+- **[[sessionKeeper]], [[riotWakeup]], `closeEverything` do [[riotClient]] e o começo do [[signInFlow]]** passam a perguntar a ele, em vez de combinar `runningGames`, `authorization` e `sessionState` cada um do seu jeito.
+- **[[riotClient]]:** exporta `look()`; saem as saídas `clientRunning`, `isAuthorized`, `authorization` e `sessionState`, que só o guardião e o wakeup usavam.
+- O comportamento com a Riot real não muda. Nos testes do guardião, a Riot falsa responde só pela lista de processos e por `authorization`, passando pela regra real; cenários impossíveis ("roda" e "não roda" na mesma conferência) deixam de existir.
+- Fica para depois: conferir na Riot real se a API local tem canal de eventos ([[Backlog]]).
+- Testes novos: `test/riot/riotState.test.js` e, no [[signInFlow]], uma conta `'unknown'` nunca reaproveitada. 351 testes.
+
 ## 2026-11-07 · Seis correções pequenas do Backlog
 
 - A pedido do usuário, fecha os itens 4, 5, 7, 8, 10 e 22 do [[Backlog]].

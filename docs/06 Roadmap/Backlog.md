@@ -66,7 +66,7 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 
 ## Investigar
 
-- **Serviço único de estado da Riot.** Item 4 da análise de remendos de 2026-11-06: o [[sessionKeeper]], o [[riotWakeup]] e o login têm cada um a sua regra para saber se a Riot está fechada, em segundo plano, na tela de login, conectada ou em jogo. Antes de juntar, conferir na Riot real, só lendo e com autorização, se a API local tem canal de eventos (`/help`). A [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]] não precisou dele.
+- **Canal de eventos da API local.** A regra única do estado da Riot saiu em 2026-11-07 ([[riotState]], [[ADR-029 Estado da Riot definido num lugar só]]), ainda com olhadas periódicas. Falta conferir na Riot real, só lendo e com autorização, se a API local tem canal de eventos (`/help`). Se tiver, pode trocar a olhada a cada 4 s do [[sessionKeeper]].
 - **Validar o reinício com interface do [[riotInterface]].** O caminho `show` foi validado em 2026-10-26; o reinício (reserva) ainda não rodou numa instalação real.
 
 ## Estrutura

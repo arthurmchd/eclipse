@@ -1,3 +1,5 @@
+const { createRiotState } = require('./riotState');
+
 const AUTOMATIC_CHECK_GRACE_MS = 12000;
 const GAME_OPEN_TIMEOUT_MS = 180000;
 const GAME_UPDATE_TIMEOUT_MS = 1200000;
@@ -14,6 +16,7 @@ function createSignInFlow(io) {
     authorization = async () => ((await isAuthorized()) ? 'yes' : 'unknown'),
     now = Date.now, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = io;
+  const riotState = createRiotState({ runningGames, authorization, sessionState });
 
   return async function signIn({ account, session, hasSavedSession, game, clientPath, remember = true, status = () => {}, log = () => {}, onClosed = () => {}, onRejected = () => {}, signal }) {
     if (!['lol', 'tft', 'val', 'riot'].includes(game)) throw new Error('Select a supported game');
@@ -106,12 +109,13 @@ function createSignInFlow(io) {
       check();
       let signedIn = false;
       let restoring = false;
-      const running = await runningGames();
+      const atStart = riotState.look();
+      const gamesOpen = await atStart.inGame();
       check();
-      if (!running.lol && !running.val) {
-        const existing = await sessionState();
+      if (!gamesOpen) {
+        const ready = (await atStart.services()) === 'ready';
         check();
-        if (existing && await isAuthorized()) {
+        if (ready && await atStart.signedIn()) {
           const identity = await wait(activeRiotId, 8000);
           if (sameRiotId(identity, account)) {
             signedIn = true;
@@ -168,7 +172,7 @@ function createSignInFlow(io) {
         }
       };
       const backgroundRestore = remember && hasSavedSession === true && !signedIn;
-      if (!backgroundRestore) await prepareVisibleLogin(running.lol || running.val);
+      if (!backgroundRestore) await prepareVisibleLogin(gamesOpen);
       else {
         status('Closing Riot Client in the background…', { needsAttention: false });
         const closed = await closeEverything(log);

@@ -48,10 +48,11 @@ function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, 
   async function noticeSignOut() {
     const last = held;
     if (!last) return;
-    const running = await riot.clientRunning();
+    const look = riot.look();
+    const running = await look.running();
     if (held !== last) return;
     if (!running || !idle()) { held = null; return; }
-    const state = await riot.authorization();
+    const state = await look.account();
     if (held !== last) return;
     if (!idle()) { held = null; return; }
     if (state === 'unknown') return;
@@ -69,7 +70,7 @@ function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, 
     const yaml = riot.readSettingsYaml();
     if (!riot.hasPersistedLogin(yaml)) { await noticeSignOut(); return; }
     const owner = keepSession(yaml);
-    const holding = (await riot.clientRunning()) && (await riot.isAuthorized());
+    const holding = await riot.look().signedIn();
     if (!idle()) { held = null; return; }
     if (holding) { held = owner ? { account: owner, yaml } : null; return; }
     held = null;
@@ -97,9 +98,9 @@ function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, 
     schedule();
   }
 
-  async function reopenClient(state) {
+  async function reopenClient(running) {
     reopenLeft--;
-    if (state.client || riot.hasPersistedLogin(riot.readSettingsYaml())) {
+    if (running || riot.hasPersistedLogin(riot.readSettingsYaml())) {
       if (!reopenLeft) log('gave up reopening the Riot after closing it');
       return false;
     }
@@ -115,12 +116,14 @@ function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, 
 
   async function inspectClient() {
     if (!idle()) { idleSeen = 0; reopenLeft = 0; held = null; return; }
-    const state = await riot.runningGames();
-    if (state.lol || state.val) { gameSeen = true; idleSeen = 0; reopenLeft = 0; return; }
-    if (!state.client) held = null;
-    if (reopenLeft > 0 && await reopenClient(state)) return;
-    if (state.clientWindow && !gameSeen && !riot.hasPersistedLogin(riot.readSettingsYaml())) { idleSeen = 0; await noticeSignOut(); return; }
-    const signedIn = state.client && await riot.isAuthorized();
+    const look = riot.look();
+    if (await look.inGame()) { gameSeen = true; idleSeen = 0; reopenLeft = 0; return; }
+    const running = await look.running();
+    const window = await look.window();
+    if (!running) held = null;
+    if (reopenLeft > 0 && await reopenClient(running)) return;
+    if (window && !gameSeen && !riot.hasPersistedLogin(riot.readSettingsYaml())) { idleSeen = 0; await noticeSignOut(); return; }
+    const signedIn = await look.signedIn();
     if (!idle()) { idleSeen = 0; return; }
     if (!signedIn) {
       gameSeen = false;
@@ -129,13 +132,13 @@ function createSessionKeeper({ riot, store, busy = () => false, log = () => {}, 
       else await noticeSignOut();
       return;
     }
-    if (state.clientWindow && !gameSeen) { idleSeen = 0; return; }
+    if (window && !gameSeen) { idleSeen = 0; return; }
     if (++idleSeen < 2) return;
     log(gameSeen ? 'closing the signed-in Riot after the game; its session is kept' : 'closing the signed-in Riot left without a window; its session is kept');
     idleSeen = 0;
     gameSeen = false;
     await riot.quitClient();
-    reopenLeft = state.clientWindow ? reopenPolls : 0;
+    reopenLeft = window ? reopenPolls : 0;
     check();
   }
 

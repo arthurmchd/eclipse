@@ -32,15 +32,12 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 | `readSettingsYaml()` / `writeSettingsYaml(text, { expected })` | função / função async | Lê (ou `null`) e grava o `RiotGamesPrivateSettings.yaml`. Exportadas desde 2026-11-06 para o [[sessionKeeper]]. Desde 2026-11-06, a gravação usa `replaceFile` e devolve `true`, ou `false` quando o arquivo não é mais `expected`. Qualquer falha vira "Could not update the Riot Client settings file", sem caminho. |
 | `replaceFile(file, text, options)` | função async | Grava num temporário `eclipse-<uuid>.tmp` na mesma pasta e troca com `rename`. Opções: `expected`, `fs`, `sleep`, `attempts` (5), `delayMs` (100), `now`, `staleMs` (60 s). Exportada para os testes. |
 | `authorizationOf(response)` | função | `'yes'` com 200, `'no'` com 404, `'unknown'` com qualquer outra resposta ou sem resposta. Exportada para os testes. |
+| `look()` | função | Uma olhada do [[riotState]] sobre `runningGames`, `authorization` e `sessionState` reais. Desde 2026-11-07, para o [[sessionKeeper]] e o [[riotWakeup]] ([[ADR-029 Estado da Riot definido num lugar só]]). |
 | `createCloseEverything(deps)` | função | Monta o `closeEverything` com `runningGames`, `authorization`, `activeRiotId`, `localApi`, `taskkill`, `readSettingsYaml` e `waitFor`. Exportada para os testes. |
 | `createClientStarter(deps)` | função | Monta o `startClient` com `detectClientPath`, `runningGames`, `reveal`, `launchClient` e `select`. Exportada para os testes. |
 | `watchSettings(onChange)` | função | `fs.watch` na pasta `Data` da Riot, avisando só mudanças em `RiotGamesPrivateSettings*`. Erros do watcher são engolidos; pasta ausente devolve `null`. |
-| `clientRunning()` | função async | `runningGames().client`. |
 | `watchLockfile(onChange)` | função | `fs.watch` na pasta `Config` da Riot, avisando só mudanças no `lockfile`. Erros do watcher são engolidos; pasta ausente devolve `null`. Desde 2026-11-06, para o [[riotWakeup]]. |
-| `sessionState()` | função async | Estado da tela de login pela API local, ou `null` em qualquer erro. Nulo também com a Riot em segundo plano, porque a rota não existe nesse modo. Exportada desde 2026-11-06 para o [[riotWakeup]]. |
 | `showInterface()` | função async | `POST /riot-client-lifecycle/v1/show`. `true` com resposta 2xx; erro vira `false`. Sem plano B que reinicie a Riot, diferente de `openClient`. Desde 2026-11-06, para o [[riotWakeup]]. |
-| `isAuthorized()` | função async | `true` só quando `authorization()` diz `'yes'` (`GET /rso-auth/v1/authorization`). Erro vira `false`. Exportada desde 2026-11-06 para o [[sessionKeeper]]. |
-| `authorization()` | função async | `'yes'`, `'no'` ou `'unknown'` (`authorizationOf`). Exportada desde 2026-11-07 para o [[sessionKeeper]] confirmar uma saída pela Riot só com `'no'`. |
 | `quitClient()` | função async | Pede à Riot a saída normal (`POST /process-control/v1/process/quit`), a mesma do menu "Sair". Erro vira `null`. Exportada desde 2026-11-06 para o [[sessionKeeper]]. |
 | `sameRiotId(a, b)` | função | Compara `gameName` e `tagLine` sem diferenciar maiúsculas. Exige `gameName` nos dois. |
 | `startClient(clientPath)` | função async | Inicia a Riot com a interface só se nenhum processo dela estiver rodando. Libera as janelas guardadas, confere de novo e inicia. Devolve `true` se iniciou e `false` se a Riot já rodava. Sem caminho, lança "Riot Client not found". Desde 2026-11-06, para o [[sessionKeeper]]. |
@@ -68,15 +65,15 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 |---|---|
 | `runningProcesses` | `tasklist /FO CSV /NH`. Falha: "Could not check running Riot games. No accounts were switched". |
 | `taskkill(names)` | `taskkill /F /T /IM ...`. Ignora erros. |
-| `sessionState` | `authentication.sessionState()`. Qualquer erro vira `null`. |
-| `authorization` | `GET /rso-auth/v1/authorization` lido por `authorizationOf`. Erro vira `'unknown'`. Entregue ao [[signInFlow]] e ao `closeEverything`. |
+| `sessionState` | `authentication.sessionState()`. Qualquer erro vira `null`. Nulo também com a Riot em segundo plano, porque a rota não existe nesse modo. Entregue ao [[riotState]] e ao [[signInFlow]]. |
+| `authorization` | `GET /rso-auth/v1/authorization` lido por `authorizationOf`. Erro vira `'unknown'`. Entregue ao [[riotState]], ao [[signInFlow]] e ao `closeEverything`. |
 | `isAuthorized` | `authorization() === 'yes'`. |
 | `activeRiotId` | `GET /player-account/aliases/v1/active`. Aceita `game_name`/`gameName` e `tag_line`/`tagLine`. |
 | `launchProduct(exe, game, visible)` | `launchClient(exe, { visible })`. Ignora `game`. |
 
 ### `closeEverything(log)`
 
-1. Se o cliente roda, lê o estado da conta (`authorization`). Com `'yes'`, guarda `signedIn = true` e o Riot ID ativo.
+1. Lê a conta pela regra do [[riotState]]: Riot fechada vale `'no'`, sem consultar a API; aberta, `authorization`. Com `'yes'`, guarda `signedIn = true` e o Riot ID ativo.
 2. Mata LoL e VALORANT com `taskkill /F /T`.
 3. Com `'yes'` ou `'unknown'`, pede `POST /process-control/v1/process/quit`. Aceito (2xx), espera até 10 s e registra se saiu normalmente ou se será forçado. Recusado ou com erro, registra "Riot Client did not accept the quit request, forcing" e segue sem esperar. Com `'no'`, não há login a gravar e nada é pedido.
 4. Mata os processos do cliente e espera até 10 s (a cada 250 ms). Se algo resta: "Could not close the Riot Client".
@@ -106,6 +103,8 @@ Criado por `createLaunchRequester({ localApi })`, exportado para os testes.
 - Devolve `{ status, errorCode }`. `errorCode` é o `errorCode` da resposta se casar com `^[A-Za-z0-9_.-]{1,100}$`, senão `null`. Status fora de 0–999 vira `0`. Sem resposta, grava "launch request: no answer from Riot" e devolve `{ status: 0, errorCode: null }`.
 
 ## Invariantes e decisões
+
+- **Estado da Riot pelo [[riotState]].** Desde 2026-11-07 ([[ADR-029 Estado da Riot definido num lugar só]]), o riotClient cria uma instância do [[riotState]] com as consultas reais e exporta `look()`. O `closeEverything` usa a mesma regra. Saíram as saídas `clientRunning`, `isAuthorized`, `authorization` e `sessionState`, que só o [[sessionKeeper]] e o [[riotWakeup]] usavam; continuam como funções internas, entregues ao [[signInFlow]].
 
 - **Sem `error:focus` e sem interface escondida.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saiu o ramo `error:focus`, que o [[login.ps1]] nunca emitia, e o `visible: true` explícito das chamadas ao [[riotInterface]], que agora sempre abre a interface visível.
 - `openClient` usa o mesmo abridor quando os serviços já rodam sem interface; pede a janela ao backend antes de considerar outro início. Executar novamente apenas o exe não garantia uma janela.

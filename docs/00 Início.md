@@ -30,7 +30,7 @@ Um modo só desde 2026-11-07 ([[ADR-028 Modo antigo removido]]): os [[cards]] so
 | Camada | Notas |
 |---|---|
 | Aplicação | [[main]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] |
-| Riot | [[riotClient]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
+| Riot | [[riotClient]] · [[riotState]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
 | Windows | [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[riotWindowObserver]] |
 | Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] |
 | Interface | [[cards]] |
@@ -59,6 +59,7 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-026 Riot fechada depois do jogo reabre na tela de login]]
 - [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]
 - [[ADR-028 Modo antigo removido]]
+- [[ADR-029 Estado da Riot definido num lugar só]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]

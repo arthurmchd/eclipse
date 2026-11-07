@@ -576,6 +576,17 @@ test('an expired saved session uses direct authentication after restoring only b
   assert.equal(f.events.some((event) => Array.isArray(event) && event[0] === 'type'), false);
 });
 
+test('a current account the Riot reports as unknown is never reused, even with its services answering', async () => {
+  const f = directFixture();
+  f.state.authorized = true;
+  f.io.authorization = async () => (f.state.authorized ? 'unknown' : 'no');
+  const result = await f.run();
+  assert.equal(result.reusedCurrentSession, false);
+  assert.equal(result.gameStarted, true);
+  assert.ok(f.events.indexOf('closed') < f.events.indexOf('visible-interface'));
+  assert.ok(f.events.indexOf('visible-interface') < f.events.indexOf('authenticate'));
+});
+
 test('a game already running prevents reusing even a matching current session', async () => {
   const f = directFixture();
   f.state.authorized = true;

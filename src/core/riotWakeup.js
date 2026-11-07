@@ -1,13 +1,6 @@
 function createRiotWakeup({ riot, busy = () => false, log = () => {}, setTimeout: later = setTimeout, clearTimeout: cancel = clearTimeout, settleMs = 1000, retryMs = 1000, attempts = 8, graceMs = 2000 }) {
   let watcher = null, timer = null, stopped = false, background = false, generation = 0;
 
-  async function mode() {
-    const state = await riot.runningGames();
-    if (!state.client) return 'closed';
-    if (state.lol || state.val || state.clientWindow) return 'shown';
-    return (await riot.sessionState()) ? 'hidden' : 'background';
-  }
-
   function follow(id, wasBackground, delayMs, left, graced) {
     cancel(timer);
     timer = later(async () => {
@@ -15,10 +8,10 @@ function createRiotWakeup({ riot, busy = () => false, log = () => {}, setTimeout
       if (stopped || id !== generation) return;
       if (busy()) { background = false; return; }
       let current;
-      try { current = await mode(); } catch { return; }
+      try { current = await riot.look().mode(); } catch { return; }
       if (stopped || id !== generation) return;
       if (busy()) { background = false; return; }
-      if (current === 'closed' || current === 'shown') { background = false; return; }
+      if (current !== 'background' && current !== 'hidden') { background = false; return; }
       if (current === 'background') {
         if (!wasBackground) { background = true; return; }
         if (left > 0) follow(id, true, retryMs, left - 1, false);

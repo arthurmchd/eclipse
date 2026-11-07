@@ -38,7 +38,7 @@ Decisão em [[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]
 
 **`options`:**
 
-- `riot`: o [[riotClient]], com `watchLockfile`, `runningGames`, `sessionState` e `showInterface`.
+- `riot`: o [[riotClient]], com `watchLockfile`, `look` e `showInterface`.
 - `busy`: diz se há login em andamento.
 - `log`: grava no `sign-in.log`.
 - `setTimeout` e `clearTimeout`: injetáveis nos testes.
@@ -54,11 +54,11 @@ Decisão em [[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]
 
 ## Invariantes e decisões
 
-- **Quatro estados, pela API e pelos processos.**
-  - **Fechada:** sem `RiotClientServices`.
-  - **Com janela ou jogo:** `Riot Client.exe` ou um jogo rodando.
-  - **Aberta sem janela:** o serviço roda e a rota de autenticação responde (`sessionState()` não nulo).
-  - **Em segundo plano:** o serviço roda e a rota de autenticação não responde. Conferido em 2026-11-06 na Riot v142: em segundo plano, a API local só responde `/help`, e as rotas de conta dão 404 `RESOURCE_NOT_FOUND`.
+- **Estados pelo [[riotState]].** Desde 2026-11-07 ([[ADR-029 Estado da Riot definido num lugar só]]), cada conferência pede `riot.look().mode()`. Antes o módulo tinha os próprios modos `closed`, `shown`, `hidden` e `background`; agora são os do [[riotState]], com as mesmas consultas na mesma ordem.
+  - **Fechada (`closed`):** sem processo da Riot.
+  - **Com janela ou jogo (`window`, `game`):** `Riot Client.exe` ou um jogo rodando. Para o wakeup, as duas valem igual.
+  - **Aberta sem janela (`hidden`):** o serviço roda e a rota de autenticação responde (`sessionState()` não nulo).
+  - **Em segundo plano (`background`):** o serviço roda e a rota de autenticação não responde. Conferido em 2026-11-06 na Riot v142: em segundo plano, a API local só responde `/help`, e as rotas de conta dão 404 `RESOURCE_NOT_FOUND`.
 - **Só age na volta do segundo plano.**
   - A cada mudança no `lockfile`, o módulo guarda se a Riot estava em segundo plano antes dela.
   - Se não estava e agora está, só anota.

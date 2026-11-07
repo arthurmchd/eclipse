@@ -10,6 +10,7 @@ const { launchClient } = require('./riotProcess');
 const { createInterfaceOpener, SHOW_INTERFACE } = require('./riotInterface');
 const { createRiotAuthentication } = require('./riotAuthentication');
 const { createRiotAppControls } = require('./riotAppControls');
+const { createRiotState } = require('./riotState');
 const { windowsHelper } = require('../paths');
 const windows = createWindowController();
 let selectedClientPath = null;
@@ -308,10 +309,10 @@ async function waitFor(fn, timeoutMs, everyMs = 500) {
 }
 
 function createCloseEverything({ runningGames, authorization, activeRiotId, localApi, taskkill, readSettingsYaml, waitFor }) {
+  const riotState = createRiotState({ runningGames, authorization });
   return async function closeEverything(log) {
     const info = { signedIn: false, riotId: null, yaml: null };
-    const running = await runningGames();
-    const state = running.client ? await authorization() : 'no';
+    const state = await riotState.look().account();
     if (state === 'yes') {
       info.signedIn = true;
       info.riotId = await activeRiotId();
@@ -335,6 +336,8 @@ function createCloseEverything({ runningGames, authorization, activeRiotId, loca
     return info;
   };
 }
+
+const riotState = createRiotState({ runningGames, authorization, sessionState });
 
 const closeEverything = createCloseEverything({ runningGames, authorization, activeRiotId, localApi, taskkill, readSettingsYaml, waitFor });
 
@@ -465,10 +468,8 @@ const signIn = createSignInFlow({
 module.exports = {
   signIn, runningGames, detectClientPath, hasPersistedLogin, stripPersistedLogin, persistedSubject, persistedRiotId, sameRiotId,
   readSettingsYaml, writeSettingsYaml, replaceFile, authorizationOf, createCloseEverything, createClientStarter, createLaunchRequester,
-  watchSettings, watchLockfile, sessionState, showInterface,
-  clientRunning: async () => (await runningGames()).client,
-  isAuthorized,
-  authorization,
+  watchSettings, watchLockfile, showInterface,
+  look: () => riotState.look(),
   quitClient: () => localApi('POST', QUIT).catch(() => null),
   startClient,
   openClient,

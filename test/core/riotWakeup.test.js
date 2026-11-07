@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createRiotWakeup } = require('../../src/core/riotWakeup');
+const { createRiotState } = require('../../src/riot/riotState');
 
 const SETTLE = 1000, RETRY = 1001, GRACE = 2000;
 
@@ -14,6 +15,7 @@ function fixture({ client = true, clientWindow = false, game = false, full = fal
     showInterface: async () => { events.push('show'); return state.show; },
     watchLockfile: (onChange) => { watcher = { onChange, closed: false, close() { this.closed = true; } }; return watcher; },
   };
+  riot.look = () => createRiotState({ runningGames: () => riot.runningGames(), sessionState: () => riot.sessionState() }).look();
   const wakeup = createRiotWakeup({
     riot, busy: () => busy, log: (line) => logs.push(line),
     setTimeout: (fn, ms) => { const timer = { fn, ms, cancelled: false }; timers.push(timer); return timer; },

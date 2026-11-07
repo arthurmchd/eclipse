@@ -20,7 +20,11 @@ flowchart LR
     M --> WK[riotWakeup]
     M --> OV[riotOverlay]
     SS --> RC[riotClient]
+    SK --> RC
+    WK --> RC
     RC --> SF[signInFlow]
+    RC --> ST[riotState]
+    SF --> ST
     OV --> MH[managerHost]
     MH --> V["cartões<br/>WebContentsView"]
     V -- "window.api / IPC validado" --> MP[manager-preload]

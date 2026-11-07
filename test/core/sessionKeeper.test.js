@@ -1,19 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createSessionKeeper } = require('../../src/core/sessionKeeper');
+const { createRiotState } = require('../../src/riot/riotState');
 
 const remembered = (subject, riotId = '', version = 'v1') => `login:${subject}|${riotId}|${version}`;
 const DELAY = 1000, POLL = 4000;
 
 const KEPT = Date.parse('2026-11-06T13:00:00Z');
 
-function fixture({ yaml = remembered('sub-a'), running = [false], staySignedIn, sessions = { a: remembered('sub-a'), b: remembered('sub-b') }, pollMs = 0, processes = {}, authorized = true, savedAt = {} } = {}) {
+function fixture({ yaml = remembered('sub-a'), staySignedIn, sessions = { a: remembered('sub-a'), b: remembered('sub-b') }, pollMs = 0, processes, authorized = true, savedAt = {} } = {}) {
   const events = [], logs = [], saved = [], timers = [];
   let busy = false, watcher = null;
-  const state = { yaml, running: [...running], sessions: { ...sessions }, processes: { client: true, ...processes }, authorized };
+  const state = { yaml, sessions: { ...sessions }, processes: processes ? { client: true, ...processes } : { client: false }, authorized };
   const parts = (text) => (typeof text === 'string' && text.startsWith('login:') ? text.slice(6).split('|') : []);
   const riot = {
-    clientRunning: async () => { events.push('running?'); return state.running.length > 1 ? state.running.shift() : state.running[0]; },
     readSettingsYaml: () => { events.push('read'); return state.yaml; },
     writeSettingsYaml: async (text, { expected } = {}) => {
       if (expected !== undefined) {
@@ -34,7 +34,6 @@ function fixture({ yaml = remembered('sub-a'), running = [false], staySignedIn, 
     sameRiotId: (a, b) => Boolean(a && b && a.gameName && a.gameName === b.gameName && a.tagLine === b.tagLine),
     watchSettings: (onChange) => { watcher = { onChange, closed: false, close() { this.closed = true; } }; return watcher; },
     runningGames: async () => { events.push('processes?'); return { ...state.processes }; },
-    isAuthorized: async () => { events.push('authorized?'); return state.authorized; },
     authorization: async () => { events.push('authorization?'); return state.authorization ?? (state.authorized ? 'yes' : 'no'); },
     quitClient: async () => { events.push('quit'); },
     startClient: async (clientPath) => {
@@ -43,6 +42,7 @@ function fixture({ yaml = remembered('sub-a'), running = [false], staySignedIn, 
       return state.started ?? true;
     },
   };
+  riot.look = () => createRiotState({ runningGames: () => riot.runningGames(), authorization: () => riot.authorization() }).look();
   const store = {
     data: { accounts: [{ id: 'a', gameName: 'Alpha', tagLine: 'BR1' }, { id: 'b', gameName: 'Beta', tagLine: 'BR1' }, { id: 'c', gameName: 'Gamma', tagLine: 'BR1' }, { id: 'd', gameName: 'Twin', tagLine: 'BR1' }, { id: 'e', gameName: 'Twin', tagLine: 'BR1' }], settings: staySignedIn === undefined ? {} : { staySignedIn } },
     hasSession: (id) => id in state.sessions,
@@ -81,7 +81,7 @@ test('when Riot has quit, its newest login goes to the account with the same sub
   assert.deepEqual(f.saved, [['b', remembered('sub-b', '', 'v2')]]);
   assert.equal(f.state.yaml, 'stripped');
   assert.deepEqual(f.events.filter(Array.isArray), [['saved', 'b'], ['write', 'stripped']]);
-  assert.deepEqual(f.events.filter((event) => typeof event === 'string'), ['read', 'running?', 'read']);
+  assert.deepEqual(f.events.filter((event) => typeof event === 'string'), ['read', 'processes?', 'read']);
   assert.deepEqual(f.logs, ['kept the Riot session for its account and cleared the remembered login']);
 });
 
@@ -100,7 +100,7 @@ test('a remembered login of an account outside Eclipse is cleared without being 
   assert.deepEqual(f.saved, []);
   assert.equal(f.state.yaml, 'stripped');
   assert.deepEqual(f.logs, ['cleared a remembered Riot login that is not from an account in Eclipse']);
-  const held = fixture({ yaml: remembered('sub-unknown'), running: [true] });
+  const held = fixture({ yaml: remembered('sub-unknown'), processes: { client: true } });
   held.keeper.start();
   await held.flush();
   assert.equal(held.state.yaml, remembered('sub-unknown'));
@@ -138,7 +138,7 @@ test('a Riot settings file without a remembered login is never rewritten', async
 });
 
 test('while Riot holds the account every renewed session is kept and the file stays; once Riot lets go, the client polling clears it', async () => {
-  const f = fixture({ yaml: remembered('sub-a', '', 'v2'), running: [true], pollMs: POLL, processes: { clientWindow: false } });
+  const f = fixture({ yaml: remembered('sub-a', '', 'v2'), pollMs: POLL, processes: { clientWindow: false } });
   f.keeper.start();
   await f.flush();
   assert.deepEqual(f.saved, [['a', remembered('sub-a', '', 'v2')]]);
@@ -158,13 +158,13 @@ test('while Riot holds the account every renewed session is kept and the file st
 });
 
 test('a file that Riot rewrites during the check is never overwritten, and the newer login is kept next', async () => {
-  const f = fixture({ yaml: remembered('sub-a', '', 'v2'), running: [true] });
-  f.riot.isAuthorized = async () => { f.events.push('authorized?'); f.state.yaml = remembered('sub-a', '', 'v3'); return false; };
+  const f = fixture({ yaml: remembered('sub-a', '', 'v2'), processes: { client: true } });
+  f.riot.authorization = async () => { f.events.push('authorization?'); f.state.yaml = remembered('sub-a', '', 'v3'); return 'no'; };
   f.keeper.start();
   await f.flush();
   assert.equal(f.state.yaml, remembered('sub-a', '', 'v3'));
   assert.equal(f.events.some((event) => Array.isArray(event) && event[0] === 'write'), false);
-  f.riot.isAuthorized = async () => false;
+  f.riot.authorization = async () => 'no';
   f.watcher().onChange();
   await f.flush();
   assert.deepEqual(f.saved, [['a', remembered('sub-a', '', 'v2')], ['a', remembered('sub-a', '', 'v3')]]);
@@ -187,7 +187,7 @@ test('a sign-in in progress keeps the keeper away from the Riot settings', async
 
 test('a sign-in that starts while Riot is being checked is left alone', async () => {
   const f = fixture();
-  f.riot.clientRunning = async () => { f.events.push('running?'); f.setBusy(true); return false; };
+  f.riot.runningGames = async () => { f.events.push('processes?'); f.setBusy(true); return { client: false }; };
   f.keeper.start();
   await f.flush();
   assert.equal(f.events.some((event) => Array.isArray(event) && event[0] === 'write'), false);
@@ -210,15 +210,15 @@ test('stay signed in off disables the keeper entirely', async () => {
 test('a change during a check runs one more check afterwards', async () => {
   const f = fixture({ yaml: remembered('sub-a', '', 'v2') });
   let release;
-  f.riot.clientRunning = () => { f.events.push('running?'); return new Promise((resolve) => { release = resolve; }); };
+  f.riot.runningGames = () => { f.events.push('processes?'); return new Promise((resolve) => { release = resolve; }); };
   f.keeper.start();
   const first = f.timers.shift().fn();
   f.watcher().onChange();
   await f.timers.shift().fn();
   f.state.yaml = remembered('sub-a', '', 'v3');
-  release(false);
+  release({ client: false });
   await first;
-  f.riot.clientRunning = async () => false;
+  f.riot.runningGames = async () => ({ client: false });
   await f.flush();
   assert.deepEqual(f.saved, [['a', remembered('sub-a', '', 'v2')], ['a', remembered('sub-a', '', 'v3')]]);
   assert.equal(f.state.yaml, 'stripped');
@@ -280,7 +280,7 @@ test('a signed-in Riot left without a window and without a game is asked to quit
   f.keeper.start();
   for (let i = 0; i < 4; i++) await f.tick();
   assert.equal(f.events.includes('quit'), false);
-  assert.equal(f.events.includes('authorized?'), false);
+  assert.equal(f.events.includes('authorization?'), false);
   f.state.processes = { client: true, clientWindow: false };
   await f.tick();
   await f.tick();
@@ -389,7 +389,7 @@ test('a failed reopen is logged without details and never retried', async () => 
 const forgets = (f) => f.events.filter((event) => Array.isArray(event) && event[0] === 'forget');
 
 async function heldByRiot(options = {}) {
-  const f = fixture({ yaml: remembered('sub-a', '', 'v2'), running: [true], ...options });
+  const f = fixture({ yaml: remembered('sub-a', '', 'v2'), processes: { client: true }, ...options });
   f.keeper.start();
   await f.flush();
   assert.deepEqual(f.saved, [['a', remembered('sub-a', '', 'v2')]]);
@@ -444,7 +444,7 @@ test('a sign-in, an account switch, a closed Riot, another signed-in account, a 
   signOutInRiot(switching);
   await switching.flush();
   const closed = await heldByRiot();
-  closed.state.running = [false];
+  closed.state.processes = { client: false };
   signOutInRiot(closed);
   await closed.flush();
   const other = await heldByRiot();
@@ -495,9 +495,10 @@ test('an unknown Riot state waits, and the client polling confirms a sign-out th
   signOutInRiot(league);
   await league.flush();
   assert.deepEqual(forgets(league), [['forget', 'a']]);
-  const gone = await heldByRiot({ pollMs: POLL, processes: { client: false } });
+  const gone = await heldByRiot({ pollMs: POLL });
+  gone.state.processes = { client: false };
   await gone.tick();
-  gone.state.running = [true];
+  gone.state.processes = { client: true };
   signOutInRiot(gone);
   await gone.flush();
   assert.equal(forgets(gone).length, 0);
@@ -526,7 +527,7 @@ test('Riot on the sign-in screen, a sign-in in progress or a game starting again
   const gone = fixture({ pollMs: POLL, processes: { client: false } });
   gone.keeper.start();
   for (let i = 0; i < 3; i++) await gone.tick();
-  assert.equal(gone.events.includes('authorized?'), false);
+  assert.equal(gone.events.includes('authorization?'), false);
 });
 
 test('a failed process check never stops the client polling', async () => {
