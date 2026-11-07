@@ -162,3 +162,53 @@ test('a ladder that fails to load leaves the ranks intact and is tried again on 
   await api.refreshAccount(account(), { riot: 'riot-key' });
   assert.equal(count('/challengerleagues/'), 2);
 });
+
+test('a rank answer that never comes fails after the time limit, aborts the request and frees the queue', async () => {
+  let aborted = false;
+  const fetch = (url, init) => {
+    if (url.includes('/by-riot-id/')) return new Promise(() => { init.signal.addEventListener('abort', () => { aborted = true; }); });
+    return Promise.resolve(response(404, {}));
+  };
+  const api = createRankApi({ fetch, wait: async () => {}, timeoutMs: 20 });
+  const { errors } = await api.refreshAccount(account({ puuidCache: {} }), { riot: 'riot-key', henrik: 'henrik-key' });
+  assert.equal(errors.lol, 'The rank service took too long to answer');
+  assert.equal(errors.tft, 'The rank service took too long to answer');
+  assert.equal(aborted, true);
+  assert.match(errors.val, /No VALORANT profile/);
+});
+
+test('a rank answer whose body never arrives also fails after the time limit', async () => {
+  const fetch = async (url) => (url.includes('/by-riot-id/') ? { status: 200, ok: true, headers: { get: () => null }, json: () => new Promise(() => {}) } : response(404, {}));
+  const api = createRankApi({ fetch, wait: async () => {}, timeoutMs: 20 });
+  const { errors } = await api.refreshAccount(account({ puuidCache: {} }), { riot: 'riot-key' });
+  assert.equal(errors.lol, 'The rank service took too long to answer');
+});
+
+test('a rate limit waits what Riot asks, in seconds or as a date, and gives up on long waits', async () => {
+  const clock = Date.parse('2026-11-05T12:00:00Z');
+  const run = async (retryAfter) => {
+    const waits = [];
+    let limited = false;
+    const fetch = async (url) => {
+      if (url.includes('/by-riot-id/') && !limited) {
+        limited = true;
+        return { status: 429, ok: false, headers: { get: (name) => (name === 'retry-after' ? retryAfter : null) }, json: async () => ({ status: { message: 'Rate limit exceeded' } }) };
+      }
+      if (url.includes('/by-riot-id/')) return response(200, { puuid: 'p-1', gameName: 'Old Name', tagLine: 'BR1' });
+      for (const [pattern, reply] of profile('p-1')) if (url.includes(pattern)) return response(200, reply);
+      return response(404, {});
+    };
+    const api = createRankApi({ fetch, wait: async (ms) => { if (ms !== 80) waits.push(ms); }, now: () => clock });
+    const { errors } = await api.refreshAccount(account({ puuidCache: {} }), { riot: 'riot-key' });
+    return { waits, errors };
+  };
+  assert.deepEqual((await run('3')).waits, [3000]);
+  assert.deepEqual((await run('Thu, 05 Nov 2026 12:00:07 GMT')).waits, [7000]);
+  assert.deepEqual((await run('Thu, 05 Nov 2026 11:59:00 GMT')).waits, [0]);
+  assert.deepEqual((await run('soon')).waits, [5000]);
+  assert.deepEqual((await run(null)).waits, [5000]);
+  const long = await run('3600');
+  assert.deepEqual(long.waits, []);
+  assert.equal(long.errors.lol, 'Rate limit exceeded');
+  assert.equal(Object.hasOwn(long.errors, 'tft'), false);
+});

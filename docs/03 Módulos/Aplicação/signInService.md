@@ -47,6 +47,7 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 
 - **Lançamento fora de qualquer interface.** O serviço é dono dos lançamentos, fora de toda UI. Um renderer da Riot pode sumir durante a troca sem interromper a operação e sem ganhar acesso às credenciais guardadas.
 - **Um login por vez.** `busy` recusa um segundo pedido (`A sign-in is already in progress`).
+- **Sessão de quem sai, ou nada.** O `onClosed` repassado ao [[signInFlow]] embrulha o do [[main]] (`saveLeavingSession`). Se ele falhar, o log recebe uma linha fixa ("could not keep the session of the account that was signed in") e o login para com "Could not keep the session of the account that was signed in. Try Play again", traduzido pelo [[language]]. O texto da exceção não vai ao log nem à tela, porque um erro de disco traz caminhos do sistema. Engolir a falha deixaria o [[signInFlow]] seguir e tirar da Riot o login lembrado da conta que saiu sem guardá-lo, contra a regra de dono da sessão do [[Fluxo de login]]. Parando ali, a Riot fica fechada com o YAML intacto, e a conta que saiu continua lembrada na própria Riot. Desde 2026-11-07; antes o `onClosed` ia direto, e a exceção crua virava o erro do login.
 - **Só a entrada dos cartões.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saiu `signIn(id, game)`, que esperava o fim e devolvia `{ ok, gameStarted?, error?, cancelled? }`. Só os testes o chamavam; o app sempre usou `startFromManager`. Os testes esperam o fim pelo `operationUpdated` com `finishedAt`.
 - **Validar antes de criar a operação.** Jogo precisa ser `lol`, `tft` ou `val`; a conta precisa existir e ter usuário e senha. Falha aqui não cria operação.
 - **Execução adiada.** O trabalho começa em `setImmediate`, para os cartões receberem o identificador da operação antes de o login mexer na Riot.
@@ -70,8 +71,8 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 
 Desde 2026-11-06 também cobre o `onRejected`: a sessão da conta escolhida é apagada antes de a Riot fechar a outra conta, e uma falha ao apagar só vai ao log.
 
+Desde 2026-11-07 cobre o `onClosed`: a sessão de quem sai chega ao [[main]] antes de o fluxo seguir; uma falha, síncrona ou assíncrona, para o login antes de o fluxo mexer no YAML, sem salvar sessão nem trocar a conta atual, com o erro fixo traduzível e sem caminho nem texto da exceção no log ou no estado.
+
 ## Pontos de atenção
 
-- `onClosed` vai direto ao [[signInFlow]], sem `notify`. Uma exceção em `saveLeavingSession` ([[main]]) aborta o login depois de o cliente já ter sido fechado.
-- `signIn` ficou sem chamador no app. Tirá-lo exige reescrever cerca de 30 testes que usam a forma que espera o fim.
 - Ver [[Fluxo de login]] e [[Segurança e privacidade]].

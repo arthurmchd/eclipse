@@ -61,7 +61,18 @@ function ladderCutoffs([challenger = [], grandmaster = [], master = []]) {
   };
 }
 
-function createRankApi({ fetch: request = (url, init) => fetch(url, init), wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), now = Date.now } = {}) {
+const RETRY_DEFAULT = 5000;
+const RETRY_LIMIT = 60000;
+
+function retryDelay(value, now) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) return RETRY_DEFAULT;
+  const delay = /^\d+$/.test(text) ? Number(text) * 1000 : Date.parse(text) - now;
+  if (!Number.isFinite(delay)) return RETRY_DEFAULT;
+  return delay > RETRY_LIMIT ? null : Math.max(0, delay);
+}
+
+function createRankApi({ fetch: request = (url, init) => fetch(url, init), wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), now = Date.now, timeoutMs = 15000 } = {}) {
   let queue = Promise.resolve();
   const apex = new Map();
 
@@ -71,23 +82,41 @@ function createRankApi({ fetch: request = (url, init) => fetch(url, init), wait 
     return run;
   }
 
+  async function within(work) {
+    const controller = new AbortController();
+    let timer;
+    const expired = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new ApiError(0, 'The rank service took too long to answer'));
+      }, timeoutMs);
+    });
+    try { return await Promise.race([work(controller.signal), expired]); }
+    finally { clearTimeout(timer); }
+  }
+
   async function getJson(url, headers, attempt = 0) {
     return throttled(async () => {
-      const res = await request(url, { headers });
-      if (res.status === 429 && attempt < 3) {
-        await wait(Number(res.headers.get('retry-after') || 5) * 1000);
-        return { retry: true };
-      }
-      if (res.status === 404) return { notFound: true };
-      if (!res.ok) {
-        let msg = `HTTP ${res.status}`;
-        try {
-          const body = await res.json();
-          msg = body?.status?.message || body?.errors?.[0]?.message || body?.message || msg;
-        } catch {}
-        throw new ApiError(res.status, msg);
-      }
-      return { data: await res.json() };
+      const answer = await within(async (signal) => {
+        const res = await request(url, { headers, signal });
+        if (res.status === 429 && attempt < 3) {
+          const delay = retryDelay(res.headers.get('retry-after'), now());
+          if (delay !== null) return { retryAfter: delay };
+        }
+        if (res.status === 404) return { notFound: true };
+        if (!res.ok) {
+          let msg = `HTTP ${res.status}`;
+          try {
+            const body = await res.json();
+            msg = body?.status?.message || body?.errors?.[0]?.message || body?.message || msg;
+          } catch {}
+          throw new ApiError(res.status, msg);
+        }
+        return { data: await res.json() };
+      });
+      if (answer.retryAfter === undefined) return answer;
+      await wait(answer.retryAfter);
+      return { retry: true };
     }).then((r) => (r.retry ? getJson(url, headers, attempt + 1) : r));
   }
 

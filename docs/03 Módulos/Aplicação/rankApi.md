@@ -26,7 +26,7 @@ Antes se chamava `riotApi` (`src/riotApi.js`); foi renomeado na reorganização 
 |---|---|---|
 | `REGIONS` | constante | ID de plataforma → `label`, `routing` do account-v1 e região de VALORANT |
 | `VAL_REGIONS` | constante | `br`, `na`, `latam`, `eu`, `kr`, `ap` |
-| `createRankApi({ fetch, wait, now })` | fábrica | Instância com fila, cache de cortes e relógio próprios; devolve `{ refreshAccount }` |
+| `createRankApi({ fetch, wait, now, timeoutMs })` | fábrica | Instância com fila, cache de cortes e relógio próprios; devolve `{ refreshAccount }` |
 | `refreshAccount(acc, keys)` | função assíncrona | Da instância padrão. Devolve `{ fields, errors }`: campos a mesclar na conta e erros por jogo |
 | `ladderCutoffs([challenger, grandmaster, master])` | função | PdL do corte de Desafiante e de Grão-Mestre a partir das três listas de entradas |
 
@@ -41,14 +41,15 @@ Antes se chamava `riotApi` (`src/riotApi.js`); foi renomeado na reorganização 
 
 - **Duas fontes.** LoL e TFT usam a API oficial da Riot (chave de developer.riotgames.com). VALORANT usa a HenrikDev (não oficial; chave de api.henrikdev.xyz), porque os endpoints ranqueados oficiais de VALORANT só estão abertos a apps de produção aprovados.
 - **Fila global com intervalo.** As requisições saem uma por vez, com 80 ms entre elas: a chave de desenvolvimento da Riot permite 20 requisições por segundo e 100 a cada 2 minutos. A fila é a mesma para Riot e HenrikDev.
-- **429 com espera.** Até 3 novas tentativas, esperando `retry-after` segundos (padrão 5) dentro da fila. Depois disso vira erro.
+- **429 com espera.** Até 3 novas tentativas, esperando dentro da fila o que o `retry-after` pede. Desde 2026-11-07 o cabeçalho vale em segundos ou como data HTTP (a espera é a diferença até a data, nunca negativa). Sem cabeçalho ou com valor ilegível, espera 5 s. Se o pedido passa de 60 s, não espera: vira erro na hora, para não travar a fila de todas as contas. Depois das 3 tentativas também vira erro.
+- **Prazo por consulta.** Desde 2026-11-07 cada consulta tem `timeoutMs` (padrão 15 s), contado do pedido até o fim da leitura do corpo. Estourado o prazo, o pedido é abortado pelo `signal` e a consulta falha com "The rank service took too long to answer". O erro fica só naquele jogo da conta, como os outros, e a fila segue. Assim uma conexão presa não trava a fila nem o `refreshAll` do [[main]].
 - **404 não é exceção.** `getJson` devolve `{ notFound: true }` e cada chamador escolhe a mensagem (`Riot ID … not found`, `No League profile on …`, `No VALORANT profile …`). League e TFT com 404 viram lista vazia.
 - **Mensagem do corpo.** Outros erros HTTP usam `status.message`, `errors[0].message` ou `message` do corpo, se houver.
 - **401 e 403.** Riot: chave inválida ou expirada (chaves de desenvolvimento expiram a cada 24 h). HenrikDev: `HenrikDev API key is invalid`.
 - **Cache de PUUID por chave.** PUUIDs são criptografados por chave de API, então cada chave precisa da própria consulta. O cache mapeia um hash curto da chave (12 hex do SHA-256) para o Riot ID e o PUUID resolvidos. Só vale se o Riot ID ainda for igual. Com a mesma chave e a grafia já igual, o TFT reaproveita o PUUID que o LoL resolveu na mesma chamada.
 - **Formato antigo descartado.** Versões antigas guardavam uma entrada única `{ key, riotId, puuid }`. Se `puuidCache.puuid` existe, o cache recomeça vazio.
 - **Grafia igual à da Riot.** O nome devolvido pelo account-v1, por Riot ID ou por PUUID e com qualquer das chaves, entra em `fields` (`gameName`, `tagLine`) quando difere do salvo. Mantém a capitalização e as renomeações em sincronia.
-- **Fábrica.** Revisão de 2026-11-05: `createRankApi({ fetch, wait, now })` guarda a fila, o cache de cortes e o relógio na instância, para os testes trocarem rede e tempo. O módulo exporta o `refreshAccount` de uma instância padrão, que o [[main]] usa.
+- **Fábrica.** Revisão de 2026-11-05: `createRankApi({ fetch, wait, now, timeoutMs })` guarda a fila, o cache de cortes e o relógio na instância, para os testes trocarem rede e tempo. O módulo exporta o `refreshAccount` de uma instância padrão, que o [[main]] usa.
 - **Riot ID trocado no site da Riot.** Revisão de 2026-11-05, pedido do usuário. Com o PUUID em cache e o Riot ID salvo igual ao do cache, cada atualização consulta `account-v1 /accounts/by-puuid` e devolve o nome atual quando mudou.
   - Uma consulta de conta por atualização: qualquer resposta do account-v1 na mesma atualização marca o nome como conferido (`context.checked`).
   - Falha nessa conferência não vira erro: o PUUID salvo continua valendo. Um 404 cai na busca pelo Riot ID salvo.
@@ -72,11 +73,9 @@ Antes se chamava `riotApi` (`src/riotApi.js`); foi renomeado na reorganização 
 
 ## Testes
 
-`test/core/rankApi.test.js`, com `fetch` falso, cobre: conta renomeada seguindo o PUUID (LoL, TFT com chave própria e VALORANT), uma só consulta de conta com o nome igual, conferência que falha sem perder o elo, Riot ID editado no Eclipse, cálculo dos cortes, listas baixadas uma vez por região e fila e de novo depois de 10 min, nada baixado abaixo de Mestre e falha das listas sem erro na conta. O preview do [[renderer]] usa `stats` prontos de `scripts/dev/mock-api.js` ([[Desenvolvimento]]), com cortes nas contas de Mestre+.
+`test/core/rankApi.test.js`, com `fetch` falso, cobre: conta renomeada seguindo o PUUID (LoL, TFT com chave própria e VALORANT), uma só consulta de conta com o nome igual, conferência que falha sem perder o elo, Riot ID editado no Eclipse, cálculo dos cortes, listas baixadas uma vez por região e fila e de novo depois de 10 min, nada baixado abaixo de Mestre e falha das listas sem erro na conta. Desde 2026-11-07 cobre também o prazo (resposta e corpo que nunca chegam, pedido abortado, fila liberada para o jogo seguinte) e o `retry-after` em segundos, como data futura ou passada, ilegível, ausente e longo demais. O preview do [[renderer]] usa `stats` prontos de `scripts/dev/mock-api.js` ([[Desenvolvimento]]), com cortes nas contas de Mestre+.
 
 ## Pontos de atenção
 
-- `fetch` não tem timeout. Uma requisição presa trava a fila global e, com ela, o `refreshAll` do [[main]].
-- `retry-after` em formato de data HTTP vira `NaN`, e a espera vira zero.
 - O intervalo de 80 ms não respeita o limite de 100 a cada 2 minutos. Com muitas contas, o app depende do `429`. Desde 2026-11-05 cada atualização gasta um pedido de conta a mais, e cada região e fila com conta em Mestre+ gasta 3 pedidos a cada 10 min (limite do método: 30 a cada 10 s e 500 a cada 10 min). A lista de Mestre pode ter milhares de entradas.
 - A HenrikDev é não oficial e pode mudar endpoints ou formato. Ver [[Limitações conhecidas]] e [[Backlog]].

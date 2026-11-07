@@ -67,7 +67,7 @@ riot-account-manager/
 
 ## Regras
 
-- **Testes espelham `src/`.** O teste de `src/riot/signInFlow.js` mora em `test/riot/signInFlow.test.js`.
+- **Testes espelham `src/`.** O teste de `src/riot/signInFlow.js` mora em `test/riot/signInFlow.test.js`. Um script de `scripts/` segue o próprio caminho: `test/scripts/dev/preview-server.test.js`.
 - **Caminhos só em `src/paths.js`.** Nenhum módulo calcula a raiz com `__dirname, '..', '..'`. Mover uma pasta exige mudar um arquivo.
 - **Nada de escrever na instalação da Riot.** `asar.js` e `backend.js` só leem o `app.asar` e o lockfile oficiais ([[ADR-028 Modo antigo removido]]).
 - **Atalhos `.bat` ficam na raiz** porque são o ponto de entrada do usuário.

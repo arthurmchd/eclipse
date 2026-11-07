@@ -50,4 +50,6 @@ Rodar um teste só: `node --test test/riot/signInFlow.test.js`.
 
 ## Prévia no navegador
 
-`npm run preview` serve a raiz do projeto, redireciona `/` para `/src/renderer/cards.html` e injeta nela `scripts/dev/mock-api.js`, que cria um `window.api` falso com contas de exemplo. É só para desenvolvimento: escuta em todas as interfaces e não deve ser exposto ([[Backlog]]).
+`npm run preview` redireciona `/` para `/src/renderer/cards.html` e injeta nela `scripts/dev/mock-api.js`, que cria um `window.api` falso com contas de exemplo. É só para desenvolvimento.
+
+Desde 2026-11-07 o servidor escuta só em `127.0.0.1` e serve só `src/renderer/`, `node_modules/@fontsource/` e `scripts/dev/mock-api.js`. O resto do projeto (`.git`, `package.json`, `.client-integration/`, `src/main/`) recebe 403, inclusive por `%2F` e `%2e%2e` codificados e por pastas vizinhas com o mesmo começo de nome. Até então a checagem era `startsWith` na raiz, que deixava passar uma pasta vizinha como `riot-account-manager-x`. Um endereço malformado recebe 400 em vez de derrubar o servidor. O teste fica em `test/scripts/dev/preview-server.test.js`; `scripts/` não espelha `src/`, então o teste segue o caminho do script.

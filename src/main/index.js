@@ -16,7 +16,7 @@ const APP_NAME = 'Eclipse';
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 app.commandLine.appendSwitch('wm-window-animations-disabled');
 let store, launchService, managerService, tray, overlay, sessionKeeper, riotWakeup;
-let refreshing = null, refreshTimer = null, riotOpening = null;
+let refreshing = null, refreshingAll = false, queuedRefresh = null, refreshTimer = null, riotOpening = null;
 let startupComplete = false, quitting = false;
 const events = createManagerEvents();
 const send = (channel, payload) => events.publish(channel, payload);
@@ -60,35 +60,47 @@ function scheduleRefresh() {
   send('next-refresh', next);
   if (next) refreshTimer = setTimeout(() => refreshAll().catch(() => {}), Math.max(5000, Date.parse(next) - Date.now()));
 }
-async function refreshAll(ids) {
-  if (refreshing) return refreshing;
-  refreshing = (async () => {
-    const targets = store.data.accounts.filter((account) => !ids || ids.includes(account.id));
-    let done = 0;
-    send('refresh-progress', { done, total: targets.length });
-    try {
-      const keys = store.getKeys();
-      for (const account of targets) {
-        if (quitting) break;
-        const { fields } = await refreshAccount(account, keys);
-        const updated = store.updateAccountFields(account.id, fields);
-        if (updated) send('account-updated', updated);
-        send('refresh-progress', { done: ++done, total: targets.length });
-      }
-      if (!ids && !quitting) {
-        store.data.lastRefresh = new Date().toISOString();
-        store.save();
-      }
-      return { lastRefresh: store.data.lastRefresh, nextRefresh: nextRefreshAt() };
-    } catch {
-      store.log('Rank update could not finish');
-      throw new Error('Could not update ranks. Check the API keys in Settings');
-    } finally {
-      send('refresh-progress', { done: targets.length, total: targets.length });
+function refreshAll(ids) {
+  if (!refreshing) {
+    refreshingAll = !ids;
+    refreshing = runRefresh(ids).finally(() => { refreshing = null; scheduleRefresh(); });
+    return refreshing;
+  }
+  if (!ids && refreshingAll) return refreshing;
+  if (!queuedRefresh) {
+    const queued = queuedRefresh = { ids: ids ? new Set(ids) : null };
+    queued.done = refreshing.catch(() => {}).then(() => {
+      if (queuedRefresh === queued) queuedRefresh = null;
+      return refreshAll(queued.ids ? [...queued.ids] : undefined);
+    });
+  } else if (!ids) queuedRefresh.ids = null;
+  else if (queuedRefresh.ids) for (const id of ids) queuedRefresh.ids.add(id);
+  return queuedRefresh.done;
+}
+async function runRefresh(ids) {
+  const targets = store.data.accounts.filter((account) => !ids || ids.includes(account.id));
+  let done = 0;
+  send('refresh-progress', { done, total: targets.length });
+  try {
+    const keys = store.getKeys();
+    for (const account of targets) {
+      if (quitting) break;
+      const { fields } = await refreshAccount(account, keys);
+      const updated = store.updateAccountFields(account.id, fields);
+      if (updated) send('account-updated', updated);
+      send('refresh-progress', { done: ++done, total: targets.length });
     }
-  })();
-  try { return await refreshing; }
-  finally { refreshing = null; scheduleRefresh(); }
+    if (!ids && !quitting) {
+      store.data.lastRefresh = new Date().toISOString();
+      store.save();
+    }
+    return { lastRefresh: store.data.lastRefresh, nextRefresh: nextRefreshAt() };
+  } catch {
+    store.log('Rank update could not finish');
+    throw new Error('Could not update ranks. Check the API keys in Settings');
+  } finally {
+    send('refresh-progress', { done: targets.length, total: targets.length });
+  }
 }
 function notifyFailure(error) {
   const reason = typeof error?.message === 'string' ? error.message : 'Could not open the accounts in Riot.';

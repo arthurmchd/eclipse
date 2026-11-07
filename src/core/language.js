@@ -57,6 +57,7 @@ const MESSAGES = [
   ['Add the username and password first', 'Adicione o usuário e a senha primeiro'],
   ['Account credentials changed. Start sign-in again', 'Os dados da conta mudaram. Comece o login de novo'],
   ['A sign-in is already in progress', 'Já há um login em andamento'],
+  ['Could not keep the session of the account that was signed in. Try Play again', 'Não foi possível guardar a sessão da conta que estava conectada. Tente Jogar de novo'],
   ['Select a supported game', 'Escolha um jogo compatível'],
   ['The background window guard is shutting down', 'O monitor de janelas em segundo plano está sendo encerrado'],
   ['Windows encryption is not available', 'A criptografia do Windows não está disponível'],

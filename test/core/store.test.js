@@ -117,6 +117,18 @@ test('language is Portuguese by default and only switches when saved', (t) => {
   assert.equal(store.publicSettings().language, 'pt');
 });
 
+test('an unreadable API key is skipped by the rank update while the others still work', (t) => {
+  const { store, dir } = createStore(t);
+  store.updateSettings({ riotApiKey: 'fictional-riot-key', henrikApiKey: 'fictional-henrik-key' });
+  store.data.settings.riotTftApiKey = Buffer.from('not-from-this-windows-user').toString('base64');
+  assert.deepEqual({ ...store.getKeys() }, { riot: 'fictional-riot-key', tft: '', henrik: 'fictional-henrik-key' });
+  assert.equal(store.publicSettings().riotTftApiKeyMasked, '(unreadable, paste it again)');
+  const log = fs.readFileSync(path.join(dir, 'data.log'), 'utf8');
+  assert.match(log, /could not decrypt the saved riotTftApiKey, skipped it/);
+  assert.equal(log.includes('not-from-this-windows-user'), false);
+  assert.equal(log.includes('fictional-riot-key'), false);
+});
+
 test('options of the removed legacy mode are dropped from an old data file', (t) => {
   const { store } = createStore(t);
   const retired = ['minimizeOnLaunch', 'hideRiotClient', 'closeRiotClient', 'streamerMode'];

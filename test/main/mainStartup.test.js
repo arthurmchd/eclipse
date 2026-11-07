@@ -229,13 +229,65 @@ test('quitting cancels the operation and closes only project services', async ()
   assert.equal(f.events.includes('official-open'), false);
 });
 
+test('accounts asked for during a rank update are refreshed right after it, in one extra pass', async () => {
+  const gates = [];
+  const refreshed = [];
+  const failing = new Set();
+  const f = fixture({
+    accounts: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+    refreshAccount: async (account) => {
+      refreshed.push(account.id);
+      await new Promise((open) => gates.push(open));
+      if (failing.has(account.id)) throw new Error('synthetic rank failure');
+      return { fields: {} };
+    },
+  });
+  await flush();
+  const refreshAll = f.managerOptions().refreshAll;
+  const release = async () => { for (let i = 0; i < 12; i++) { gates.splice(0).forEach((open) => open()); await flush(); } };
+
+  const first = refreshAll(['a']);
+  await flush();
+  const second = refreshAll(['b']);
+  const third = refreshAll(['c', 'b']);
+  assert.equal(second, third);
+  await release();
+  await Promise.all([first, second]);
+  assert.deepEqual(refreshed, ['a', 'b', 'c']);
+
+  refreshed.length = 0;
+  const full = refreshAll();
+  assert.equal(refreshAll(), full);
+  assert.equal(refreshAll(), full);
+  await release();
+  await full;
+  assert.deepEqual(refreshed, ['a', 'b', 'c']);
+
+  refreshed.length = 0;
+  const partial = refreshAll(['a']);
+  const queuedPart = refreshAll(['b']);
+  assert.equal(refreshAll(), queuedPart);
+  await release();
+  await Promise.all([partial, queuedPart]);
+  assert.deepEqual(refreshed, ['a', 'a', 'b', 'c']);
+
+  refreshed.length = 0;
+  failing.add('a');
+  const broken = refreshAll(['a']);
+  const after = refreshAll(['b']);
+  await release();
+  await assert.rejects(broken, /Could not update ranks/);
+  await after;
+  assert.deepEqual(refreshed, ['a', 'b']);
+});
+
 test('a second controller process exits without starting anything', async () => {
   const f = fixture({ singleInstance: false });
   await flush();
   assert.deepEqual(f.events, ['quit']);
 });
 
-function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath = 'C:/test/RiotClientServices.exe', waitForReady = false, openGate, operation = null, singleInstance = true } = {}) {
+function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath = 'C:/test/RiotClientServices.exe', waitForReady = false, openGate, operation = null, singleInstance = true, accounts = [], refreshAccount = async () => ({}) } = {}) {
   const events = [], publicEvents = [], dialogs = [], openedClientPaths = [], managerCalls = [], languages = [], balloons = [];
   const app = new EventEmitter();
   let releaseReady, managerOptions, launchOptions, overlayOptions, keeperOptions, wakeupOptions, trayMenu, busy = false;
@@ -264,8 +316,9 @@ function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath 
   };
   const store = {
     dir: 'C:/synthetic-data',
-    data: { accounts: [], settings: { refreshMinutes: 0, riotClientPath: 'C:/configured/RiotClientServices.exe' } },
+    data: { accounts, settings: { refreshMinutes: 0, riotClientPath: 'C:/configured/RiotClientServices.exe' } },
     listAccounts: () => [], publicSettings: () => ({}), log: () => {}, publicAccount: (account) => ({ id: account.id, public: true }),
+    getKeys: () => ({}), updateAccountFields: () => null, save: () => {},
   };
   const deps = {
     electron, fs: { existsSync: () => false, appendFileSync: () => {} }, path,
@@ -278,7 +331,7 @@ function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath 
       stop: () => events.push('overlay-stop'),
     }) },
     '../core/store': { Store: function () { return store; } },
-    '../core/rankApi': { REGIONS: {}, VAL_REGIONS: [], refreshAccount: async () => ({}) },
+    '../core/rankApi': { REGIONS: {}, VAL_REGIONS: [], refreshAccount },
     '../core/language': require('../../src/core/language'),
     '../riot/riotClient': riotClient,
     '../core/signInService': { createSignInService: (options) => {

@@ -281,10 +281,17 @@ class Store {
   }
 
   getKeys() {
+    const readable = (name) => {
+      try { return decrypt(this.data.settings[name]); }
+      catch {
+        this.log(`could not decrypt the saved ${name}, skipped it`);
+        return '';
+      }
+    };
     return {
-      riot: decrypt(this.data.settings.riotApiKey),
-      tft: decrypt(this.data.settings.riotTftApiKey),
-      henrik: decrypt(this.data.settings.henrikApiKey),
+      riot: readable('riotApiKey'),
+      tft: readable('riotTftApiKey'),
+      henrik: readable('henrikApiKey'),
     };
   }
 }

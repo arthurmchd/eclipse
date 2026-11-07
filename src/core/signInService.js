@@ -72,7 +72,14 @@ function createSignInService({ store, riotClient, status = () => {}, operationUp
             notify(status, { id, text: say(publicText), needsAttention: current.needsAttention, nativeClient: current.nativeClient });
             notify(operationUpdated, shown(current));
           },
-          log: writeLog, onClosed,
+          log: writeLog,
+          onClosed: async (closed) => {
+            try { await onClosed(closed); }
+            catch {
+              writeLog('could not keep the session of the account that was signed in');
+              throw new Error('Could not keep the session of the account that was signed in. Try Play again');
+            }
+          },
           onRejected: () => {
             if (!store.getAccount(id)) return;
             try { store.forgetSession(id); }

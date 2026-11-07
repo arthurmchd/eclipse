@@ -32,13 +32,15 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 - Corpos de erro são não confiáveis: só códigos de erro conhecidos afetam a mensagem.
 - Os auxiliares PowerShell nunca ecoam o pedido recebido em logs ([[login.ps1]], [[windowGuard.ps1]]).
 - Motivos de falha do helper de janelas só chegam ao log como códigos `^[a-z0-9-]{1,64}$`; o resto vira `unknown` ([[windowController]]).
+- As respostas de abertura do jogo chegam ao `sign-in.log` só como status HTTP, elegível ou não e um `errorCode` com formato de código. Mensagem, detalhes e ID da abertura ficam de fora ([[riotClient]]).
+- Uma falha ao guardar a sessão de quem sai e uma chave de API ilegível vão ao log como linhas fixas, sem o texto da exceção, que pode trazer caminhos ([[signInService]], [[store]]).
 - `sign-in.log` e `data.log` não registram credenciais.
 
 ### Segredo não vai em argumento de processo
 - `login.ps1` recebe credenciais por stdin ([[login.ps1]]).
 
 ### Rede local fechada
-- O Eclipse não abre porta de rede. Os cartões falam com o main só pelo IPC do [[managerHost]], com lista fechada de métodos e validação dos argumentos no [[managerService]].
+- O Eclipse não abre porta de rede. A prévia de desenvolvimento (`npm run preview`) escuta só em `127.0.0.1` e serve só os arquivos dos cartões, as fontes e o `mock-api.js` ([[Desenvolvimento]]). Os cartões falam com o main só pelo IPC do [[managerHost]], com lista fechada de métodos e validação dos argumentos no [[managerService]].
 - A fila de eventos tem tamanho limitado e carrega somente dados públicos de contas, configurações mascaradas e progresso. Esconder os cartões não cancela uma operação nem faz o serviço devolver credenciais.
 - A API local do Riot é acessada por HTTPS com o certificado raiz lido do `app.asar` oficial e validação de certificado ligada ([[backend]], [[asar]], [[riotTransport]]).
 

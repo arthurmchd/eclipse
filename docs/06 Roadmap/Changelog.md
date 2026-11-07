@@ -7,6 +7,18 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-07 · Seis correções pequenas do Backlog
+
+- A pedido do usuário, fecha os itens 4, 5, 7, 8, 10 e 22 do [[Backlog]].
+- **[[signInService]] (item 8):** o `onClosed` ganha proteção. Uma falha ao guardar a sessão de quem sai registra uma linha fixa e para o login com "Could not keep the session of the account that was signed in. Try Play again", traduzido pelo [[language]]. Continua parando de propósito: seguir tiraria da Riot o login lembrado da conta que saiu sem guardá-lo. O texto da exceção, que pode trazer caminhos, não vai mais à tela nem ao log.
+- **[[rankApi]] (item 5):** cada consulta tem prazo de 15 s, do pedido ao fim do corpo, e é abortada ao estourar. O `retry-after` vale em segundos ou como data HTTP; um pedido de espera acima de 60 s vira erro em vez de travar a fila.
+- **[[store]] (item 4):** uma chave de API ilegível vem vazia no `getKeys()`, e o refresh segue com as outras. Antes derrubava o refresh de todas as contas.
+- **[[main]] (item 7):** contas pedidas durante um refresh entram numa passada extra logo depois, em vez de esperar o ciclo seguinte. O refresh passa a ser feito por `runRefresh`.
+- **[[riotClient]] (item 10):** o `requestLaunch` vira `createLaunchRequester` e grava no `sign-in.log` só status, elegibilidade e um `errorCode` com formato de código, sem os 300 caracteres de cada resposta.
+- **Prévia (item 22):** `scripts/dev/preview-server.js` escuta só em `127.0.0.1`, responde 400 a endereço malformado e serve só `src/renderer/`, as fontes e o `mock-api.js` ([[Desenvolvimento]]). Também fecha um furo achado no caminho: a checagem por `startsWith` deixava passar uma pasta vizinha com o mesmo começo de nome.
+- [[Segurança e privacidade]] ganha as regras de log e da prévia.
+- Testes novos para cada item, incluindo `test/scripts/dev/preview-server.test.js`. 344 testes.
+
 ## 2026-11-07 · Duas traduções voltam
 
 - Correção da limpeza anterior: dos três pares tirados do [[language]] como sem uso, dois eram usados pelo lado em português. Com o app em inglês, "Preparando o login no Riot Client…" e "Não foi possível acompanhar a janela do Riot…" apareceriam em português.

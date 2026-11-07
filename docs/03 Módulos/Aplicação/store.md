@@ -40,7 +40,7 @@ Exporta só a classe `Store`.
 | `setCurrentAccount(id)` | método | Grava a última conta conectada |
 | `publicSettings()` | método | Configurações com chaves mascaradas (`riotApiKeyMasked`, `riotTftApiKeyMasked`, `henrikApiKeyMasked`) |
 | `updateSettings(input)` | método | Aplica configurações e chaves |
-| `getKeys()` | método | `{ riot, tft, henrik }` em texto puro, para o [[rankApi]] |
+| `getKeys()` | método | `{ riot, tft, henrik }` em texto puro, para o [[rankApi]]; chave ilegível vem vazia |
 
 ## Dependências
 
@@ -68,20 +68,19 @@ Exporta só a classe `Store`.
 - **Troca de sessão segura.** `saveSession` grava num `.tmp` único (`flag: 'wx'`, `mode: 0o600`) e renomeia. Uma substituição que falha precisa deixar a sessão anterior utilizável; o `.tmp` sai no `finally`.
 - **Sessão só de conta existente.** `saveSession` e `forgetSession` lançam `Account not found`. `loadSession` devolve `null` em qualquer erro.
 - **A data da sessão é a do arquivo.** `sessionSavedAt` lê só a data do `sessions/<id>.bin`, sem decifrar. O [[sessionKeeper]] a usa para apagar sessões de antes do modo cartões ([[ADR-022 Sessões de antes do modo cartões são descartadas]]). Adicionado em 2026-11-06.
-- **Chave ilegível não trava as contas.** Uma chave que não pode ser descriptografada não pode impedir as contas de carregar. `publicSettings` registra o erro e mostra `(unreadable, paste it again)`.
+- **Chave ilegível não trava as contas.** Uma chave que não pode ser descriptografada não pode impedir as contas de carregar. `publicSettings` registra o erro e mostra `(unreadable, paste it again)`. Desde 2026-11-07 o `getKeys()` também: a chave ilegível vem vazia, o `data.log` recebe só o nome do campo ("could not decrypt the saved riotTftApiKey, skipped it"), e o refresh segue com as outras chaves. Antes a exceção derrubava o refresh de todas as contas até a chave ser colada de novo. Sem a chave, o [[rankApi]] trata aquele jogo como sem chave; uma chave de TFT ilegível cai na chave da Riot, como quando não há chave de TFT.
 - **Máscara.** Primeiros 8 e últimos 4 caracteres da chave.
 - **Chaves em `updateSettings`.** `undefined` = não mexe, `''` = remove, outro valor = substitui (com `trim`).
 - **`language`** (padrão `'pt'`) guarda o idioma do Eclipse. `publicSettings` devolve `'en'` só quando o valor salvo é exatamente `'en'`; qualquer outro valor, inclusive dados antigos sem o campo, vira `'pt'`. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
 
 ## Testes
 
-`test/core/store.test.js` carrega o módulo em `vm`, com `safeStorage` falso e pasta temporária. Cobre: rejeição de travessia de caminho, nomes reservados, IDs inválidos e contas desconhecidas; ida e volta de sessão criptografada com UUID e ID legado; `sessionSavedAt` com a data do arquivo, `0` sem sessão e erro para ID inválido; falha de `rename` preservando a sessão anterior sem sobrar `.tmp`; backup disparado por nota e configuração, mas não por `stats`, `puuidCache`, `lastPlayed`, `lastGame` ou `setCurrentAccount`; opções do modo antigo apagadas ao carregar, ausentes do arquivo salvo e ignoradas por `updateSettings`.
+`test/core/store.test.js` carrega o módulo em `vm`, com `safeStorage` falso e pasta temporária. Cobre: rejeição de travessia de caminho, nomes reservados, IDs inválidos e contas desconhecidas; ida e volta de sessão criptografada com UUID e ID legado; `sessionSavedAt` com a data do arquivo, `0` sem sessão e erro para ID inválido; falha de `rename` preservando a sessão anterior sem sobrar `.tmp`; backup disparado por nota e configuração, mas não por `stats`, `puuidCache`, `lastPlayed`, `lastGame` ou `setCurrentAccount`; opções do modo antigo apagadas ao carregar, ausentes do arquivo salvo e ignoradas por `updateSettings`; chave ilegível vazia no `getKeys()` sem afetar as outras, mascarada no `publicSettings` e ausente do `data.log`.
 
-Fora: recuperação de `data.json` corrompido, limite de 30 backups, `cleanName` e chave ilegível.
+Fora: recuperação de `data.json` corrompido, limite de 30 backups e `cleanName`.
 
 ## Pontos de atenção
 
-- `getKeys()` não trata chave ilegível, ao contrário de `publicSettings`. O refresh de elos falha até a chave ser colada de novo.
 - `publicAccount` chama `hasSession`, que lança erro para ID fora do padrão. Uma conta antiga assim derruba `listAccounts` e o `init` inteiro.
 - Se `copyFileSync` falhar ao preservar um `data.json` ilegível (por exemplo, sem permissão), o construtor lança e o app não abre.
 - `updateSettings` aceita `''` para remover chave, mas os [[cards]] nunca enviam `''`.

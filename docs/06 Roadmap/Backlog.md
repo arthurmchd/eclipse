@@ -53,13 +53,13 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 ## Correções
 
 3. **Tratado na migração da interface:** o [[main]] agora trata a rejeição da atualização agendada e reagenda em `finally`, inclusive após falhas. Ver [[Changelog]].
-4. **Chave ilegível derruba todo refresh.** `getKeys()` em [[store]] não protege o `decrypt`, ao contrário de `publicSettings`. Enquanto a tela mostra a chave como ilegível, todo refresh falha.
-5. **Timeout nas consultas de elo.** `getJson` em [[rankApi]] usa `fetch` sem prazo numa fila compartilhada; uma conexão presa trava todas as atualizações e o `refreshing` do main. Um `retry-after` em formato de data vira `NaN` e a nova tentativa sai sem espera.
+4. **Resolvido em 2026-11-07:** chave ilegível derrubava todo refresh. O `getKeys()` do [[store]] agora devolve vazia a chave que não abre e registra só o nome do campo; o refresh segue com as outras.
+5. **Resolvido em 2026-11-07:** timeout nas consultas de elo. Cada consulta do [[rankApi]] tem prazo de 15 s, do pedido ao corpo, e é abortada ao estourar. O `retry-after` vale em segundos ou como data HTTP, e um pedido de espera acima de 60 s vira erro em vez de travar a fila.
 6. **Tratado na migração da interface:** o [[main]] só publica `account-updated` quando a atualização devolve uma conta. Conta removida durante o refresh não gera evento nulo.
-7. **`refreshAll(ids)` ignora `ids` se já houver refresh.** Conta recém-salva só ganha elo no ciclo seguinte ([[main]]).
-8. **`onClosed` sem proteção.** Em [[signInService]], `onClosed` é repassado direto, sem o `notify` que protege os outros callbacks. Uma exceção em `saveLeavingSession` aborta o login com o Riot já fechado.
+7. **Resolvido em 2026-11-07:** `refreshAll(ids)` ignorava `ids` se já houvesse refresh. O [[main]] agora junta os pedidos feitos no meio numa passada extra logo depois.
+8. **Resolvido em 2026-11-07:** `onClosed` sem proteção. O [[signInService]] agora embrulha o `onClosed`: uma falha em `saveLeavingSession` registra uma linha fixa e para o login com um erro fixo traduzível, sem o texto da exceção. Continua parando de propósito, porque seguir tiraria da Riot o login lembrado da conta que saiu sem guardá-lo.
 9. **Resolvido em 2026-11-07:** a preferência `closeRiotClient` saiu, e o login visível sempre fecha a janela da Riot depois que o jogo abre. A opção `closeClient` do [[signInFlow]], que só valia no ramo escondido, saiu com ele no mesmo dia ([[ADR-028 Modo antigo removido]]).
-10. **Corpo de resposta no log.** `requestLaunch` em [[riotClient]] grava até 300 caracteres das respostas de abertura do jogo no `sign-in.log`. Risco baixo, mas contraria "só valores fixos no log" ([[Segurança e privacidade]]).
+10. **Resolvido em 2026-11-07:** corpo de resposta no log. O `requestLaunch` do [[riotClient]] grava só status, elegibilidade e um `errorCode` com formato de código ([[Segurança e privacidade]]).
 11. **Saiu com a janela antiga em 2026-11-07.** Era sobre rejeições sem aviso na janela antiga ([[renderer]]); os [[cards]] não têm essas ações de menu.
 12. **Saiu com o modo antigo em 2026-11-07.** O [[hostEntry]] foi removido.
 13. **Tratado na migração da interface:** [[managerService]] centraliza métodos, quantidade de argumentos, formatos de conta, tipos de configurações e campos de patch; [[managerHost]] valida o remetente IPC isolado.
@@ -85,7 +85,7 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 
 ## Ferramentas de desenvolvimento
 
-22. **Servidor de prévia só local.** `scripts/dev/preview-server.js` escuta em todas as interfaces e `decodeURIComponent` pode lançar com URL inválida. Limitar a `127.0.0.1` e tratar o erro.
+22. **Resolvido em 2026-11-07:** servidor de prévia só local. Escuta em `127.0.0.1`, responde 400 a endereço malformado e serve só os arquivos dos cartões ([[Desenvolvimento]]).
 
 Mais riscos de menor impacto estão em "Pontos de atenção" de cada nota de módulo.
 

@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { persistedSubject, persistedRiotId, hasPersistedLogin, stripPersistedLogin, replaceFile, authorizationOf, createCloseEverything, createClientStarter } = require('../../src/riot/riotClient');
+const { persistedSubject, persistedRiotId, hasPersistedLogin, stripPersistedLogin, replaceFile, authorizationOf, createCloseEverything, createClientStarter, createLaunchRequester } = require('../../src/riot/riotClient');
 
 const cookie = (name, value, domain = 'auth.riotgames.com') => [
   `            -   domain: "${domain}"`,
@@ -301,4 +301,42 @@ test('a running Riot, or one that starts meanwhile, is never started again, clos
   const missing = starter({ exe: null });
   await assert.rejects(missing.startClient(), /Riot Client not found/);
   assert.deepEqual(missing.events, [['detect', undefined]]);
+});
+
+function launcher(replies) {
+  const calls = [];
+  const logs = [];
+  const requestLaunch = createLaunchRequester({ localApi: async (method, url) => {
+    calls.push([method, url]);
+    const reply = replies[method];
+    if (reply instanceof Error) throw reply;
+    return reply;
+  } });
+  return { calls, logs, run: (game) => requestLaunch(game, (line) => logs.push(line)) };
+}
+
+test('the game launch log keeps only the HTTP status, the eligibility and a well-formed error code', async () => {
+  const opened = launcher({ GET: { status: 200, json: true }, POST: { status: 200, json: 'synthetic-launch-id-1234' } });
+  assert.deepEqual(await opened.run('val'), { status: 200, errorCode: null });
+  assert.deepEqual(opened.calls, [
+    ['GET', '/product-launcher/v1/products/valorant/patchlines/live/eligibility'],
+    ['POST', '/product-launcher/v1/products/valorant/patchlines/live'],
+  ]);
+  assert.deepEqual(opened.logs, ['launch eligibility: HTTP 200 eligible', 'launch request: HTTP 200']);
+
+  const failure = { errorCode: 'launch_failed_product_not_up_to_date', httpStatus: 424, implementationDetails: 'C:/Users/example/synthetic-detail', message: 'synthetic message for example-user' };
+  const outdated = launcher({ GET: { status: 404, json: { ...failure, errorCode: 'RESOURCE_NOT_FOUND' } }, POST: { status: 424, json: failure } });
+  assert.deepEqual(await outdated.run('lol'), { status: 424, errorCode: 'launch_failed_product_not_up_to_date' });
+  assert.deepEqual(outdated.logs, ['launch eligibility: HTTP 404 RESOURCE_NOT_FOUND', 'launch request: HTTP 424 launch_failed_product_not_up_to_date']);
+  for (const detail of ['synthetic-detail', 'example-user', 'synthetic message', 'Users']) assert.equal(outdated.logs.join(' ').includes(detail), false);
+});
+
+test('a launch without an answer or with an odd error code logs only fixed text', async () => {
+  const silent = launcher({ GET: new Error('connect ECONNREFUSED 127.0.0.1:51234 synthetic-token'), POST: new Error('request to https://127.0.0.1:51234 failed with synthetic-token') });
+  assert.deepEqual(await silent.run('lol'), { status: 0, errorCode: null });
+  assert.deepEqual(silent.logs, ['launch request: no answer from Riot']);
+
+  const odd = launcher({ GET: { status: 200, json: false }, POST: { status: 'x', json: { errorCode: 'code with spaces and example-user' } } });
+  assert.deepEqual(await odd.run('tft'), { status: 0, errorCode: null });
+  assert.deepEqual(odd.logs, ['launch eligibility: HTTP 200 not eligible', 'launch request: HTTP 0']);
 });

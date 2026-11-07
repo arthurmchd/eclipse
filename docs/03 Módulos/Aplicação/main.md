@@ -44,6 +44,7 @@ As entradas do usuário são os atalhos, `npm start`, uma segunda instância e o
 - **Sem `BrowserWindow` própria.** O main não cria janela de gerenciamento. Os cartões vivem na janela da sobreposição, presa à Riot.
 - **Uma instância, um armazenamento e um login.** Pedidos repetidos reutilizam o serviço e não criam outro dono das credenciais. Uma segunda instância antes do fim do início é ignorada; depois, abre a Riot e os cartões.
 - **Abertura serializada.** Pedidos concorrentes de abrir a Riot compartilham a mesma abertura (`riotOpening`).
+- **Elos pedidos no meio de um refresh esperam a vez.** Desde 2026-11-07, `refreshAll(ids)` com um refresh já rodando não devolve mais o refresh em curso. Os `ids` entram numa única passada extra, que roda logo depois e soma tudo o que foi pedido no meio; um pedido de todas as contas transforma essa passada em completa. Antes, uma conta recém-salva durante o refresh agendado só ganhava elo no ciclo seguinte. Um pedido de todas as contas com um refresh completo rodando ainda compartilha o que está em curso. A passada extra roda mesmo se a anterior falhar. O refresh é feito por `runRefresh`; `refreshAll` só decide se começa agora ou entra na fila.
 - **Login em andamento bloqueia a abertura.** Com uma operação `running` sem pedido de atenção, abrir a Riot falha com "The game is opening. Wait or cancel from the tray.". Com pedido de atenção (2FA, CAPTCHA), a bandeja abre a Riot para o usuário resolver, sem pedir os cartões por cima.
 - **Login fora da interface.** Esconder os cartões não cancela a operação. O serviço de login publica o estado na fila de eventos.
 - **Eventos públicos, não IPC amplo.** Conta alterada, progresso de elos, próximo refresh e progresso/operação de login entram na fila limitada do [[managerService]].
@@ -55,7 +56,7 @@ As entradas do usuário são os atalhos, `npm start`, uma segunda instância e o
 
 ## Testes
 
-`test/main/mainStartup.test.js` executa o ponto de entrada num `vm` com dependências falsas. Confere o início sem abrir a Riot, as opções do [[signInService]] e do [[managerService]], os switches do Chromium, a ordem de criação e parada do [[sessionKeeper]], do [[riotWakeup]] e da sobreposição, a bandeja (abrir a Riot, pedir os cartões, bloquear durante um login, não cobrir um pedido de atenção), a segunda instância antes e depois do início, a abertura serializada, a falta do Riot Client, os diálogos no idioma salvo e a saída ordenada.
+`test/main/mainStartup.test.js` executa o ponto de entrada num `vm` com dependências falsas. Confere o início sem abrir a Riot, as opções do [[signInService]] e do [[managerService]], os switches do Chromium, a ordem de criação e parada do [[sessionKeeper]], do [[riotWakeup]] e da sobreposição, a bandeja (abrir a Riot, pedir os cartões, bloquear durante um login, não cobrir um pedido de atenção), a segunda instância antes e depois do início, a abertura serializada, os pedidos de elo feitos durante um refresh (uma passada extra somando os pedidos, completo compartilhado, completo pedido no meio de um parcial, passada extra depois de uma falha), a falta do Riot Client, os diálogos no idioma salvo e a saída ordenada.
 
 Nenhum desses testes autentica contas reais ou abre jogos.
 

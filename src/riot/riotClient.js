@@ -410,15 +410,32 @@ const startClient = createClientStarter({
   select: (exe) => { selectedClientPath = exe; },
 });
 
-async function requestLaunch(game, log) {
-  const base = `/product-launcher/v1/products/${PRODUCTS[game]}/patchlines/live`;
-  const eligibility = await localApi('GET', `${base}/eligibility`).catch(() => null);
-  if (eligibility) log(`launch eligibility: HTTP ${eligibility.status} ${JSON.stringify(eligibility.json).slice(0, 300)}`);
-  const r = await localApi('POST', base, null, 30000).catch((err) => ({ status: 0, json: err.message }));
-  log(`launch request: HTTP ${r.status} ${JSON.stringify(r.json).slice(0, 300)}`);
-  const errorCode = typeof r.json?.errorCode === 'string' ? r.json.errorCode.slice(0, 100) : null;
-  return { status: r.status, errorCode };
+const LAUNCH_CODE = /^[A-Za-z0-9_.-]{1,100}$/;
+const launchCode = (json) => (typeof json?.errorCode === 'string' && LAUNCH_CODE.test(json.errorCode) ? json.errorCode : null);
+const httpStatus = (value) => (Number.isInteger(value) && value >= 0 && value < 1000 ? value : 0);
+
+function createLaunchRequester({ localApi }) {
+  return async function requestLaunch(game, log) {
+    const base = `/product-launcher/v1/products/${PRODUCTS[game]}/patchlines/live`;
+    const eligibility = await localApi('GET', `${base}/eligibility`).catch(() => null);
+    if (eligibility) {
+      const verdict = typeof eligibility.json === 'boolean' ? (eligibility.json ? ' eligible' : ' not eligible') : '';
+      const code = launchCode(eligibility.json);
+      log(`launch eligibility: HTTP ${httpStatus(eligibility.status)}${verdict}${code ? ` ${code}` : ''}`);
+    }
+    const r = await localApi('POST', base, null, 30000).catch(() => null);
+    if (!r) {
+      log('launch request: no answer from Riot');
+      return { status: 0, errorCode: null };
+    }
+    const status = httpStatus(r.status);
+    const errorCode = launchCode(r.json);
+    log(`launch request: HTTP ${status}${errorCode ? ` ${errorCode}` : ''}`);
+    return { status, errorCode };
+  };
 }
+
+const requestLaunch = createLaunchRequester({ localApi });
 
 const openInterface = createInterfaceOpener({
   runningGames, localApi, launchClient, waitFor,
@@ -447,7 +464,7 @@ const signIn = createSignInFlow({
 
 module.exports = {
   signIn, runningGames, detectClientPath, hasPersistedLogin, stripPersistedLogin, persistedSubject, persistedRiotId, sameRiotId,
-  readSettingsYaml, writeSettingsYaml, replaceFile, authorizationOf, createCloseEverything, createClientStarter,
+  readSettingsYaml, writeSettingsYaml, replaceFile, authorizationOf, createCloseEverything, createClientStarter, createLaunchRequester,
   watchSettings, watchLockfile, sessionState, showInterface,
   clientRunning: async () => (await runningGames()).client,
   isAuthorized,

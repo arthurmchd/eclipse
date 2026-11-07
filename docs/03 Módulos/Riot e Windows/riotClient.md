@@ -98,10 +98,12 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 
 ### `requestLaunch(game, log)`
 
+Criado por `createLaunchRequester({ localApi })`, exportado para os testes.
+
 - Base: `/product-launcher/v1/products/<produto>/patchlines/live`. `lol` e `tft` → `league_of_legends`; `val` → `valorant`.
 - `GET <base>/eligibility` só para o log. Depois `POST <base>` com 30 s.
-- Grava status e até 300 caracteres do JSON de cada resposta. Nunca lança erro.
-- Devolve `{ status, errorCode }`. `errorCode` é o `errorCode` textual da resposta, cortado em 100 caracteres, ou `null`. Falha de rede vira `status: 0`.
+- Grava no log só o status HTTP, `eligible`/`not eligible` quando a elegibilidade vem como booleano e um `errorCode` com formato de código. Nunca lança erro.
+- Devolve `{ status, errorCode }`. `errorCode` é o `errorCode` da resposta se casar com `^[A-Za-z0-9_.-]{1,100}$`, senão `null`. Status fora de 0–999 vira `0`. Sem resposta, grava "launch request: no answer from Riot" e devolve `{ status: 0, errorCode: null }`.
 
 ## Invariantes e decisões
 
@@ -135,6 +137,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 - **Rota de digitação é só compatibilidade.** `typeCredentials` só roda quando a API de login direto não está disponível (ou exige o formulário nativo). A interface é sempre aberta visível. Se uma janela do cliente já existe, não abre outra.
 - **Serviços headless não abrem interface sozinhos.** Até 2026-10-26, `typeCredentials` chamava `RiotClientServices.exe` de novo para abrir a interface. Com os serviços já em `--headless`, isso não abria janela nenhuma e o login falhava com "The Riot Client window did not open". A abertura agora é responsabilidade do [[riotInterface]].
 - **`requestLaunch` registra e devolve o motivo de recusa.** Por exemplo, HTTP 424 `launch_failed_product_not_up_to_date` quando o jogo ainda precisa de atualização; com ele o [[signInFlow]] espera e repete o pedido (desde 2026-11-04). Quem decide o sucesso continua sendo o [[signInFlow]], pela janela do jogo.
+- **Log da abertura só com valores fixos.** Desde 2026-11-07 o `requestLaunch` não grava mais até 300 caracteres de cada resposta. Pelo `sign-in.log` real, a elegibilidade responde um booleano, o pedido aceito uma string (o ID da abertura) e a recusa `{ errorCode, httpStatus, implementationDetails, message }`. Ficam de fora a mensagem, os detalhes, o ID e o texto de erro da rede, que podem trazer caminhos ou nomes. O código basta para o [[signInFlow]] reconhecer o jogo desatualizado.
 - **`launchProduct` nunca inclui um jogo.** O argumento `game` é ignorado. O jogo só é pedido depois da verificação, por `requestLaunch`.
 - **`login.ps1` fora do `app.asar`.** O caminho vem de `windowsHelper` ([[paths]]), que troca `app.asar` por `app.asar.unpacked`. O PowerShell não lê arquivos de dentro do asar.
 
@@ -148,13 +151,13 @@ Desde 2026-11-06 também cobre:
 - `authorizationOf`: 200, 404 e o resto;
 - `createClientStarter` com fakes: Riot fechada iniciada com a interface depois de liberar as janelas; Riot já rodando ou aberta no meio-tempo nunca iniciada de novo; caminho ausente sem nenhuma outra ação.
 - `createCloseEverything` com fakes: saída normal depois dos jogos e antes do `taskkill`, estado desconhecido, Riot sem conta ou fechada sem pedido de saída, pedido recusado sem espera, Riot que não sai a tempo e Riot que não fecha.
+- `createLaunchRequester` com uma API local falsa (desde 2026-11-07): rotas de elegibilidade e abertura por jogo; log só com status, elegibilidade e código; mensagem, detalhes, ID da abertura e erro de rede fora do log; código malformado e status estranho descartados.
 
-Sem cobertura: `sameRiotId`, `detectClientPath`, `watchSettings`, `runWindowScript`, `requestLaunch` e os `taskkill` e `tasklist` reais.
+Sem cobertura: `sameRiotId`, `detectClientPath`, `watchSettings`, `runWindowScript` e os `taskkill` e `tasklist` reais.
 
 ## Pontos de atenção
 
 - **YAML editado por linhas.** `stripPersistedLogin` para na primeira linha em branco dentro do bloco, aceita qualquer chave `riot-client:` recuada e devolve o texto com `\n` (CRLF vira LF). Um formato novo exige revisão: [[Atualização do Riot Client]].
-- **Corpo de resposta no log.** `requestLaunch` grava trechos das respostas do Riot no `sign-in.log`. Ver [[Segurança e privacidade]].
 - **Jogos fechados à força.** `closeEverything` usa `taskkill /F` nos jogos. A confirmação do usuário fica fora deste módulo: os [[cards]] perguntam antes de trocar de conta com um jogo aberto. Conferido em 2026-11-06; a janela antiga e o caminho do addon saíram em 2026-11-07.
 - **Caminhos fixos em `C:`.** Outra unidade depende do `RiotClientInstalls.json` ou do caminho nas configurações.
 - **`selectedClientPath` é estado global.** O último caminho detectado vale para todas as chamadas seguintes da API local.

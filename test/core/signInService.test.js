@@ -225,6 +225,52 @@ test('a failure to forget a rejected session is logged without stopping the sign
   assert.ok(f.logs.includes('could not forget the rejected session: storage unavailable'));
 });
 
+test('the session of the account leaving Riot reaches the main process before the flow goes on', async () => {
+  const f = fixture();
+  const leaving = { riotId: { gameName: 'Other', tagLine: 'BR1' }, yaml: 'leaving-session' };
+  f.riotClient.signIn = async (options) => {
+    await options.onClosed(leaving);
+    f.calls.push(['strip-login']);
+    return f.result;
+  };
+  assert.equal((await f.play()).status, 'succeeded');
+  const names = f.calls.map(([name]) => name);
+  assert.deepEqual(f.calls.find(([name]) => name === 'on-closed'), ['on-closed', leaving]);
+  assert.ok(names.indexOf('on-closed') < names.indexOf('strip-login'));
+});
+
+test('a failure to keep the leaving session stops the sign-in before Riot loses it, without system details', async () => {
+  const f = fixture({ onClosed: () => { throw new Error('EPERM: C:\\Users\\example\\AppData\\Roaming\\riot-account-manager\\data.json'); } });
+  f.riotClient.signIn = async (options) => {
+    await options.onClosed({ riotId: null, yaml: 'leaving-session' });
+    f.calls.push(['strip-login']);
+    return f.result;
+  };
+  const operation = await f.play();
+  assert.equal(operation.status, 'failed');
+  assert.equal(operation.error, 'Could not keep the session of the account that was signed in. Try Play again');
+  assert.notEqual(require('../../src/core/language').localize(operation.error, 'pt'), operation.error);
+  assert.equal(f.calls.some(([name]) => name === 'strip-login'), false);
+  assert.equal(f.calls.some(([name]) => name === 'save-session' || name === 'set-current'), false);
+  assert.ok(f.logs.includes('could not keep the session of the account that was signed in'));
+  const exposed = JSON.stringify([operation, f.service.getState(), f.logs, f.statuses]);
+  for (const detail of ['EPERM', 'AppData', 'data.json']) assert.equal(exposed.includes(detail), false);
+  assert.equal(f.service.isBusy(), false);
+});
+
+test('an asynchronous failure to keep the leaving session also stops the sign-in', async () => {
+  const f = fixture({ onClosed: async () => { await flush(); throw new Error('disk full'); } });
+  f.riotClient.signIn = async (options) => {
+    await options.onClosed({ riotId: null, yaml: 'leaving-session' });
+    f.calls.push(['strip-login']);
+    return f.result;
+  };
+  const operation = await f.play();
+  assert.equal(operation.status, 'failed');
+  assert.equal(f.calls.some(([name]) => name === 'strip-login'), false);
+  assert.equal(JSON.stringify([operation, f.logs]).includes('disk full'), false);
+});
+
 test('progress is public metadata and getState returns an independent snapshot', async () => {
   const f = fixture();
   f.riotClient.signIn = async (options) => {
