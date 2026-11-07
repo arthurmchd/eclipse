@@ -7,6 +7,12 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-07 · Duas traduções voltam
+
+- Correção da limpeza anterior: dos três pares tirados do [[language]] como sem uso, dois eram usados pelo lado em português. Com o app em inglês, "Preparando o login no Riot Client…" e "Não foi possível acompanhar a janela do Riot…" apareceriam em português.
+- Os dois pares voltam. O [[signInFlow]] passa a escrever "Preparing the Riot Client sign-in…" e "Signing in…", e o [[riotWindowObserver]] "Could not follow the Riot window. Restart Eclipse.", em inglês como o resto; o [[language]] traduz na saída.
+- Teste novo: todo status do [[signInFlow]] e o erro do observador são escritos em inglês e têm tradução. 330 testes.
+
 ## 2026-11-07 · Resto do código morto sai
 
 - A pedido do usuário, fecha o item 17 do [[Backlog]].

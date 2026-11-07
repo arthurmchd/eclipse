@@ -28,6 +28,19 @@ test('messages with a variable part keep it in both languages', () => {
   assert.equal(localize('Riot Client window script failed: 5', 'pt'), 'O script da janela do Riot Client falhou: 5');
 });
 
+test('every sign-in status and the window observer error are written in English and translate', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { SOURCE_DIR } = require('../../src/paths');
+  const source = fs.readFileSync(path.join(SOURCE_DIR, 'riot', 'signInFlow.js'), 'utf8');
+  const texts = [...source.matchAll(/\b(?:status|attention|authenticationAttention)\(\s*'((?:[^'\\]|\\.)+)'/g)].map((match) => match[1]);
+  assert.ok(texts.length >= 8);
+  for (const text of [...texts, 'Could not follow the Riot window. Restart Eclipse.']) {
+    assert.notEqual(localize(text, 'pt'), text, text);
+    assert.equal(localize(text, 'en'), text, text);
+  }
+});
+
 test('unknown texts and non-texts pass through unchanged', () => {
   assert.equal(localize('Something new from Riot', 'pt'), 'Something new from Riot');
   assert.equal(localize(undefined, 'pt'), undefined);

@@ -324,7 +324,7 @@ test('a CAPTCHA required before any credential submission uses the visible form 
   assert.equal(f.events.filter((event) => Array.isArray(event) && event[0] === 'type').length, 1);
   assert.equal(f.events.includes('closed'), false);
   assert.equal(reveals(f), 1);
-  assert.ok(f.statuses.some((status) => status.text === 'Entrando na conta…' && status.nativeClient === true && !status.needsAttention));
+  assert.ok(f.statuses.some((status) => status.text === 'Signing in…' && status.nativeClient === true && !status.needsAttention));
 });
 
 test('the visible form reports how the Riot interface was opened to the sign-in log', async () => {

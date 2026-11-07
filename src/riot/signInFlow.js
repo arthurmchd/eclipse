@@ -147,7 +147,7 @@ function createSignInFlow(io) {
         interfaceOpen = true;
       };
       const prepareVisibleLogin = async (gamesOpen) => {
-        status('Preparando o login no Riot Client…', { needsAttention: false });
+        status('Preparing the Riot Client sign-in…', { needsAttention: false });
         if (!signedIn && await isAuthorized()) await leaveSignedInAccount();
         else if (gamesOpen) await closeGames();
         await openVisibleForm();
@@ -222,7 +222,7 @@ function createSignInFlow(io) {
         if (!direct.supported || direct.requiresNativeForm === true) {
           check();
           nativeFormUsed = true;
-          status('Entrando na conta…', { needsAttention: false, nativeClient: true });
+          status('Signing in…', { needsAttention: false, nativeClient: true });
           const lines = await typeCredentials({
             action: 'type', username: account.username, password: account.password, remember,
           }, signal, log);

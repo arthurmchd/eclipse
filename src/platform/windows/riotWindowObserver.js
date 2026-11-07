@@ -20,7 +20,7 @@ function createRiotWindowObserver({ spawn = spawnProcess, ownerPid = process.pid
       if (disposed || child) return;
       let partial = '', last = now();
       child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', windowsHelper('riotWindowObserver.ps1')], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
-      const failed = () => { onState(null); onError(new Error('Não foi possível acompanhar a janela do Riot. Reinicie o gerenciador.')); };
+      const failed = () => { onState(null); onError(new Error('Could not follow the Riot window. Restart Eclipse.')); };
       child.stdout.setEncoding('utf8');
       child.stdout.on('data', (chunk) => {
         partial += chunk;

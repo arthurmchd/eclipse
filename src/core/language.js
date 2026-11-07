@@ -5,6 +5,7 @@ const MESSAGES = [
   ['Sign-in cancelled', 'Login cancelado'],
   ['Sign-in failed', 'O login falhou'],
   ['Preparing sign-in…', 'Preparando o login…'],
+  ['Preparing the Riot Client sign-in…', 'Preparando o login no Riot Client…'],
   ['Signing in…', 'Entrando na conta…'],
   ['Closing Riot Client in the background…', 'Fechando o Riot Client em segundo plano…'],
   ['Starting Riot services in the background…', 'Iniciando os serviços da Riot em segundo plano…'],
@@ -61,6 +62,7 @@ const MESSAGES = [
   ['Windows encryption is not available', 'A criptografia do Windows não está disponível'],
   ['The game is opening. Wait or cancel from the tray.', 'O jogo está sendo aberto. Aguarde ou cancele pela bandeja.'],
   ['Riot Client not found. Install the official client before starting Eclipse.', 'Riot Client não encontrado. Instale o cliente oficial antes de iniciar o gerenciador.'],
+  ['Could not follow the Riot window. Restart Eclipse.', 'Não foi possível acompanhar a janela do Riot. Reinicie o gerenciador.'],
   ['Could not open the accounts in Riot.', 'Não foi possível abrir as contas no Riot.'],
   ['Could not update ranks. Check the API keys in Settings', 'Não foi possível atualizar os elos. Confira as chaves de API nas Configurações'],
 ];
