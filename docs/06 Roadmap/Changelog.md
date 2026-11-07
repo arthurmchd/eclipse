@@ -7,6 +7,16 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-07 · Monitor de janelas sai do windowController e do windowGuard.ps1
+
+- A pedido do usuário, depois de o login escondido sair do [[signInFlow]]: ninguém mais armava o monitor que escondia a Riot.
+- **[[windowController]]:** fica só com `reveal`, `closeClient`, `gameWindow` e `stop`, cada um num PowerShell avulso e um de cada vez. Saem `hide`, `conceal`, `park`, `assertHealthy`, `drainIncidents`, o monitor persistente, a recuperação (`handoff`, `maxRecoveries`, `recoveryWindowMs`, `guardReason`) e a restauração final no `stop`.
+- **[[windowGuard.ps1]]:** fica só com `reveal` (antes `restore`), `close-client`, `game-window` e `self-test`. Saem o modo `watch`, os ganchos de eventos, as varreduras, o snapshot e a troca de estilos, o worker com prazo, `park`, `hide-auxiliary`, `inspect` e `diagnostics`. A classe C# passa a se chamar `RiotWindowHelper`.
+- **[[language]]:** saem "The background window guard has stopped" e o padrão "…stopped (motivo). Try Play again".
+- [[ADR-004 Monitor persistente de janelas]] e [[ADR-008 Recuperação visual sem reexibir o Riot]] passam a substituídas pela [[ADR-028 Modo antigo removido]].
+- O comportamento do app não muda: o login visível já só trazia a Riot à frente, fechava a janela dela e procurava o jogo.
+- Testes: os do controlador passam a cobrir só os pedidos avulsos; o do helper confere que o monitor antigo e as ações de esconder são recusados. 329 testes.
+
 ## 2026-11-07 · Login escondido sai do signInFlow
 
 - A pedido do usuário, depois da [[ADR-028 Modo antigo removido]]: o [[main]] já pedia sempre o login visível, então os ramos do login escondido não rodavam.

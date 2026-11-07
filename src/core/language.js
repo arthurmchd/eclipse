@@ -60,7 +60,6 @@ const MESSAGES = [
   ['A sign-in is already in progress', 'Já há um login em andamento'],
   ['Select a supported game', 'Escolha um jogo compatível'],
   ['The background window guard is shutting down', 'O monitor de janelas em segundo plano está sendo encerrado'],
-  ['The background window guard has stopped', 'O monitor de janelas em segundo plano parou'],
   ['Windows encryption is not available', 'A criptografia do Windows não está disponível'],
   ['The game is opening. Wait or cancel from the tray.', 'O jogo está sendo aberto. Aguarde ou cancele pela bandeja.'],
   ['Riot Client not found. Install the official client before starting Eclipse.', 'Riot Client não encontrado. Instale o cliente oficial antes de iniciar o gerenciador.'],
@@ -70,8 +69,6 @@ const MESSAGES = [
 ];
 
 const PATTERNS = [
-  [/^The background window guard stopped(?: \((.+)\))?\. Try Play again$/, /^O monitor de janelas em segundo plano parou(?: \((.+)\))?\. Tente Jogar de novo$/,
-    (reason) => [`The background window guard stopped${reason ? ` (${reason})` : ''}. Try Play again`, `O monitor de janelas em segundo plano parou${reason ? ` (${reason})` : ''}. Tente Jogar de novo`]],
   [/^Riot sign-in error: (.+)$/, /^Erro de login da Riot: (.+)$/, (code) => [`Riot sign-in error: ${code}`, `Erro de login da Riot: ${code}`]],
   [/^Riot Client window script failed: (.+)$/, /^O script da janela do Riot Client falhou: (.+)$/, (code) => [`Riot Client window script failed: ${code}`, `O script da janela do Riot Client falhou: ${code}`]],
 ];

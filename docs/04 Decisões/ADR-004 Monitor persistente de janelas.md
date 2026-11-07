@@ -1,11 +1,13 @@
 ---
 tipo: decisão
-status: aceita
+status: substituída
 data: 2026-10-26
 tags: [adr, windows]
 ---
 
 # ADR-004 Monitor persistente de janelas
+
+> Substituída em 2026-11-07 pela [[ADR-028 Modo antigo removido]]. Só o login escondido do modo antigo armava o monitor; ele saiu do código, e o [[windowGuard.ps1]] ficou só com pedidos avulsos.
 
 ## Contexto
 

@@ -56,6 +56,6 @@ Opções do `spawn`: `detached: true`, `stdio: 'ignore'`, `env: environmentForRi
 ## Pontos de atenção
 
 - **Depende do `--headless`.** Se a opção deixar de existir ou mudar de efeito, o reinício pode mostrar a interface: [[Atualização do Riot Client]].
-- **Interface sem janela visível.** Com `interfaceRequired` e sem `visible`, a interface é criada. Quem a esconde é o [[windowGuard.ps1]].
+- **Interface sem janela visível.** Com `interfaceRequired` e sem `visible`, a interface é criada. Quem a escondia era o monitor do [[windowGuard.ps1]], que saiu em 2026-11-07; nada a esconde agora.
 - **Só funciona com os serviços parados.** Se `RiotClientServices.exe` já roda em `--headless`, uma nova chamada com `interfaceRequired` não cria interface. O [[riotInterface]] trata esse caso.
 - **Resolve cedo.** `spawn` só confirma que o processo começou. Um cliente que fecha logo depois não é detectado aqui.

@@ -12,7 +12,7 @@ tags: [módulo]
 
 ## Responsabilidade
 
-- Abre a interface oficial do Riot (`Riot Client.exe` / `RiotClientUx.exe`) quando o [[signInFlow]] precisa do formulário nativo escondido.
+- Abre a interface oficial do Riot (`Riot Client.exe` / `RiotClientUx.exe`) quando o [[signInFlow]] precisa do formulário nativo, sempre visível desde 2026-11-07.
 - Não digita nada, não lê credenciais e não decide quando o formulário nativo é usado. Quem decide é o [[signInFlow]], e quem digita é o [[login.ps1]].
 
 ## API pública
@@ -46,7 +46,7 @@ Cada caminho escreve uma linha no `sign-in.log` pelo `log` recebido.
 - **Reiniciar é seguro neste ponto.** O formulário nativo só é usado antes de qualquer envio de senha (API indisponível ou CAPTCHA antes da submissão, ver [[riotAuthentication]]). Encerrar os serviços não perde credenciais enviadas nem uma sessão autenticada, e o `RiotGamesPrivateSettings.yaml` restaurado continua em disco.
 - **Nunca dois clientes.** Se os serviços não saírem em 10 s, a abertura falha em vez de iniciar uma segunda instância.
 - **Cancelamento antes de cada efeito.** O `signal` é conferido antes do `show`, do encerramento e do lançamento.
-- **A janela nova fica escondida pelo monitor.** O [[signInFlow]] chama `windows.hide()` antes do `typeCredentials`; o [[windowGuard.ps1]] oculta a interface assim que ela é criada.
+- **A janela nova fica visível.** Desde 2026-11-07 nada a esconde. Antes, o [[signInFlow]] chamava `windows.hide()` antes do `typeCredentials`, e o monitor do [[windowGuard.ps1]] ocultava a interface assim que ela era criada.
 
 ## Testes
 
@@ -55,5 +55,5 @@ Cada caminho escreve uma linha no `sign-in.log` pelo `log` recebido.
 ## Pontos de atenção
 
 - **Validado numa instalação real (Riot 142, 2026-10-26 23:00).** O `POST /riot-client-lifecycle/v1/show` abriu a interface a partir dos serviços em `--headless` em 0,8 s (`Riot Client.exe` iniciado pelo próprio serviço), e o [[login.ps1]] preencheu o formulário (`remember:on`). O reinício com interface não foi necessário e continua como reserva, **ainda sem validação real**. O `sign-in.log` mostra o caminho usado: "opened the Riot interface through the background service" ou "restarting it with the interface".
-- **O login ainda não chegou ao jogo nesse teste.** 0,7 s depois do preenchimento, o fluxo parou com "The background window guard stopped". É outro problema, do monitor de janelas; ver [[Backlog]].
+- **O login ainda não chegou ao jogo nesse teste.** 0,7 s depois do preenchimento, o fluxo parou com "The background window guard stopped". Era outro problema, do monitor de janelas, que saiu em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
 - O endpoint `/riot-client-lifecycle/v1/show` não é contrato público ([[Limitações conhecidas]]).

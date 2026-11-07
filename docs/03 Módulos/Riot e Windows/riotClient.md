@@ -12,7 +12,7 @@ tags: [módulo]
 
 ## Responsabilidade
 
-- Liga as peças reais ao [[signInFlow]]: processos do Windows, arquivo de configurações do Riot, API local, monitor de janelas e [[login.ps1]].
+- Liga as peças reais ao [[signInFlow]]: processos do Windows, arquivo de configurações do Riot, API local, helper de janelas ([[windowController]]) e [[login.ps1]].
 - Lê o estado de login pela API local do Riot Client. Porta e senha vêm do lockfile, via [[riotTransport]].
 - Faz a troca de conta com o "Stay signed in" do próprio cliente. Ver "Invariantes e decisões".
 
@@ -110,13 +110,13 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 
 - **A API local é a fonte do estado de login.** Porta e senha estão no lockfile do cliente.
 - **Estado só com metadados públicos.** `readLoginScreenState` e o `readAuthenticationState` do `io` reaproveitam a normalização de [[riotAuthentication]], sem expor tokens ou credenciais.
-- **Troca de conta pelo "Stay signed in".** Depois que uma conta entra uma vez com a opção marcada, o `RiotGamesPrivateSettings.yaml` guarda esse login. O app mantém uma cópia por conta e a devolve antes de iniciar o cliente. O cliente então entra sozinho, sem janela nem digitação. Se a cópia falta ou expirou, as credenciais são enviadas pela API direta ou digitadas no formulário oculto.
+- **Troca de conta pelo "Stay signed in".** Depois que uma conta entra uma vez com a opção marcada, o `RiotGamesPrivateSettings.yaml` guarda esse login. O app mantém uma cópia por conta e a devolve antes de iniciar o cliente. O cliente então entra sozinho, sem janela nem digitação. Se a cópia falta ou expirou, as credenciais são enviadas pela API direta ou digitadas no formulário visível.
 - **`clientWindow` olha só a interface.** `RiotClientServices.exe` roda em segundo plano sem janela. Por isso `clientWindow` considera só `Riot Client.exe` e `RiotClientUx.exe`.
 - **Dois formatos de login lembrado.** Um `refresh_token` em `psl.authorization.riot-client` (Riot Client v141) ou um cookie `"ssid"` (versões antigas).
 - **A dona do login lembrado vem do `sub`.** Desde 2026-11-06 ([[ADR-019 Sessão salva por conta no modo cartões]]). O Riot Client v141 não grava cookie `sub`: o login lembrado fica em `psl.authorization.riot-client`, e o `id_token` dali é um JWT cuja parte do meio traz `sub` e `acct` (`game_name`, `tag_line`). `idTokenClaims` decodifica só essa parte (base64url e JSON), sem conferir assinatura. Qualquer erro dá `null`. Um cookie `sub` (formato antigo) ainda vale primeiro, e só dentro de um item da lista de cookies (linha começando com `-`). O [[sessionKeeper]] usa o `sub` contra o das sessões guardadas e o Riot ID como segunda prova.
 - **Observar o arquivo da Riot para guardar a sessão.** `watchSettings` usa o aviso do Windows sobre a pasta `Data`. A Riot grava esse arquivo ao entrar, ao renovar a sessão e ao sair, e o [[sessionKeeper]] guarda cada versão. Encerrar a Riot conectada que ficou sem jogo é outra coisa: depende da olhada nos processos do guardião, a cada 4 s ([[ADR-020 Riot conectada é encerrada quando fica sem jogo]]).
 - **O `lockfile` marca a troca de modo.** A Riot v142 regrava `Config\lockfile` ao entrar e ao sair do segundo plano (conferido em 2026-11-06). Em segundo plano, a API local só responde `/help`. O [[riotWakeup]] usa os dois fatos ([[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]]).
-- **`startClient` nunca mexe numa Riot aberta.** Diferente de `openClient`, não pede a janela ao serviço nem reinicia a Riot sem interface com `taskkill`. Confere os processos antes e depois de liberar as janelas, porque o usuário pode abrir a Riot nesse meio-tempo. Só existe para a reabertura do [[sessionKeeper]] ([[ADR-026 Riot fechada depois do jogo reabre na tela de login]]).
+- **`startClient` nunca mexe numa Riot aberta.** Diferente de `openClient`, não pede a janela ao serviço nem reinicia a Riot sem interface com `taskkill`. Confere os processos antes e depois do `reveal` do [[windowController]], porque o usuário pode abrir a Riot nesse meio-tempo. Só existe para a reabertura do [[sessionKeeper]] ([[ADR-026 Riot fechada depois do jogo reabre na tela de login]]).
 - **`quitClient` é só a saída normal.** Nunca `taskkill` nem `DELETE /rso-auth/v1/session`. A Riot grava o login ao sair, e a sessão continua válida no servidor para a próxima restauração.
 - **Limpar o login preserva o `tdid`.** `stripPersistedLogin` troca o mapeamento `riot-client:` (os tokens) por `riot-client: null`. Em `riot-login.persist.session.cookies` fica só o cookie `tdid`, para a Riot continuar reconhecendo este computador.
 - **Formato da lista de cookies.** Os itens ficam no mesmo recuo de `cookies:` ou mais fundo, e cada um começa com `-`.
@@ -130,7 +130,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
   - Com `expected`, o arquivo é relido antes de cada troca, e nada é gravado se a Riot o mudou. Isso estreita a janela de corrida, mas não a fecha.
   - Temporários próprios com mais de 60 s, deixados por uma queda, são apagados. Nenhum outro arquivo da pasta é tocado.
   - Não há cópia do arquivo anterior: ela deixaria mais uma cópia dos tokens em texto puro no disco, e as sessões já ficam cifradas no [[store]].
-- **Rota de digitação é só compatibilidade.** `typeCredentials` só roda quando a API de login direto não está disponível (ou exige o formulário nativo). O monitor já está armado. Se uma janela do cliente já existe, não abre outra.
+- **Rota de digitação é só compatibilidade.** `typeCredentials` só roda quando a API de login direto não está disponível (ou exige o formulário nativo). A interface é sempre aberta visível. Se uma janela do cliente já existe, não abre outra.
 - **Serviços headless não abrem interface sozinhos.** Até 2026-10-26, `typeCredentials` chamava `RiotClientServices.exe` de novo para abrir a interface. Com os serviços já em `--headless`, isso não abria janela nenhuma e o login falhava com "The Riot Client window did not open". A abertura agora é responsabilidade do [[riotInterface]].
 - **`requestLaunch` registra e devolve o motivo de recusa.** Por exemplo, HTTP 424 `launch_failed_product_not_up_to_date` quando o jogo ainda precisa de atualização; com ele o [[signInFlow]] espera e repete o pedido (desde 2026-11-04). Quem decide o sucesso continua sendo o [[signInFlow]], pela janela do jogo.
 - **`launchProduct` nunca inclui um jogo.** O argumento `game` é ignorado. O jogo só é pedido depois da verificação, por `requestLaunch`.

@@ -31,7 +31,7 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 - Respostas de autenticação podem conter tokens, usuários e mensagens do servidor. Só valores fixos conhecidos saem de [[riotAuthentication]].
 - Corpos de erro são não confiáveis: só códigos de erro conhecidos afetam a mensagem.
 - Os auxiliares PowerShell nunca ecoam o pedido recebido em logs ([[login.ps1]], [[windowGuard.ps1]]).
-- Motivos de queda do monitor só chegam ao log como códigos `^[a-z0-9-]{1,64}$`; o resto vira `unknown` ([[windowController]]).
+- Motivos de falha do helper de janelas só chegam ao log como códigos `^[a-z0-9-]{1,64}$`; o resto vira `unknown` ([[windowController]]).
 - `sign-in.log` e `data.log` não registram credenciais.
 
 ### Segredo não vai em argumento de processo
@@ -68,9 +68,8 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 ### Janelas e processos
 - O padrão desde [[ADR-009 Sobreposição no cliente oficial]] é uma janela própria sem moldura que acompanha o cliente oficial. O observador só lê geometria e processo; exige caminho do executável Riot esperado e não lê título, texto, campos ou credenciais. As únicas leituras visuais são as cores de dois quadrados de 7 × 7 px da coluna de login, sem texto, campo ou credencial: um numa área vazia, para saber se um modal da Riot escureceu a janela ([[ADR-017 Cartões cedem a vez aos avisos da Riot]]), e um no centro da caixa "Stay signed in", para saber se o formulário de login sumiu ([[ADR-025 Caixa some junto com o formulário da Riot]]). Cada leitura sai do helper só como um booleano. Por conta própria, a única janela que ele altera é a da sobreposição, e só se ela pertencer ao processo do gerenciador ([[ADR-012 Sobreposição presa à janela do Riot]]). Na janela da Riot ele só minimiza ou fecha, e só quando o usuário clica nas cópias desses controles, na janela já conferida pelo executável oficial ([[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]). Enquanto acompanha essa janela, também desliga a animação de minimizar dela e a devolve ao parar ([[ADR-016 Riot sem animação de minimizar e cartões com os cantos dela]]). O X fecha pelos mesmos pedidos do serviço local que o botão da Riot usa ([[riotAppControls]]), respeitando a opção de segundo plano do jogador. A view mantém o mesmo isolamento e validação IPC. A caixa "Ocultar contas" ([[overlayToggle]]) é uma segunda view na mesma janela, isolada do mesmo jeito, cujo preload só manda um booleano; na coluna de login, só o retângulo dela entra na região de cliques ([[ADR-013 Caixa para ocultar as contas na coluna de login]]). A exceção é o login em andamento: uma terceira view, sem script, preload nem IPC ([[overlayCover]]), cobre a coluna, e a caixa some. Qualquer pedido de atenção da Riot (2FA, CAPTCHA, demora) a tira na hora, para o usuário resolver na tela nativa, e ela deixa descoberto o ponto que o observador lê ([[ADR-024 Coluna de login coberta durante o login]]). A caixa também some, e sai da região, enquanto o formulário de login da Riot está fora da tela ([[ADR-025 Caixa some junto com o formulário da Riot]]).
 - O main não cria janela própria de gerenciamento. Os cartões vivem na sobreposição presa à janela da Riot, e sair do serviço é uma ação da bandeja ([[ADR-028 Modo antigo removido]]).
-- O monitor esconde apenas processos do Riot Client; jogos e Vanguard ficam fora ([[windowGuard.ps1]]).
+- O helper de janelas só ativa ou fecha janelas da interface do Riot Client (`Riot Client`, `RiotClientUx`) e só lê as do jogo; jogos e Vanguard nunca são alterados. Desde 2026-11-07 nada esconde a Riot nem muda estilos de janela dela ([[windowGuard.ps1]]).
 - Nenhuma injeção de código, teclado global ou mouse; o preenchimento manda mensagens só para a janela do Riot ([[login.ps1]]).
-- Ao fechar o app, os estilos de janela alterados são restaurados ([[windowController]]).
 
 ## Ameaças fora do escopo
 

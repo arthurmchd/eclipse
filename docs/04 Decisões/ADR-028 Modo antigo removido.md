@@ -7,7 +7,7 @@ tags: [adr, arquitetura, integração, segurança]
 
 # ADR-028 Modo antigo removido
 
-Substitui [[ADR-001 Cópia privada da interface do Riot]] e [[ADR-007 Interface completa dentro do Riot Client]]. Encerra a migração da [[ADR-009 Sobreposição no cliente oficial]]. É o item 17 da análise de remendos de 2026-11-06.
+Substitui [[ADR-001 Cópia privada da interface do Riot]], [[ADR-007 Interface completa dentro do Riot Client]] e, desde a limpeza do mesmo dia, [[ADR-004 Monitor persistente de janelas]] e [[ADR-008 Recuperação visual sem reexibir o Riot]]. Encerra a migração da [[ADR-009 Sobreposição no cliente oficial]]. É o item 17 da análise de remendos de 2026-11-06.
 
 ## Contexto
 
@@ -50,13 +50,15 @@ Essa é a parte que mais depende de cada versão da Riot e que mais pesa com os 
 - O app perde a opção `--private-client`. Tudo acontece na Riot oficial, sem alterar arquivos dela.
 - As regras de segurança da cópia privada (manifesto, SHA-256, marcadores, bridge local) deixam de valer. As da sobreposição continuam ([[Segurança e privacidade]]).
 - O agente `riot-update-checker`, que conferia a cópia privada a cada versão da Riot, perde o objeto e é removido.
-- Os itens 11 (dividir o `signInFlow`), 16 (helpers PowerShell) e 18 (fábrica do `riotClient`) da análise ficam menores. Os modos de login antigos dentro do [[signInFlow]] ficavam para o item 11; saíram no mesmo dia, a pedido do usuário, e o fluxo ficou só com o login visível. O monitor de ocultação do [[windowController]] e do [[windowGuard.ps1]] continua no código, sem chamador.
+- Os itens 11 (dividir o `signInFlow`), 16 (helpers PowerShell) e 18 (fábrica do `riotClient`) da análise ficam menores. Os modos de login antigos dentro do [[signInFlow]] ficavam para o item 11; saíram no mesmo dia, a pedido do usuário, e o fluxo ficou só com o login visível. Depois saiu também o monitor de ocultação do [[windowController]] e do [[windowGuard.ps1]], sem chamador desde o login sempre visível; ficaram só os pedidos avulsos de trazer a Riot à frente, fechar a janela dela e procurar a janela do jogo. Isso substitui a [[ADR-004 Monitor persistente de janelas]] e a [[ADR-008 Recuperação visual sem reexibir o Riot]].
 - Se o caminho da Riot não for detectado sozinho, não há mais tela para escolhê-lo. Isso já valia no modo cartões, que nunca mostrava a janela antiga.
 
 ## Relacionado
 
 - [[ADR-001 Cópia privada da interface do Riot]]
 - [[ADR-007 Interface completa dentro do Riot Client]]
+- [[ADR-004 Monitor persistente de janelas]]
+- [[ADR-008 Recuperação visual sem reexibir o Riot]]
 - [[ADR-009 Sobreposição no cliente oficial]]
 - [[main]]
 - [[managerService]]

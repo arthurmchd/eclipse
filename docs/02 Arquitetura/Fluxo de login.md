@@ -47,7 +47,7 @@ sequenceDiagram
 4. **Pedidos da Riot ficam com o usuário.** 2FA, CAPTCHA ou outro pedido de atenção tiram a cobertura, e o usuário conclui na tela da Riot. Erros comuns não repetem a senha.
 5. **Abre o jogo.** Só depois de verificar a conta. O sucesso exige uma **janela visível do jogo** (para LoL/TFT, o lobby do League), não apenas um processo. Depois o Eclipse guarda a sessão e fecha a janela da Riot. Com o ícone da Riot, a Riot fica aberta e conectada, sem jogo.
 
-Até 2026-11-07 havia também o login escondido do modo privado, com o monitor de janelas (`windowGuard.ps1`) escondendo o Riot do começo ao fim ([[ADR-008 Recuperação visual sem reexibir o Riot]]). Os ramos dele saíram do [[signInFlow]] no mesmo dia.
+Até 2026-11-07 havia também o login escondido do modo privado, com o monitor de janelas (`windowGuard.ps1`) escondendo o Riot do começo ao fim ([[ADR-008 Recuperação visual sem reexibir o Riot]]). Os ramos dele saíram do [[signInFlow]] no mesmo dia, e o monitor saiu do [[windowGuard.ps1]].
 
 ## Regras que não podem quebrar
 

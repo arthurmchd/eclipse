@@ -27,7 +27,7 @@ Rodar um teste só: `node --test test/riot/signInFlow.test.js`.
 
 - `test/` espelha `src/`.
 - Não autenticam contas reais nem abrem jogos.
-- Os testes do monitor de janelas (compila o C# e roda um autoteste que não toca janelas do desktop) e o teste dos cartões com Electron real usam recursos reais do Windows com dados sintéticos.
+- Os testes do helper de janelas (`windowGuard.ps1`: compila o C# e roda um autoteste que não toca janelas do desktop) e o teste dos cartões com Electron real usam recursos reais do Windows com dados sintéticos.
 - Pastas temporárias são criadas dentro da pasta do próprio teste e removidas no fim; os testes conferem isso antes de apagar.
 - `test/main/mainStartup.test.js` executa `src/main/index.js` dentro de um `vm` com um `require` falso. **Se você adicionar um `require` em `src/main/index.js`, inclua o módulo no mapa `deps` desse teste.**
 - `test/core/store.test.js` faz o mesmo com `src/core/store.js`.

@@ -63,11 +63,11 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]
 - [[ADR-003 Sem contornar CAPTCHA ou 2FA]]
-- [[ADR-004 Monitor persistente de janelas]]
+- [[ADR-004 Monitor persistente de janelas]] (substituída)
 - [[ADR-005 Código sem comentários e conhecimento no vault]]
 - [[ADR-006 Estrutura de pastas por camada]]
 - [[ADR-007 Interface completa dentro do Riot Client]] (substituída)
-- [[ADR-008 Recuperação visual sem reexibir o Riot]]
+- [[ADR-008 Recuperação visual sem reexibir o Riot]] (substituída)
 - [[Estudo - Comparação com o Rose]]
 
 ## Guias

@@ -14,14 +14,19 @@ function request(input) {
   });
 }
 
-test('Windows guard self-tests rejection of tray and auxiliary activation, restoration, bounded workers and callbacks without touching desktop windows', { skip: process.platform !== 'win32', timeout: 15000 }, async () => {
+const windows = { skip: process.platform !== 'win32', timeout: 15000 };
+
+test('the window helper self-tests its window, process and game filters without touching desktop windows', windows, async () => {
   assert.deepEqual(await request({ action: 'self-test' }), { code: 0, output: 'ok' });
 });
 
-test('Windows guard rejects an invalid initial mode before inspecting processes or desktop windows', { skip: process.platform !== 'win32', timeout: 15000 }, async () => {
-  assert.deepEqual(await request({ ownerPid: 1, initialMode: 'reveal' }), { code: 1, output: 'error:invalid-mode' });
+test('the window helper refuses the old persistent monitor and its hiding actions', windows, async () => {
+  for (const input of [{ ownerPid: 1, initialMode: 'hide' }, { action: 'watch', ownerPid: 1 }, { action: 'park' }, { action: 'restore' }, { action: 'hide-auxiliary' }, { action: 'inspect' }]) {
+    assert.deepEqual(await request(input), { code: 1, output: 'error:invalid-action' });
+  }
 });
 
-test('Windows guard rejects invalid restore activation before touching desktop windows', { skip: process.platform !== 'win32', timeout: 15000 }, async () => {
-  assert.deepEqual(await request({ action: 'restore', activate: 'no' }), { code: 1, output: 'error:invalid-activation' });
+test('the window helper refuses an unknown game before looking at desktop windows', windows, async () => {
+  assert.deepEqual(await request({ action: 'game-window', game: 'lol\nreveal' }), { code: 1, output: 'error:invalid-game' });
+  assert.deepEqual(await request({ action: ['self-test', 'close-client'] }), { code: 1, output: 'error:invalid-action' });
 });

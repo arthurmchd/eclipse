@@ -25,8 +25,6 @@ test('every message translates both ways without ambiguity', () => {
 test('messages with a variable part keep it in both languages', () => {
   assert.equal(localize('Riot sign-in error: invalid_session', 'pt'), 'Erro de login da Riot: invalid_session');
   assert.equal(localize('Erro de login da Riot: invalid_session', 'en'), 'Riot sign-in error: invalid_session');
-  assert.equal(localize('The background window guard stopped (exit 3). Try Play again', 'pt'), 'O monitor de janelas em segundo plano parou (exit 3). Tente Jogar de novo');
-  assert.equal(localize('The background window guard stopped. Try Play again', 'pt'), 'O monitor de janelas em segundo plano parou. Tente Jogar de novo');
   assert.equal(localize('Riot Client window script failed: 5', 'pt'), 'O script da janela do Riot Client falhou: 5');
 });
 

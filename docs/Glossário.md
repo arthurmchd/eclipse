@@ -21,7 +21,7 @@ tags: [glossário]
 | **Caixa "Ocultar contas"** | Caixa sobre a coluna de login que esconde os cartões e mostra a arte da Riot ([[overlayToggle]]) |
 | **Cobertura** | Carregamento sobre a coluna de login enquanto o Eclipse entra na conta ([[overlayCover]]) |
 | **Guardião** | O [[sessionKeeper]], que guarda a sessão de cada conta e deixa a Riot sempre abrir desconectada |
-| **Monitor / guard** | `windowGuard.ps1`, que mostra as janelas do Riot e procura a janela do jogo; esconder a Riot era do login escondido do modo antigo ([[windowGuard.ps1]]) |
+| **Helper de janelas / guard** | `windowGuard.ps1`, rodado uma vez por pedido: traz a janela do Riot à frente, fecha a janela dele e procura a janela do jogo. O monitor persistente que escondia a Riot no modo antigo saiu em 2026-11-07 ([[windowGuard.ps1]]) |
 | **Preenchimento nativo** | O Eclipse digitando no formulário visível da Riot quando a API de login não serve ([[login.ps1]]) |
 | **DPAPI** | Data Protection API do Windows, criptografia amarrada ao usuário; usada pelo `safeStorage` do Electron no [[store]] |
 | **ASAR** | Formato de pacote do Electron ([[asar]]) |

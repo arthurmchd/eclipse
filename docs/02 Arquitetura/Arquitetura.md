@@ -28,7 +28,7 @@ flowchart LR
   end
 
   subgraph Windows["Auxiliares Windows (PowerShell + C#)"]
-    WG["windowGuard.ps1<br/>persistente"]
+    WG["windowGuard.ps1<br/>pontual"]
     LG["login.ps1<br/>pontual"]
     OB["riotWindowObserver<br/>persistente"]
   end
@@ -50,7 +50,7 @@ flowchart LR
 | Serviços (main) | Enquanto o app roda; mantém a bandeja e o armazenamento | Sim: decripta a senha para o login |
 | Cartões (`WebContentsView`) | Enquanto a sobreposição existe; visível só na tela de login | Não recebe segredos persistidos; só o que o usuário digita nos formulários |
 | `riotWindowObserver` | Um helper persistente enquanto o app roda | Não |
-| `windowGuard.ps1` | Uma instância persistente por sessão de jogo | Não |
+| `windowGuard.ps1` | Uma execução por pedido: trazer a Riot à frente, fechar a janela dela, procurar o jogo | Não |
 | `login.ps1` | Uma execução por preenchimento de compatibilidade | Sim, por stdin, nunca por argumento |
 
 ## Camadas
@@ -89,7 +89,7 @@ A regra de dependência aponta para baixo. `src/paths.js` é o único lugar que 
 | serviços → cartões | Consulta à fila limitada de eventos públicos | [[managerService]], [[manager-preload]] |
 | main → Riot Client | HTTPS na porta do lockfile, CA lida do `app.asar` oficial | [[riotTransport]], [[backend]], [[asar]] |
 | sobreposição → janela da Riot | helper persistente, stdin/stdout JSON | [[riotWindowObserver]] |
-| main → janelas do jogo | stdin JSON para `windowGuard.ps1` | [[windowController]] |
+| main → janelas da Riot e do jogo | stdin JSON para `windowGuard.ps1`, um processo por pedido | [[windowController]] |
 
 ## Leitura complementar
 
