@@ -7,6 +7,17 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-08 · Eclipse instalável
+
+- A pedido do usuário: o Eclipse funciona como o Rose, instalado e na bandeja, sem abrir o VS Code ([[ADR-030 Eclipse instalado por um Setup próprio]]).
+- **`npm run dist`** gera `dist/Eclipse Setup 1.0.0.exe` com o electron-builder 26.18.0: instalação de um clique, por usuário, sem administrador, com atalhos "Eclipse" no menu Iniciar e na Área de Trabalho e desinstalador. Sem assinatura e sem atualização automática.
+- **Mesmos dados:** o `name` continua `riot-account-manager`, e o nome "Eclipse" vem só de `build.productName`. Conferido no pacote: o `package.json` do `app.asar` não tem `productName`. A desinstalação não apaga os dados.
+- **Pacote só com o código:** `src/`, `package.json` e as fontes. Os três `.ps1` saem do `app.asar` iguais aos do projeto ([[paths]]).
+- **[[startWithWindows]] (novo):** opção "Iniciar com o Windows" na bandeja, desmarcada por padrão e só no app instalado ([[main]], [[language]]). O desinstalador apaga a entrada, menos ao instalar uma versão nova por cima (`scripts/build/installer.nsh`).
+- O `package.json` ganhou `author`, que vira a empresa do executável no lugar de "GitHub, Inc.".
+- O Setup gerado não foi executado: instalar e abrir o Eclipse mexe na Riot real e na pasta de dados real.
+- Testes novos: `test/platform/windows/startWithWindows.test.js`, `test/package.test.js` e a opção da bandeja em `test/main/mainStartup.test.js`. 362 testes.
+
 ## 2026-11-07 · Estado da Riot num lugar só
 
 - A pedido do usuário, item 4 da análise de remendos de 2026-11-06 ([[ADR-029 Estado da Riot definido num lugar só]]).

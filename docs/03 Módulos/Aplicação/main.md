@@ -16,20 +16,24 @@ tags: [módulo]
 - Cria [[store]], [[signInService]], [[managerService]], a bandeja, o [[sessionKeeper]], o [[riotWakeup]] e a [[riotOverlay]].
 - Agenda a atualização de elos usando [[rankApi]] e publica seus eventos.
 - Abre a Riot oficial e pede os cartões pela bandeja ou por uma segunda instância.
+- No app instalado, mostra na bandeja a opção "Iniciar com o Windows" ([[startWithWindows]]).
 
 ## API pública
 
 É o ponto de entrada Electron definido no `package.json`; não exporta API de consumo. Os comandos dos cartões passam pelo [[managerService]].
 
-As entradas do usuário são os atalhos, `npm start`, uma segunda instância e o menu da bandeja. Desde 2026-11-07 não há opções de linha de comando: `--private-client` e `--riot-login` saíram ([[ADR-028 Modo antigo removido]]).
+As entradas do usuário são os atalhos do Eclipse instalado, o início com o Windows (se ligado), `npm start`, uma segunda instância e o menu da bandeja. Desde 2026-11-07 não há opções de linha de comando: `--private-client` e `--riot-login` saíram ([[ADR-028 Modo antigo removido]]).
 
 ## Dependências
 
-- Usa: [[paths]], [[store]], [[rankApi]], [[riotClient]], [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[managerService]], [[riotOverlay]], [[language]] e as APIs de bandeja e diálogo do Electron.
+- Usa: [[paths]], [[store]], [[rankApi]], [[riotClient]], [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[managerService]], [[riotOverlay]], [[startWithWindows]], [[language]] e as APIs de bandeja e diálogo do Electron.
 - Usado por: Electron.
 - Os cartões são criados pela [[riotOverlay]] com [[managerHost]], [[manager-preload]] e [[cards]].
 
 ## Invariantes e decisões
+
+- **Iniciar com o Windows só no app instalado.** Desde 2026-11-08 ([[ADR-030 Eclipse instalado por um Setup próprio]]), o main cria o [[startWithWindows]] com `process.execPath` e o nome `Eclipse`. No app instalado, a bandeja ganha a opção marcável "Iniciar com o Windows" entre "Cancelar login" e "Sair", desmarcada até o usuário ligar. O estado é lido a cada vez que o menu é montado; um clique liga ou desliga e remonta o menu. Rodando do projeto, a opção não aparece e a chave `Run` não é lida nem gravada. Iniciado pelo Windows, o main faz o mesmo que pelo atalho: fica na bandeja sem abrir a Riot.
+- **Nome do pacote intocado também no Setup.** O `name` continua `riot-account-manager` e o nome "Eclipse" do executável e dos atalhos vem só de `build.productName`. O `test/package.test.js` falha se aparecer um `productName` no topo do `package.json`.
 
 - **Um modo só.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]), o main não tem mais o modo `--private-client`, a ponte HTTP, a cópia privada nem o [[windowsDpapi]]. Tudo o que antes valia "só no modo sobreposto" vale sempre. O código antigo está na tag `modo-antigo-final`.
 - **Nome visível "Eclipse".** Desde 2026-11-04, a pedido do usuário, a constante `APP_NAME` dá nome à dica da bandeja e aos títulos dos avisos, diálogos de erro e balões. A bandeja usa `APP_TRAY_ICON` ([[paths]]); só se ele não carregar, volta ao ícone do executável e depois a `APP_ICON`. O `name` do `package.json` continua `riot-account-manager` de propósito: o Electron deriva dele a pasta de dados (`%APPDATA%\riot-account-manager\`), e trocá-lo (ou definir `productName`/`app.setName`) faria o app abrir sem as contas salvas.
@@ -56,7 +60,7 @@ As entradas do usuário são os atalhos, `npm start`, uma segunda instância e o
 
 ## Testes
 
-`test/main/mainStartup.test.js` executa o ponto de entrada num `vm` com dependências falsas. Confere o início sem abrir a Riot, as opções do [[signInService]] e do [[managerService]], os switches do Chromium, a ordem de criação e parada do [[sessionKeeper]], do [[riotWakeup]] e da sobreposição, a bandeja (abrir a Riot, pedir os cartões, bloquear durante um login, não cobrir um pedido de atenção), a segunda instância antes e depois do início, a abertura serializada, os pedidos de elo feitos durante um refresh (uma passada extra somando os pedidos, completo compartilhado, completo pedido no meio de um parcial, passada extra depois de uma falha), a falta do Riot Client, os diálogos no idioma salvo e a saída ordenada.
+`test/main/mainStartup.test.js` executa o ponto de entrada num `vm` com dependências falsas. Confere o início sem abrir a Riot, a opção "Iniciar com o Windows" (só no app instalado, desligada até o clique, ligando e desligando com o nome `Eclipse`, nos dois idiomas, e ausente rodando do projeto), as opções do [[signInService]] e do [[managerService]], os switches do Chromium, a ordem de criação e parada do [[sessionKeeper]], do [[riotWakeup]] e da sobreposição, a bandeja (abrir a Riot, pedir os cartões, bloquear durante um login, não cobrir um pedido de atenção), a segunda instância antes e depois do início, a abertura serializada, os pedidos de elo feitos durante um refresh (uma passada extra somando os pedidos, completo compartilhado, completo pedido no meio de um parcial, passada extra depois de uma falha), a falta do Riot Client, os diálogos no idioma salvo e a saída ordenada.
 
 Nenhum desses testes autentica contas reais ou abre jogos.
 

@@ -18,6 +18,7 @@ tags: [dev]
 | `npm start` | Inicia o Eclipse na bandeja; os cartões aparecem sobre a Riot oficial |
 | `npm test` | Roda todos os testes (`node --test "test/**/*.test.js"`) |
 | `npm run preview` | Cartões no navegador com contas fictícias em <http://localhost:5178> |
+| `npm run dist` | Gera `dist/Eclipse Setup <versão>.exe`, o instalador do Eclipse ([[ADR-030 Eclipse instalado por um Setup próprio]]) |
 
 Os comandos do modo antigo (`start:riot-login`, `start:private`, `preview:riot-login`, `integration:*`, `legacy:*`) saíram em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
 
@@ -31,6 +32,23 @@ Rodar um teste só: `node --test test/riot/signInFlow.test.js`.
 - Pastas temporárias são criadas dentro da pasta do próprio teste e removidas no fim; os testes conferem isso antes de apagar.
 - `test/main/mainStartup.test.js` executa `src/main/index.js` dentro de um `vm` com um `require` falso. **Se você adicionar um `require` em `src/main/index.js`, inclua o módulo no mapa `deps` desse teste.**
 - `test/core/store.test.js` faz o mesmo com `src/core/store.js`.
+
+## Gerar o instalador
+
+`npm run dist` roda o electron-builder 26.18.0 com a seção `build` do `package.json`. Na primeira vez ele baixa o NSIS; o Electron vem do zip que o `npm install` guardou no cache. O resultado fica em `dist/`, fora do git:
+
+- `Eclipse Setup <versão>.exe`, o instalador de um clique, por usuário e sem administrador;
+- `win-unpacked/`, o app montado, útil para conferir o pacote.
+
+Depois de gerar, confira sem abrir o app (o Eclipse instalado mexe na Riot real e na pasta de dados real):
+
+- o `package.json` dentro de `win-unpacked/resources/app.asar` tem `name: riot-account-manager` e nenhum `productName`;
+- o asar só tem `src/`, `package.json` e `node_modules/@fontsource/`;
+- `win-unpacked/resources/app.asar.unpacked/src/platform/windows/` tem todos os `.ps1`.
+
+O `@electron/asar`, que vem com o electron-builder, lê o asar (`listPackage`, `extractFile`). Para lançar uma versão nova, suba `version` no `package.json` antes do build; o Setup novo instala por cima e mantém os dados.
+
+O `test/package.test.js` trava a configuração: nome do pacote, lista de arquivos, `asarUnpack`, instalador por usuário e o script do desinstalador.
 
 ## Convenções
 

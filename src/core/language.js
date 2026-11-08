@@ -75,14 +75,14 @@ const PATTERNS = [
 
 const MAIN_TEXT = {
   pt: {
-    trayAccounts: 'Contas no Riot', trayOpenRiot: 'Abrir Riot Client', trayCancel: 'Cancelar login', trayQuit: 'Sair',
+    trayAccounts: 'Contas no Riot', trayOpenRiot: 'Abrir Riot Client', trayCancel: 'Cancelar login', trayStartWithWindows: 'Iniciar com o Windows', trayQuit: 'Sair',
     gameFailed: 'Não foi possível abrir o jogo', needsAttention: 'O login precisa de sua atenção',
     openFailed: 'Não foi possível abrir as contas no Riot.',
     openFailedDetail: 'Tente de novo pelo ícone da bandeja. Se continuar, confira se o Riot Client está instalado.',
     understood: 'Entendi',
   },
   en: {
-    trayAccounts: 'Accounts in Riot', trayOpenRiot: 'Open Riot Client', trayCancel: 'Cancel sign-in', trayQuit: 'Quit',
+    trayAccounts: 'Accounts in Riot', trayOpenRiot: 'Open Riot Client', trayCancel: 'Cancel sign-in', trayStartWithWindows: 'Start with Windows', trayQuit: 'Quit',
     gameFailed: 'Could not open the game', needsAttention: 'The sign-in needs your attention',
     openFailed: 'Could not open the accounts in Riot.',
     openFailedDetail: 'Try again from the tray icon. If it keeps failing, check that Riot Client is installed.',

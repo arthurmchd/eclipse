@@ -18,6 +18,7 @@ tags: [limitações]
 - **Cartões um instante atrás da Riot.** Os movimentos da janela da Riot chegam por evento entre processos; os cartões podem seguir com um pequeno atraso ([[ADR-012 Sobreposição presa à janela do Riot]]). Os flashes do login escondido saíram com ele em 2026-11-07.
 - **DPAPI amarra os dados ao usuário e à máquina** ([[ADR-002 Segredos protegidos pelo DPAPI]]).
 - **Só Windows.**
+- **Setup sem assinatura.** O SmartScreen avisa na primeira execução, e não há atualização automática: uma versão nova é um Setup novo instalado por cima ([[ADR-030 Eclipse instalado por um Setup próprio]]).
 
 ## Validação
 

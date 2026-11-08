@@ -10,6 +10,7 @@ const { createSessionKeeper } = require('../core/sessionKeeper');
 const { createRiotWakeup } = require('../core/riotWakeup');
 const { createManagerService, createManagerEvents } = require('../core/managerService');
 const { createRiotOverlay } = require('../integration/overlay/riotOverlay');
+const { createStartWithWindows } = require('../platform/windows/startWithWindows');
 const { localize, mainText, normalizeLanguage } = require('../core/language');
 
 const APP_NAME = 'Eclipse';
@@ -23,6 +24,7 @@ const send = (channel, payload) => events.publish(channel, payload);
 const language = () => normalizeLanguage(store?.data?.settings?.language);
 const words = () => mainText(language());
 const say = (text) => localize(text, language());
+const startup = createStartWithWindows({ app, execPath: process.execPath, name: APP_NAME, log: (line) => signInLog(line) });
 
 function signInLog(line) {
   try {
@@ -136,6 +138,10 @@ function buildTrayMenu() {
     { label: text.trayOpenRiot, click: () => openRiot() },
     { label: text.trayCancel, click: () => launchService.cancel() },
     { type: 'separator' },
+    ...(startup.available() ? [
+      { label: text.trayStartWithWindows, type: 'checkbox', checked: startup.enabled(), click: () => { startup.set(!startup.enabled()); buildTrayMenu(); } },
+      { type: 'separator' },
+    ] : []),
     { label: text.trayQuit, click: () => app.quit() },
   ]));
 }

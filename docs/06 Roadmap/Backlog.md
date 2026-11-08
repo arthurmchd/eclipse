@@ -80,7 +80,7 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 
 ## Produto
 
-20. **Instalador e atualização.** Instalador assinado, versionamento do formato de `data.json` e atualização controlada. Os auxiliares PowerShell precisam ficar fora do `app.asar` (já suportado por `unpackedPath` em [[paths]]).
+20. **Instalador e atualização.** Em parte desde 2026-11-08: `npm run dist` gera um Setup por usuário, com atalhos, desinstalador, os `.ps1` fora do `app.asar` e a opção "Iniciar com o Windows" na bandeja ([[ADR-030 Eclipse instalado por um Setup próprio]]). Falta: assinatura de código (certificado pago), atualização automática, versionamento do formato de `data.json` e os fuses do Electron (desligar `RunAsNode` e validar a integridade do `app.asar`).
 21. **Validar o fluxo dos cartões com contas reais**: sessão nova, sessão expirada e 2FA ([[Integração com o Riot Client]]).
 
 ## Ferramentas de desenvolvimento

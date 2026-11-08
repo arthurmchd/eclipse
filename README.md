@@ -11,14 +11,25 @@ Cada cartão mostra nome, nível e, para Solo/Duo e Flex lado a lado (Competitiv
 - A Riot sempre abre desconectada, na tela de login com os cartões
 - Não altera a instalação da Riot, não contorna CAPTCHA nem 2FA e não mexe nos jogos nem no Vanguard
 
-## Início rápido
+## Instalar
+
+```powershell
+npm ci
+npm run dist
+```
+
+Rode `dist\Eclipse Setup <versão>.exe`. Ele instala na sua conta do Windows, sem pedir administrador, cria os atalhos "Eclipse" no menu Iniciar e na Área de Trabalho e abre o Eclipse na bandeja. O Setup não é assinado: se o Windows avisar, use **Mais informações** → **Executar assim mesmo**. As contas ficam em `%APPDATA%\riot-account-manager\`, as mesmas do `npm start`, e a desinstalação não as apaga.
+
+Na bandeja, **Iniciar com o Windows** abre o Eclipse quando você entra no Windows. Vem desmarcado. Para atualizar, saia pela bandeja e rode o Setup novo por cima.
+
+## Rodar do projeto
 
 ```powershell
 npm ci
 npm start
 ```
 
-Inicie por `Abrir Riot com minhas contas.bat` (instala as dependências na primeira vez), `Iniciar gerenciador de contas.bat` ou `npm start`, depois abra o Riot Client normalmente. Os cartões aparecem presos à janela da Riot e a acompanham. Pela bandeja, **Contas no Riot** abre a Riot com os cartões e **Abrir Riot Client** abre só a Riot. Encerre a instância antiga pela bandeja antes de atualizar. O início automático com o Windows não é ativado.
+Inicie por `Abrir Riot com minhas contas.bat` (instala as dependências na primeira vez), `Iniciar gerenciador de contas.bat` ou `npm start`, depois abra o Riot Client normalmente. Os cartões aparecem presos à janela da Riot e a acompanham. Pela bandeja, **Contas no Riot** abre a Riot com os cartões e **Abrir Riot Client** abre só a Riot. Encerre a instância antiga pela bandeja antes de atualizar. Rodando do projeto, a opção **Iniciar com o Windows** não aparece.
 
 Ao clicar em **Jogar**, o botão vira **Cancelar** enquanto o Eclipse entra na conta. Quando a janela do jogo abre, a janela da Riot é fechada. 2FA, CAPTCHA e outras verificações aparecem na própria tela da Riot.
 

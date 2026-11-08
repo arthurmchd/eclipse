@@ -23,7 +23,7 @@ Define que o Eclipse fala `pt` ou `en`, com `pt` como padrão, e tem o catálogo
 | `MESSAGES` | lista | Pares `[inglês, português]`. Exportado para o teste conferir o catálogo inteiro. |
 | `normalizeLanguage(valor)` | função | Devolve `en` só para `'en'`; qualquer outra coisa vira `pt`. |
 | `localize(texto, idioma)` | função | Acha o texto em qualquer lado de um par (ou num dos padrões com parte variável) e devolve a versão no idioma pedido. Texto desconhecido volta igual. |
-| `mainText(idioma)` | função | Textos da bandeja, dos balões e da caixa de erro do [[main]]. |
+| `mainText(idioma)` | função | Textos da bandeja, dos balões e da caixa de erro do [[main]]. Desde 2026-11-08 inclui `trayStartWithWindows` ("Iniciar com o Windows" / "Start with Windows"). |
 
 ## Dependências
 

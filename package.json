@@ -2,6 +2,7 @@
   "name": "riot-account-manager",
   "version": "1.0.0",
   "description": "Account switcher for League of Legends, TFT and VALORANT",
+  "author": "Arthur",
   "main": "src/main/index.js",
   "private": true,
   "engines": {
@@ -10,14 +11,55 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/**/*.test.js\"",
-    "preview": "node scripts/dev/preview-server.js"
+    "preview": "node scripts/dev/preview-server.js",
+    "dist": "electron-builder --win nsis --x64"
   },
   "devDependencies": {
-    "electron": "44.9.3"
+    "electron": "44.9.3",
+    "electron-builder": "26.18.0"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@fontsource/teko": "^5.3.0"
+  },
+  "build": {
+    "appId": "io.github.arthurmchd.eclipse",
+    "productName": "Eclipse",
+    "directories": {
+      "output": "dist",
+      "buildResources": "scripts/build"
+    },
+    "publish": null,
+    "npmRebuild": false,
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "src/platform/windows/*.ps1"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/renderer/assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Eclipse",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "scripts/build/installer.nsh",
+      "packElevateHelper": false
+    }
   }
 }

@@ -45,6 +45,9 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 - A API local do Riot é acessada por HTTPS com o certificado raiz lido do `app.asar` oficial e validação de certificado ligada ([[backend]], [[asar]], [[riotTransport]]).
 
 ### Arquivos dentro dos limites
+- O Setup leva só `src/` e `package.json`, além das fontes; `backups/`, `.client-integration/`, logs e dados nunca entram no pacote. O `test/package.test.js` trava a lista ([[ADR-030 Eclipse instalado por um Setup próprio]]).
+- O Eclipse instalado usa a mesma pasta de dados do `npm start` e a desinstalação não a apaga.
+- A chave `Run` do usuário só ganha a entrada `Eclipse` quando o usuário liga "Iniciar com o Windows" na bandeja, e só no app instalado. Desligar a remove, e o desinstalador também ([[startWithWindows]]).
 - IDs de sessão validados contra travessia de caminho e streams NTFS ([[store]]).
 - A instalação original do Riot nunca é escrita. O `app.asar` oficial só é lido, com limites de tamanho e sem seguir links ou entradas fora do pacote ([[asar]], [[ADR-028 Modo antigo removido]]).
 - Fora de um login, o arquivo de configurações da Riot (`RiotGamesPrivateSettings.yaml`, na pasta local do usuário) só é reescrito para tirar o login lembrado, e só com a Riot sem conta conectada (fechada, em segundo plano ou na tela de login).

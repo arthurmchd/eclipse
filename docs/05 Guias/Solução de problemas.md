@@ -53,7 +53,15 @@ Backups só abrem no mesmo usuário Windows ([[ADR-002 Segredos protegidos pelo 
 
 ## O atalho abre a instância antiga
 
-Só uma cópia roda por vez. Depois de atualizar o código: bandeja → **Sair** e abra de novo.
+Só uma cópia roda por vez. Depois de atualizar o código: bandeja → **Sair** e abra de novo. O mesmo vale entre o Eclipse instalado e o `npm start`: o que abrir depois só pede à primeira cópia que abra a Riot com os cartões.
+
+## O Windows avisa que o Setup não é reconhecido
+
+O Setup e o `Eclipse.exe` não são assinados ([[ADR-030 Eclipse instalado por um Setup próprio]]). Na tela azul do SmartScreen, **Mais informações** → **Executar assim mesmo**. O aviso some depois da primeira execução daquele arquivo.
+
+## O Eclipse instalado abriu sem contas
+
+Ele usa `%APPDATA%\riot-account-manager\`, a mesma pasta do `npm start`. Se abriu vazio, o `package.json` do build provavelmente ganhou um `productName` no topo ou outro `name`; o `test/package.test.js` deveria ter barrado. As contas continuam na pasta antiga; não cadastre de novo, corrija o build.
 
 ## Mensagens que saíram
 

@@ -11,7 +11,7 @@ riot-account-manager/
 ├── Iniciar gerenciador de contas.bat   inicia o Eclipse (exige npm install)
 ├── CLAUDE.md                           instruções para agentes de IA
 ├── README.md
-├── package.json                        main = src/main/index.js
+├── package.json                        main = src/main/index.js; build = configuração do Setup
 ├── docs/                               este vault do Obsidian
 ├── src/
 │   ├── paths.js                        único lugar que conhece o layout
@@ -39,7 +39,8 @@ riot-account-manager/
 │   │   ├── riotWindowObserver.js
 │   │   ├── riotWindowObserver.ps1
 │   │   ├── login.ps1
-│   │   └── windowsEnvironment.js
+│   │   ├── windowsEnvironment.js
+│   │   └── startWithWindows.js         opção "Iniciar com o Windows"
 │   ├── integration/                    o que fica preso à janela oficial da Riot
 │   │   ├── asar.js                     leitura do app.asar oficial (só leitura)
 │   │   ├── backend.js                  lockfile e certificado da API local
@@ -60,8 +61,10 @@ riot-account-manager/
 │       ├── ranks.js
 │       └── assets/
 ├── scripts/
-│   └── dev/                            prévia dos cartões no navegador
-├── test/                               espelha src/
+│   ├── dev/                            prévia dos cartões no navegador
+│   └── build/installer.nsh             passo extra do desinstalador
+├── test/                               espelha src/; package.test.js confere o build
+├── dist/                               fora do git: o Setup gerado por npm run dist
 └── backups/                            fora do git: cópias do data.json
 ```
 
@@ -70,7 +73,8 @@ riot-account-manager/
 - **Testes espelham `src/`.** O teste de `src/riot/signInFlow.js` mora em `test/riot/signInFlow.test.js`. Um script de `scripts/` segue o próprio caminho: `test/scripts/dev/preview-server.test.js`.
 - **Caminhos só em `src/paths.js`.** Nenhum módulo calcula a raiz com `__dirname, '..', '..'`. Mover uma pasta exige mudar um arquivo.
 - **Nada de escrever na instalação da Riot.** `asar.js` e `backend.js` só leem o `app.asar` e o lockfile oficiais ([[ADR-028 Modo antigo removido]]).
-- **Atalhos `.bat` ficam na raiz** porque são o ponto de entrada do usuário.
+- **Atalhos `.bat` ficam na raiz** porque são o ponto de entrada do usuário rodando do projeto. Desde 2026-11-08 o uso diário pode ser pelo Eclipse instalado ([[ADR-030 Eclipse instalado por um Setup próprio]]).
+- **Só `src/` e `package.json` entram no Setup.** O resto da raiz (docs, testes, scripts, `backups/`, `.client-integration/`) fica fora do pacote pela lista `build.files`.
 - **`.client-integration/` é sobra do modo antigo.** Se existir na raiz, está fora do git e o código não a usa desde 2026-11-07. O usuário pode apagá-la; ela tem recursos proprietários da Riot e nunca pode ser distribuída.
 
 ## Mapa da reorganização (2026-10-26)

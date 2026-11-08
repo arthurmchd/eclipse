@@ -112,6 +112,34 @@ test('the tray exposes no old manager entry', async () => {
   assert.equal(f.trayMenu().some((item) => /manager|gerenciador/i.test(item.label || '')), false);
 });
 
+test('the installed Eclipse offers starting with Windows, off until the user turns it on from the tray', async () => {
+  const f = fixture({ packaged: true });
+  await flush();
+  assert.deepEqual(Array.from(f.trayMenu(), (item) => item.label).filter(Boolean), ['Contas no Riot', 'Abrir Riot Client', 'Cancelar login', 'Iniciar com o Windows', 'Sair']);
+  const option = () => f.trayMenu().find((item) => item.label === 'Iniciar com o Windows' || item.label === 'Start with Windows');
+  assert.equal(option().type, 'checkbox');
+  assert.equal(option().checked, false);
+  assert.deepEqual(f.loginItemCalls, []);
+  option().click();
+  assert.deepEqual({ ...f.loginItems }, { Eclipse: 'C:/test/electron.exe' });
+  assert.deepEqual({ ...f.loginItemCalls[0] }, { openAtLogin: true, path: 'C:/test/electron.exe', name: 'Eclipse', enabled: true });
+  assert.equal(option().checked, true);
+  f.store.data.settings.language = 'en';
+  f.managerOptions().settingsChanged({ language: 'en' });
+  assert.equal(option().label, 'Start with Windows');
+  assert.equal(option().checked, true);
+  option().click();
+  assert.deepEqual({ ...f.loginItems }, {});
+  assert.equal(option().checked, false);
+});
+
+test('running from the project shows no start with Windows option and never touches the startup entries', async () => {
+  const f = fixture();
+  await flush();
+  assert.equal(f.trayMenu().some((item) => item.type === 'checkbox'), false);
+  assert.deepEqual(f.loginItemCalls, []);
+});
+
 test('tray, notices and overlay start in Portuguese and switch to English when the setting is saved', async () => {
   const f = fixture();
   await flush();
@@ -287,14 +315,23 @@ test('a second controller process exits without starting anything', async () => 
   assert.deepEqual(f.events, ['quit']);
 });
 
-function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath = 'C:/test/RiotClientServices.exe', waitForReady = false, openGate, operation = null, singleInstance = true, accounts = [], refreshAccount = async () => ({}) } = {}) {
-  const events = [], publicEvents = [], dialogs = [], openedClientPaths = [], managerCalls = [], languages = [], balloons = [];
+function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath = 'C:/test/RiotClientServices.exe', waitForReady = false, openGate, operation = null, singleInstance = true, accounts = [], refreshAccount = async () => ({}), packaged = false } = {}) {
+  const events = [], publicEvents = [], dialogs = [], openedClientPaths = [], managerCalls = [], languages = [], balloons = [], loginItemCalls = [];
   const app = new EventEmitter();
   let releaseReady, managerOptions, launchOptions, overlayOptions, keeperOptions, wakeupOptions, trayMenu, busy = false;
   const ready = waitForReady ? new Promise((resolve) => { releaseReady = resolve; }) : Promise.resolve();
-  const switches = [];
+  const switches = [], loginItems = {};
   Object.assign(app, { requestSingleInstanceLock: () => singleInstance, whenReady: () => ready, quit: () => events.push('quit'),
-    getVersion: () => 'test', getFileIcon: async () => 'test-icon', switches,
+    getVersion: () => 'test', getFileIcon: async () => 'test-icon', switches, isPackaged: packaged,
+    getLoginItemSettings: (options) => {
+      const launchItems = Object.entries(loginItems).filter(([, file]) => file === options.path).map(([name, file]) => ({ name, path: file, args: [], scope: 'user', enabled: true }));
+      return { openAtLogin: false, launchItems, executableWillLaunchAtLogin: launchItems.length > 0 };
+    },
+    setLoginItemSettings: (options) => {
+      loginItemCalls.push(options);
+      if (options.openAtLogin) loginItems[options.name] = options.path;
+      else delete loginItems[options.name];
+    },
     commandLine: { appendSwitch: (name, value) => switches.push([name, value]) } });
   const trayState = {};
   class FakeTray extends EventEmitter {
@@ -323,6 +360,7 @@ function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath 
   const deps = {
     electron, fs: { existsSync: () => false, appendFileSync: () => {} }, path,
     '../paths': { APP_ICON: 'C:/app/src/renderer/assets/icon.png', APP_TRAY_ICON: 'C:/app/src/renderer/assets/icon.ico' },
+    '../platform/windows/startWithWindows': require('../../src/platform/windows/startWithWindows'),
     '../integration/overlay/riotOverlay': { createRiotOverlay: (options) => (overlayOptions = options, {
       start: async () => events.push('overlay-start'), open: async () => events.push('overlay-open'),
       setBlocked: (blocked) => events.push(blocked ? 'overlay-blocked' : 'overlay-unblocked'),
@@ -355,7 +393,7 @@ function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath 
     if (!(name in deps)) throw new Error('Unexpected dependency: ' + name);
     return deps[name];
   }, process: { argv: ['electron', '.'], execPath: 'C:/test/electron.exe' }, setTimeout, clearTimeout, console }, { filename: 'index.js' });
-  return { app, events, publicEvents, dialogs, openedClientPaths, managerCalls, riotClient, store, languages, balloons,
+  return { app, events, publicEvents, dialogs, openedClientPaths, managerCalls, riotClient, store, languages, balloons, loginItems, loginItemCalls,
     setOperation: (value) => { operation = value; }, releaseReady: () => releaseReady(),
     managerOptions: () => managerOptions, launchOptions: () => launchOptions, overlayOptions: () => overlayOptions,
     keeperOptions: () => keeperOptions, wakeupOptions: () => wakeupOptions, trayMenu: () => trayMenu, trayState,

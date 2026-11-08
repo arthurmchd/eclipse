@@ -50,7 +50,7 @@ Arquivo novo, criado na reorganização de pastas ([[Estrutura de pastas]]). Nã
 
 - **A raiz depende da posição do arquivo.** `PROJECT_ROOT = path.resolve(__dirname, '..')`. Mover `paths.js` para outra pasta muda todos os caminhos.
 - **Substitui caminhos espalhados.** Antes, `riotClient` e `windowController` montavam o caminho do `.ps1` com `__dirname` e o mesmo `.replace('app.asar', 'app.asar.unpacked')`. Os módulos da cópia privada, hoje removidos, também montavam `.client-integration/private-v1` cada um.
-- **Helpers fora do asar.** Os scripts PowerShell são executados por um processo externo, que precisa de um arquivo real no disco. `unpackedPath` aponta para a cópia em `app.asar.unpacked`. Rodando do código-fonte, sem asar, o caminho não muda.
+- **Helpers fora do asar.** Os scripts PowerShell são executados por um processo externo, que precisa de um arquivo real no disco. `unpackedPath` aponta para a cópia em `app.asar.unpacked`. Rodando do código-fonte, sem asar, o caminho não muda. Desde 2026-11-08 o Setup existe ([[ADR-030 Eclipse instalado por um Setup próprio]]): `build.asarUnpack` tira os `.ps1` de `src/platform/windows/` do asar, e o primeiro Setup foi conferido com os três auxiliares iguais aos do projeto em `app.asar.unpacked`.
 - **`.client-integration/` sobra de um modo removido.** A pasta guardava a cópia da interface da Riot. O código não a usa mais; ela continua no `.gitignore` e não pode ser distribuída, porque contém recursos proprietários. Ver [[Integração com o Riot Client]].
 - **Ícone do Eclipse.** Desde 2026-11-04, `APP_TRAY_ICON` (`.ico` com 16, 24, 32, 48, 64, 128 e 256 px) é o ícone da bandeja no [[main]], para o Windows escolher o tamanho certo em cada escala. `APP_ICON` é o mesmo desenho em PNG de 256 px e fica como última reserva. A imagem foi enviada pelo usuário (fundo branco removido, recortada e centralizada); por parecer arte de jogo da Riot, serve para uso pessoal e não deve ir para uma distribuição pública do app.
 - **A view usa caminhos centralizados.** [[managerHost]] recebe o HTML local e o preload dedicado pelas constantes deste módulo.
@@ -61,7 +61,7 @@ Sem teste próprio. Testes de outros módulos importam constantes daqui (`PROJEC
 
 ## Pontos de atenção
 
-- Num pacote asar, `PROJECT_ROOT` fica dentro de `app.asar`, somente leitura. Hoje o `package.json` não tem configuração de empacotamento e o app roda do código-fonte.
+- No Eclipse instalado, `PROJECT_ROOT` fica dentro de `app.asar`, somente leitura. Nenhum módulo grava nele; os dados vão para a pasta do [[store]].
 - `unpackedPath` troca só a primeira ocorrência e não checa se o caminho já está em `app.asar.unpacked`.
 - `WINDOWS_HELPERS_DIR` é exportado, mas hoje só é usado dentro do próprio arquivo.
 - Ver [[Desenvolvimento]] e [[Backlog]].

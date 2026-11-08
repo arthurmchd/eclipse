@@ -64,6 +64,7 @@ flowchart TB
   I["Interface<br/>src/renderer"] --> A["Aplicação<br/>src/main · src/core"]
   A --> RT["Riot<br/>src/riot"]
   A --> IN["Integração<br/>src/integration"]
+  A --> P
   RT --> P["Plataforma<br/>src/platform/windows"]
   IN --> P
 ```
@@ -72,7 +73,7 @@ flowchart TB
 - **Aplicação** orquestra: bandeja, agendamento de elos, armazenamento e serviços de gerenciamento, login e sessão.
 - **Riot** fala com o Riot Client: processos, arquivo de configurações, API local, autenticação e o fluxo de login.
 - **Integração** cuida da sobreposição sobre a janela da Riot, da view dos cartões e do IPC validado, e lê o lockfile e o certificado da Riot ([[backend]], [[asar]]).
-- **Plataforma** isola o que é específico do Windows: janelas e `LocalAppData`.
+- **Plataforma** isola o que é específico do Windows: janelas, `LocalAppData` e, desde 2026-11-08, a entrada de início com o Windows ([[startWithWindows]]).
 
 A regra de dependência aponta para baixo. `src/paths.js` é o único lugar que conhece o layout de pastas ([[paths]]).
 
