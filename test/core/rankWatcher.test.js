@@ -138,3 +138,11 @@ test('a reading keeps what only a key gives while the rank is the same: apex cut
   assert.deepEqual([moved.rr, moved.lastChange, moved.level, moved.card, moved.peak], [null, null, 80, 'new-card', { tier: 20 }]);
   assert.deepEqual(mergeReading(undefined, { tft: { ranked: null, doubleUp: null } }, AT), { tft: { ranked: null, doubleUp: null, updatedAt: AT }, errors: {} });
 });
+
+test('the League client never sends a hot streak, so the one from a key stays until the queue has a new game', () => {
+  const before = { lol: { solo: entry('GOLD', 40, { hotStreak: true }), flex: entry('GOLD', 40, { hotStreak: true }) }, tft: { ranked: entry('SILVER', 20, { hotStreak: true }), doubleUp: null } };
+  const read = { lol: { level: 1, iconId: 2, solo: entry('GOLD', 40), flex: entry('GOLD', 60, { wins: 11 }) }, tft: { ranked: entry('SILVER', 20), doubleUp: entry('IRON', 0) } };
+  const next = mergeReading(before, read, AT);
+  assert.deepEqual([next.lol.solo.hotStreak, next.lol.flex.hotStreak, next.tft.ranked.hotStreak, next.tft.doubleUp.hotStreak], [true, false, true, false]);
+  assert.equal(mergeReading(next, read, AT).lol.solo.hotStreak, true);
+});

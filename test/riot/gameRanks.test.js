@@ -104,3 +104,29 @@ test('the reader only sends GET requests, stops at the first failing answer and 
   assert.equal(await failing.valorant(), null);
   assert.deepEqual(calls.map(([, route]) => route), ['/lol-summoner/v1/current-summoner', '/chat/v1/session']);
 });
+
+test('the League answer in the shape the client sent on 2026-11-08: queues and queueMap together, unranked queues with an empty tier and NA, no hot streak', () => {
+  const queue = (queueType, tier, division, leaguePoints, wins, losses, isProvisional = false) => ({
+    queueType, tier, division, leaguePoints, wins, losses, isProvisional, highestTier: tier, highestDivision: division, previousSeasonEndTier: '',
+    miniSeriesProgress: '', ratedTier: 'NONE', ratedRating: 0, provisionalGameThreshold: 5, provisionalGamesRemaining: 0, warnings: {},
+  });
+  const queues = [
+    queue('RANKED_SOLO_5x5', 'PLATINUM', 'III', 12, 31, 28),
+    queue('RANKED_FLEX_SR', 'SILVER', 'I', 90, 7, 9),
+    queue('RANKED_TFT', 'BRONZE', 'I', 35, 3, 1, true),
+    queue('JADE_RANKED_SOLO_5x5', '', 'NA', 0, 0, 0),
+    queue('RANKED_TFT_DOUBLE_UP', '', 'NA', 0, 0, 0, true),
+    queue('RANKED_PREMADE_5x5', '', 'NA', 0, 0, 0, true),
+  ];
+  const ranked = { queues, queueMap: Object.fromEntries(queues.map((q) => [q.queueType, q])), highestRankedEntry: {}, seasons: {}, splitsProgress: {}, earnedRegaliaRewardIds: [] };
+  const summoner = { ...SUMMONER, accountId: 1, summonerId: 2, displayName: '', internalName: '', privacy: 'PUBLIC', unnamed: false, nameChangeFlag: false, rerollPoints: {} };
+  assert.deepEqual(parseLeague(summoner, ranked), {
+    riotId: { gameName: 'Synthetic', tagLine: 'BR1' },
+    lol: {
+      level: 321, iconId: 29,
+      solo: { tier: 'PLATINUM', division: 'III', lp: 12, wins: 31, losses: 28, hotStreak: false },
+      flex: { tier: 'SILVER', division: 'I', lp: 90, wins: 7, losses: 9, hotStreak: false },
+    },
+    tft: { ranked: { tier: 'BRONZE', division: 'I', lp: 35, wins: 3, losses: 1, hotStreak: false }, doubleUp: null },
+  });
+});

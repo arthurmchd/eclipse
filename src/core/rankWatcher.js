@@ -3,9 +3,12 @@ const RESAVE_MS = 10 * 60000;
 const APEX = ['MASTER', 'GRANDMASTER', 'CHALLENGER'];
 const GAMES = { league: 'League client', valorant: 'Riot Client' };
 
-function keepCutoffs(next, previous) {
-  if (next && previous?.cutoffs && next.tier === previous.tier && APEX.includes(next.tier)) return { ...next, cutoffs: previous.cutoffs };
-  return next;
+function keepFromKey(next, previous) {
+  if (!next || !previous) return next;
+  const kept = { ...next };
+  if (previous.cutoffs && next.tier === previous.tier && APEX.includes(next.tier)) kept.cutoffs = previous.cutoffs;
+  if (previous.hotStreak === true && next.wins === previous.wins && next.losses === previous.losses) kept.hotStreak = true;
+  return kept;
 }
 
 function mergeReading(stats, reading, at) {
@@ -18,14 +21,15 @@ function mergeReading(stats, reading, at) {
       ...lol,
       level: reading.lol.level ?? lol.level ?? null,
       iconId: reading.lol.iconId ?? lol.iconId ?? null,
-      solo: keepCutoffs(reading.lol.solo, lol.solo),
-      flex: keepCutoffs(reading.lol.flex, lol.flex),
+      solo: keepFromKey(reading.lol.solo, lol.solo),
+      flex: keepFromKey(reading.lol.flex, lol.flex),
       updatedAt: at,
     };
     delete errors.lol;
   }
   if (reading.tft) {
-    next.tft = { ...(before.tft || {}), ranked: reading.tft.ranked, doubleUp: reading.tft.doubleUp, updatedAt: at };
+    const tft = before.tft || {};
+    next.tft = { ...tft, ranked: keepFromKey(reading.tft.ranked, tft.ranked), doubleUp: keepFromKey(reading.tft.doubleUp, tft.doubleUp), updatedAt: at };
     delete errors.tft;
   }
   if (reading.val) {

@@ -52,6 +52,8 @@ Os formatos foram tirados de documentação da comunidade, não da Riot real, e 
 
 Se um formato não bater, a leitura devolve nada e o cartão fica como estava. O `data.log` mostra "could not read" para conferir.
 
+**Conferido depois, no mesmo dia.** Com o LoL aberto e só lendo, os campos do LoL e o certificado bateram, e o Eclipse instalado gravou o elo numa conta salva. O cliente do LoL não manda `hotStreak`; o [[rankWatcher]] passou a manter o da chave. Continuam sem conferir o VALORANT e o TFT aberto pela pasta própria ([[gameRanks]]).
+
 ## Alternativas consideradas
 
 - **Servidor do usuário com a chave pessoal.** Funciona para todas as contas a qualquer hora, mas exige registrar o app na Riot, manter o servidor, dividir o limite de consultas entre todos e mostrar ao servidor os Riot IDs dos amigos. Fica para se o grupo crescer.

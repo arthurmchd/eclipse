@@ -7,6 +7,12 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-08 · Elo do LoL conferido na Riot real
+
+- Com o LoL do usuário aberto e só `GET` ([[gameRanks]]): o certificado foi aceito e as rotas e os campos vieram como esperado, com `queues` e `queueMap` juntos e as filas sem elo com `tier` vazio e `"NA"`. O Eclipse instalado gravou sozinho o elo do LoL e do TFT numa conta salva ("updated a saved account from the League client"). O VALORANT não foi conferido: estava fechado ([[Backlog]]).
+- **[[rankWatcher]]:** o cliente do LoL não manda a sequência de vitórias (`hotStreak`). A leitura agora mantém a que veio de uma chave enquanto as vitórias e derrotas da fila não mudam, em vez de apagá-la a cada minuto. Nenhum cartão mostra esse campo.
+- Testes novos: o formato real da resposta do LoL, com valores fictícios, em `test/riot/gameRanks.test.js`, e a sequência de vitórias em `test/core/rankWatcher.test.js`. 381 testes.
+
 ## 2026-11-08 · Elo sem chave, lido do jogo
 
 - A pedido do usuário, para um amigo usar o Eclipse sem criar chave de API ([[ADR-031 Elo lido do próprio jogo, sem chave]]).

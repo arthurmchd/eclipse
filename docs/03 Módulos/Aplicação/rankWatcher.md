@@ -38,7 +38,7 @@ tags: [módulo]
 - **Criado em 2026-11-08** ([[ADR-031 Elo lido do próprio jogo, sem chave]]).
 - **Só com o jogo aberto, nunca no login.** A lista de processos de uma olhada do [[riotState]] diz se o LoL (`lol`) ou o VALORANT (`val`) está aberto; sem ele, nada é pedido. Com `busy()`, nada é lido, para não somar pedidos ao fluxo de login.
 - **Conta pelo Riot ID único.** Como no [[sessionKeeper]], a leitura só vale para uma conta salva com o mesmo Riot ID (sem diferenciar maiúsculas). Conta que não está no Eclipse, ou salva duas vezes, não é tocada.
-- **O que só a chave dá fica.** Com o mesmo elo de antes, os cortes de Grão-Mestre e Desafiante ficam na fila do LoL, e o RR e a última partida ficam no VALORANT. Pico, temporada passada, região, banner e o que mais houver nos `stats` também ficam. Com elo diferente no VALORANT, o RR e a última partida viram `null` (os [[cards]] mostram o elo sem RR). Nível e ícone ausentes na leitura mantêm os antigos.
+- **O que só a chave dá fica.** Com o mesmo elo de antes, os cortes de Grão-Mestre e Desafiante ficam na fila do LoL, e o RR e a última partida ficam no VALORANT. Pico, temporada passada, região, banner e o que mais houver nos `stats` também ficam. Com elo diferente no VALORANT, o RR e a última partida viram `null` (os [[cards]] mostram o elo sem RR). Nível e ícone ausentes na leitura mantêm os antigos. A sequência de vitórias (`hotStreak`), que o cliente do LoL não manda, fica enquanto as vitórias e derrotas daquela fila forem as mesmas; com uma partida nova, vira `false` até a próxima consulta com chave. Nenhum cartão mostra esse campo, mas assim a leitura não o apaga nem grava o `data.json` à toa.
 - **Erros do jogo lido somem.** Os erros "falta chave" daquele jogo e o `all` saem dos `stats.errors` quando a leitura dá certo.
 - **Sem gravação à toa.** Com os mesmos dados (fora `updatedAt`), só grava de novo depois de 10 min, para o `updatedAt` não ficar velho sem escrever o `data.json` a cada minuto. Os `stats` não entram no backup ([[store]]).
 - **Log só quando muda.** Linhas fixas no `data.log`, sem nome de conta, e só quando o resultado é diferente do anterior: "updated a saved account from the …", "could not read the ranks from the …", "… is signed in to an account that is not saved in Eclipse", "could not check the running games".
@@ -47,9 +47,9 @@ tags: [módulo]
 
 ## Testes
 
-`test/core/rankWatcher.test.js`, com Riot e store falsos: o LoL aberto atualizando LoL e TFT da conta certa e avisando os cartões; a mesma leitura gravada de novo só depois de 10 min e uma mudança na hora; conta ausente ou duplicada sem toque; nada lido sem jogo ou durante login, leitura falha mantendo o elo e log sem repetir; VALORANT só com o VALORANT aberto; parar sem gravar uma leitura atrasada; e o que fica de uma chave (cortes, RR, pico, temporada passada) com o mesmo elo.
+`test/core/rankWatcher.test.js`, com Riot e store falsos: o LoL aberto atualizando LoL e TFT da conta certa e avisando os cartões; a mesma leitura gravada de novo só depois de 10 min e uma mudança na hora; conta ausente ou duplicada sem toque; nada lido sem jogo ou durante login, leitura falha mantendo o elo e log sem repetir; VALORANT só com o VALORANT aberto; parar sem gravar uma leitura atrasada; e o que fica de uma chave (cortes, RR, pico, temporada passada) com o mesmo elo; e a sequência de vitórias da chave mantida até uma partida nova.
 
 ## Pontos de atenção
 
-- Depende do [[gameRanks]], que ainda não foi conferido na Riot real ([[Backlog]]).
+- Depende do [[gameRanks]]. Com o LoL, conferido em 2026-11-08: o Eclipse instalado gravou o elo do LoL e do TFT numa conta salva e registrou "updated a saved account from the League client". O VALORANT ainda não foi conferido ([[Backlog]]).
 - Conta parada não muda no jogo, mas pode mudar fora dele (inatividade no Diamante ou acima, nova temporada). Sem chave, o cartão só corrige quando a conta joga de novo.
