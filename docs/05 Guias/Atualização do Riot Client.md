@@ -27,6 +27,7 @@ Os cartões ficam sobre a janela oficial da Riot e não dependem de uma versão 
 | Rotas da API local | constantes no topo de [[riotAuthentication]] e [[riotInterface]] | Rota nova ou removida muda o login e a abertura da interface |
 | Certificado da API local | `dist/main/root.pem` dentro do `app.asar` oficial, lido por [[backend]] com [[asar]] | Sem ele, o HTTPS para a API local é recusado |
 | Lockfile | `%LOCALAPPDATA%\Riot Games\Riot Client\Config\lockfile` ([[backend]]) | Porta e senha da API local |
+| Elo pelo jogo | Rotas e campos em [[gameRanks]]: `/lol-summoner/v1/current-summoner`, `/lol-ranked/v1/current-ranked-stats`, `/chat/v1/session`, `/chat/v4/presences`, e o `lockfile` na pasta do LoL | Sem eles, o elo sem chave para de atualizar; o `data.log` mostra "could not read the ranks" |
 
 Os serviços do Riot (`RiotGamesApi.dll`) atualizam junto com a interface e também afetam o login em segundo plano.
 

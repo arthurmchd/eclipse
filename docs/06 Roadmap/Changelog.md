@@ -7,6 +7,17 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-08 · Elo sem chave, lido do jogo
+
+- A pedido do usuário, para um amigo usar o Eclipse sem criar chave de API ([[ADR-031 Elo lido do próprio jogo, sem chave]]).
+- **[[gameRanks]] (novo):** lê o elo da conta que está no jogo. LoL e TFT pelo cliente do LoL (`lockfile` da pasta do jogo, mesmo certificado da Riot, só `GET`); VALORANT pela presença da própria conta no chat do Riot Client. As presenças dos amigos são descartadas.
+- **[[rankWatcher]] (novo):** a cada 60 s, com o jogo aberto e fora de um login, grava o elo na conta salva com o mesmo Riot ID. Mantém o que só a chave dá (cortes de Mestre+, RR, pico, temporada passada) enquanto o elo for o mesmo.
+- **[[main]]:** cria o watcher e, sem nenhuma chave, faz a atualização só pedir a leitura do jogo, sem consultar servidores. Com chave, nada muda.
+- **[[ranks]]:** um elo de VALORANT sem RR aparece sem a linha de RR, em vez de "null RR".
+- **[[cards]]:** a dica das chaves no ⚙ diz que elas são opcionais. O diálogo não mudou de forma.
+- Não conferido na Riot real: as rotas e os campos vêm da documentação da comunidade ([[Backlog]]).
+- Testes novos: `test/riot/gameRanks.test.js`, `test/core/rankWatcher.test.js`, o watcher e a atualização sem chave em `test/main/mainStartup.test.js` e o VALORANT sem RR em `test/renderer/ranks.test.js`. 379 testes.
+
 ## 2026-11-08 · Eclipse instalável
 
 - A pedido do usuário: o Eclipse funciona como o Rose, instalado e na bandeja, sem abrir o VS Code ([[ADR-030 Eclipse instalado por um Setup próprio]]).

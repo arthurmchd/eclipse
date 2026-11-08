@@ -39,6 +39,8 @@ A sessão guardada foi recusada pela Riot, a conta saiu pela Riot ou pelo "Sign 
 
 ## Elos não atualizam
 
+- **Sem chave:** o elo só muda com o jogo aberto naquela conta, e a conta precisa estar salva no Eclipse com o mesmo Riot ID. O `data.log` diz o que aconteceu: "updated a saved account", "signed in to an account that is not saved in Eclipse" ou "could not read the ranks". A última quer dizer que o jogo não respondeu como esperado ([[gameRanks]]); o cartão fica como estava.
+- **VALORANT sem RR:** normal sem a chave da HenrikDev. O jogo só informa o elo.
 - A chave de desenvolvimento da Riot expira a cada 24 h. Registre uma *Personal API Key* e informe no ⚙ dos cartões.
 - VALORANT depende da HenrikDev.
 - Uma consulta presa ou uma chave ilegível pode travar a atualização ([[Backlog]], itens 4 e 5). Feche e abra o app.

@@ -37,7 +37,7 @@ Opções de `createRiotTransport`:
 ## Dependências
 
 - Usa: [[backend]] (`readBackend`, `readBackendCertificate`, que usa [[asar]]).
-- Usado por: [[riotClient]] (como `localApi`), que o entrega a [[riotAuthentication]] e ao [[signInFlow]].
+- Usado por: [[riotClient]] (como `localApi`), que o entrega a [[riotAuthentication]] e ao [[signInFlow]]. Desde 2026-11-08 o [[riotClient]] monta mais dois para o [[gameRanks]]: um com `connection` lendo o `lockfile` do cliente do LoL, outro com `maxBytes` de 8 MiB para a lista de presenças do chat. Os dois usam o mesmo certificado e a validação ligada.
 
 ## Comportamento
 

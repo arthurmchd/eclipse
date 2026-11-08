@@ -6,6 +6,7 @@ Cartões de contas presos à janela oficial do Riot Client, sobre a arte à dire
 
 Cada cartão mostra nome, nível e, para Solo/Duo e Flex lado a lado (Competitivo no VALORANT), elo, winrate, vitórias e derrotas. Cadastro e configurações usam diálogos compactos. A caixa "Ocultar contas" mostra a arte da Riot de volta.
 
+- Elos sem chave de API: lidos do LoL ou do VALORANT aberto quando a conta joga. Com chaves no ⚙, todas as contas se atualizam de uma vez
 - Senhas, chaves e sessões criptografadas com o DPAPI do Windows
 - Primeira entrada de cada conta preenchida no formulário da Riot; depois, com "Manter login", entrada em segundo plano com a sessão guardada da conta
 - A Riot sempre abre desconectada, na tela de login com os cartões

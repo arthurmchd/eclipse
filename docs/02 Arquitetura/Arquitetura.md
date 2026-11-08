@@ -18,12 +18,15 @@ flowchart LR
     M --> RA[rankApi]
     M --> SK[sessionKeeper]
     M --> WK[riotWakeup]
+    M --> RW[rankWatcher]
     M --> OV[riotOverlay]
     SS --> RC[riotClient]
     SK --> RC
     WK --> RC
+    RW --> RC
     RC --> SF[signInFlow]
     RC --> ST[riotState]
+    RC --> GR[gameRanks]
     SF --> ST
     OV --> MH[managerHost]
     MH --> V["cartões<br/>WebContentsView"]
@@ -42,11 +45,12 @@ flowchart LR
   end
 
   RC -- "HTTPS + lockfile" --> RCS
+  GR -- "HTTPS + lockfile, só GET" --> LCU["cliente do LoL<br/>API local"]
   RC --> WG
   RC --> LG
   OV --> OB
   OB -. "lê a janela" .-> Riot
-  RA -- "HTTPS" --> APIs["Riot API / HenrikDev"]
+  RA -- "HTTPS, só com chave" --> APIs["Riot API / HenrikDev"]
 ```
 
 | Processo | Vida | Recebe segredos? |

@@ -8,6 +8,7 @@ const riotClient = require('../riot/riotClient');
 const { createSignInService } = require('../core/signInService');
 const { createSessionKeeper } = require('../core/sessionKeeper');
 const { createRiotWakeup } = require('../core/riotWakeup');
+const { createRankWatcher } = require('../core/rankWatcher');
 const { createManagerService, createManagerEvents } = require('../core/managerService');
 const { createRiotOverlay } = require('../integration/overlay/riotOverlay');
 const { createStartWithWindows } = require('../platform/windows/startWithWindows');
@@ -16,7 +17,7 @@ const { localize, mainText, normalizeLanguage } = require('../core/language');
 const APP_NAME = 'Eclipse';
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 app.commandLine.appendSwitch('wm-window-animations-disabled');
-let store, launchService, managerService, tray, overlay, sessionKeeper, riotWakeup;
+let store, launchService, managerService, tray, overlay, sessionKeeper, riotWakeup, rankWatcher;
 let refreshing = null, refreshingAll = false, queuedRefresh = null, refreshTimer = null, riotOpening = null;
 let startupComplete = false, quitting = false;
 const events = createManagerEvents();
@@ -85,7 +86,9 @@ async function runRefresh(ids) {
   send('refresh-progress', { done, total: targets.length });
   try {
     const keys = store.getKeys();
-    for (const account of targets) {
+    const remote = Boolean(keys.riot || keys.tft || keys.henrik);
+    if (!remote) await rankWatcher?.check();
+    for (const account of remote ? targets : []) {
       if (quitting) break;
       const { fields } = await refreshAccount(account, keys);
       const updated = store.updateAccountFields(account.id, fields);
@@ -199,6 +202,11 @@ if (!app.requestSingleInstanceLock()) {
     sessionKeeper.start();
     riotWakeup = createRiotWakeup({ riot: riotClient, busy: () => launchService.isBusy(), log: signInLog });
     riotWakeup.start();
+    rankWatcher = createRankWatcher({
+      riot: riotClient, store, busy: () => launchService.isBusy(), log: (line) => store.log(line),
+      onUpdated: (account) => send('account-updated', account),
+    });
+    rankWatcher.start();
     overlay = createRiotOverlay({
       readAuthenticationState: signal => riotClient.readLoginScreenState(signal),
       closeClient: () => riotClient.closeClient(),
@@ -222,6 +230,7 @@ if (!app.requestSingleInstanceLock()) {
     launchService?.cancel();
     sessionKeeper?.stop();
     riotWakeup?.stop();
+    rankWatcher?.stop();
     Promise.allSettled([overlay?.stop(), riotClient.dispose()]).finally(() => { tray?.destroy(); app.quit(); });
   });
   app.on('window-all-closed', () => {});

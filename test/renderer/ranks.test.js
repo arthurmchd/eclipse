@@ -44,3 +44,11 @@ test('the VALORANT card art is the wide art of the saved card, or the default ca
   assert.equal(valCardArt('70cecca0-4b4b-9ad4-1652-bebe785ef8e8'), `${base}/70cecca0-4b4b-9ad4-1652-bebe785ef8e8/wideart.png`);
   for (const card of [null, undefined, '', 'https://example.com/card.png', { small: 'x' }]) assert.equal(valCardArt(card), `${base}/9fb348bc-41a0-91ad-8a3e-818035c4e561/wideart.png`);
 });
+
+test('a VALORANT rank read from the game has no RR, and the card shows the tier without one', async () => {
+  const { rankOf } = await load('ranks.js');
+  const fromGame = rankOf({ stats: { val: { tier: 16, tierName: 'Platinum 2', rr: null, level: 80 } } }, 'val', 'competitive');
+  assert.deepEqual([fromGame.label, fromGame.sub, fromGame.progress, fromGame.score, fromGame.level], ['Platinum 2', '', 0, 16000, 80]);
+  const fromKey = rankOf({ stats: { val: { tier: 16, tierName: 'Platinum 2', rr: 45 } } }, 'val', 'competitive');
+  assert.deepEqual([fromKey.sub, fromKey.progress, fromKey.score], ['45 RR', 0.45, 16045]);
+});

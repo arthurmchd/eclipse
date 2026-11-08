@@ -39,6 +39,7 @@ Antes se chamava `riotApi` (`src/riotApi.js`); foi renomeado na reorganização 
 
 ## Invariantes e decisões
 
+- **Chaves opcionais.** Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]), o elo também vem do jogo aberto, sem chave ([[rankWatcher]], [[gameRanks]]). Sem nenhuma chave, o [[main]] nem chama este módulo. Com chave, ele continua escrevendo os `stats` inteiros, e uma leitura do jogo depois escreve por cima: vale a mais recente.
 - **Duas fontes.** LoL e TFT usam a API oficial da Riot (chave de developer.riotgames.com). VALORANT usa a HenrikDev (não oficial; chave de api.henrikdev.xyz), porque os endpoints ranqueados oficiais de VALORANT só estão abertos a apps de produção aprovados.
 - **Fila global com intervalo.** As requisições saem uma por vez, com 80 ms entre elas: a chave de desenvolvimento da Riot permite 20 requisições por segundo e 100 a cada 2 minutos. A fila é a mesma para Riot e HenrikDev.
 - **429 com espera.** Até 3 novas tentativas, esperando dentro da fila o que o `retry-after` pede. Desde 2026-11-07 o cabeçalho vale em segundos ou como data HTTP (a espera é a diferença até a data, nunca negativa). Sem cabeçalho ou com valor ilegível, espera 5 s. Se o pedido passa de 60 s, não espera: vira erro na hora, para não travar a fila de todas as contas. Depois das 3 tentativas também vira erro.

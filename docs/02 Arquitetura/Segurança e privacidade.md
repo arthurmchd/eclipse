@@ -43,6 +43,8 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 - O Eclipse não abre porta de rede. A prévia de desenvolvimento (`npm run preview`) escuta só em `127.0.0.1` e serve só os arquivos dos cartões, as fontes e o `mock-api.js` ([[Desenvolvimento]]). Os cartões falam com o main só pelo IPC do [[managerHost]], com lista fechada de métodos e validação dos argumentos no [[managerService]].
 - A fila de eventos tem tamanho limitado e carrega somente dados públicos de contas, configurações mascaradas e progresso. Esconder os cartões não cancela uma operação nem faz o serviço devolver credenciais.
 - A API local do Riot é acessada por HTTPS com o certificado raiz lido do `app.asar` oficial e validação de certificado ligada ([[backend]], [[asar]], [[riotTransport]]).
+- Desde 2026-11-08 o Eclipse também lê o elo do jogo aberto ([[gameRanks]], [[ADR-031 Elo lido do próprio jogo, sem chave]]): só `GET`, só em `127.0.0.1`, com o mesmo certificado e validação. No cliente do LoL, a senha vem do `lockfile` da pasta do jogo, que só é lido; ela fica no main, como a do Riot Client. No Riot Client, a lista de presenças traz a dos amigos: só a da própria conta é lida, e as outras são descartadas sem gravar nem registrar.
+- Sem chave de API, nenhum servidor é consultado para os elos.
 
 ### Arquivos dentro dos limites
 - O Setup leva só `src/` e `package.json`, além das fontes; `backups/`, `.client-integration/`, logs e dados nunca entram no pacote. O `test/package.test.js` trava a lista ([[ADR-030 Eclipse instalado por um Setup próprio]]).

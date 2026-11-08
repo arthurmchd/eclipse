@@ -11,6 +11,7 @@ const { createInterfaceOpener, SHOW_INTERFACE } = require('./riotInterface');
 const { createRiotAuthentication } = require('./riotAuthentication');
 const { createRiotAppControls } = require('./riotAppControls');
 const { createRiotState } = require('./riotState');
+const { createGameRanks, readLeagueLockfile } = require('./gameRanks');
 const { windowsHelper } = require('../paths');
 const windows = createWindowController();
 let selectedClientPath = null;
@@ -259,6 +260,10 @@ const sameRiotId = (a, b) =>
   (a.tagLine || '').toLowerCase() === (b.tagLine || '').toLowerCase();
 
 const localApi = createRiotTransport({ clientPath: () => selectedClientPath || detectClientPath() });
+const gameRanks = createGameRanks({
+  leagueApi: createRiotTransport({ clientPath: () => selectedClientPath || detectClientPath(), connection: () => readLeagueLockfile() }),
+  riotApi: createRiotTransport({ clientPath: () => selectedClientPath || detectClientPath(), maxBytes: 8 * 1024 * 1024 }),
+});
 const authentication = createRiotAuthentication({ request: localApi });
 const appControls = createRiotAppControls({ request: localApi });
 
@@ -470,6 +475,7 @@ module.exports = {
   readSettingsYaml, writeSettingsYaml, replaceFile, authorizationOf, createCloseEverything, createClientStarter, createLaunchRequester,
   watchSettings, watchLockfile, showInterface,
   look: () => riotState.look(),
+  gameRanks,
   quitClient: () => localApi('POST', QUIT).catch(() => null),
   startClient,
   openClient,

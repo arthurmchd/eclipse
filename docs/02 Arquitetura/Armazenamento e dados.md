@@ -12,7 +12,7 @@ Tudo do usuário fica em `%APPDATA%\riot-account-manager\`, fora da pasta do có
 | `data.json` | Contas, configurações, elos em cache, `currentAccountId`, `lastRefresh` | Senhas e chaves de API criptografadas por campo |
 | `backups/` | Cópias de `data.json` a cada mudança de conta ou configuração; as 30 mais novas | Mesmo nível do `data.json` |
 | `sessions/<id>.bin` | Cópia do `RiotGamesPrivateSettings.yaml` da conta, tirada com "manter conectado". Com "Manter login" desmarcado nas configurações, nenhuma cópia nova é gravada nem restaurada. Também é atualizada a cada nova gravação da Riot, e o login é tirado do arquivo da Riot assim que ela solta a conta. Sessões gravadas antes de 2026-11-06 13:00 UTC são apagadas quando o modo cartões inicia ([[sessionKeeper]], [[ADR-022 Sessões de antes do modo cartões são descartadas]]) | Arquivo inteiro criptografado |
-| `data.log` | Eventos de gravação, para explicar uma conta perdida | Sem credenciais |
+| `data.log` | Eventos de gravação, para explicar uma conta perdida, e desde 2026-11-08 as leituras de elo pelo jogo ([[rankWatcher]]), só quando o resultado muda | Sem credenciais nem nomes de conta |
 | `sign-in.log` | Passos de cada login; gira para `.old` acima de 200 KB | Sem usuário nem senha |
 
 ## Criptografia

@@ -15,6 +15,7 @@ tags: [módulo]
 - Garante uma única instância do aplicativo.
 - Cria [[store]], [[signInService]], [[managerService]], a bandeja, o [[sessionKeeper]], o [[riotWakeup]] e a [[riotOverlay]].
 - Agenda a atualização de elos usando [[rankApi]] e publica seus eventos.
+- Cria o [[rankWatcher]], que lê o elo do jogo aberto sem chave.
 - Abre a Riot oficial e pede os cartões pela bandeja ou por uma segunda instância.
 - No app instalado, mostra na bandeja a opção "Iniciar com o Windows" ([[startWithWindows]]).
 
@@ -26,11 +27,14 @@ As entradas do usuário são os atalhos do Eclipse instalado, o início com o Wi
 
 ## Dependências
 
-- Usa: [[paths]], [[store]], [[rankApi]], [[riotClient]], [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[managerService]], [[riotOverlay]], [[startWithWindows]], [[language]] e as APIs de bandeja e diálogo do Electron.
+- Usa: [[paths]], [[store]], [[rankApi]], [[riotClient]], [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[managerService]], [[riotOverlay]], [[rankWatcher]], [[startWithWindows]], [[language]] e as APIs de bandeja e diálogo do Electron.
 - Usado por: Electron.
 - Os cartões são criados pela [[riotOverlay]] com [[managerHost]], [[manager-preload]] e [[cards]].
 
 ## Invariantes e decisões
+
+- **Elo do jogo aberto.** Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]), o main cria o [[rankWatcher]] logo depois do [[riotWakeup]], com o `riotClient` real, o [[store]], `busy: () => launchService.isBusy()`, o `data.log` e `onUpdated` publicando `account-updated`. Ao sair, ele para junto com o wakeup.
+- **Sem chave, a atualização só lê o jogo.** Sem nenhuma chave salva (Riot, TFT e HenrikDev vazias), `runRefresh` pede `rankWatcher.check()` em vez de consultar o [[rankApi]] conta por conta, e continua marcando `lastRefresh` na atualização completa. Marcar é o que impede o agendamento de repetir a atualização a cada 5 s. Com qualquer chave, a atualização de sempre roda e o watcher segue no seu ritmo.
 
 - **Iniciar com o Windows só no app instalado.** Desde 2026-11-08 ([[ADR-030 Eclipse instalado por um Setup próprio]]), o main cria o [[startWithWindows]] com `process.execPath` e o nome `Eclipse`. No app instalado, a bandeja ganha a opção marcável "Iniciar com o Windows" entre "Cancelar login" e "Sair", desmarcada até o usuário ligar. O estado é lido a cada vez que o menu é montado; um clique liga ou desliga e remonta o menu. Rodando do projeto, a opção não aparece e a chave `Run` não é lida nem gravada. Iniciado pelo Windows, o main faz o mesmo que pelo atalho: fica na bandeja sem abrir a Riot.
 - **Nome do pacote intocado também no Setup.** O `name` continua `riot-account-manager` e o nome "Eclipse" do executável e dos atalhos vem só de `build.productName`. O `test/package.test.js` falha se aparecer um `productName` no topo do `package.json`.
@@ -60,7 +64,7 @@ As entradas do usuário são os atalhos do Eclipse instalado, o início com o Wi
 
 ## Testes
 
-`test/main/mainStartup.test.js` executa o ponto de entrada num `vm` com dependências falsas. Confere o início sem abrir a Riot, a opção "Iniciar com o Windows" (só no app instalado, desligada até o clique, ligando e desligando com o nome `Eclipse`, nos dois idiomas, e ausente rodando do projeto), as opções do [[signInService]] e do [[managerService]], os switches do Chromium, a ordem de criação e parada do [[sessionKeeper]], do [[riotWakeup]] e da sobreposição, a bandeja (abrir a Riot, pedir os cartões, bloquear durante um login, não cobrir um pedido de atenção), a segunda instância antes e depois do início, a abertura serializada, os pedidos de elo feitos durante um refresh (uma passada extra somando os pedidos, completo compartilhado, completo pedido no meio de um parcial, passada extra depois de uma falha), a falta do Riot Client, os diálogos no idioma salvo e a saída ordenada.
+`test/main/mainStartup.test.js` executa o ponto de entrada num `vm` com dependências falsas. Confere o início sem abrir a Riot, o [[rankWatcher]] (criado depois do wakeup, com o Riot e o store reais, seguindo o login, avisando os cartões e parando na saída), a atualização sem chave (só a leitura do jogo, marcando `lastRefresh`) e com uma chave (o [[rankApi]] de sempre), a opção "Iniciar com o Windows" (só no app instalado, desligada até o clique, ligando e desligando com o nome `Eclipse`, nos dois idiomas, e ausente rodando do projeto), as opções do [[signInService]] e do [[managerService]], os switches do Chromium, a ordem de criação e parada do [[sessionKeeper]], do [[riotWakeup]] e da sobreposição, a bandeja (abrir a Riot, pedir os cartões, bloquear durante um login, não cobrir um pedido de atenção), a segunda instância antes e depois do início, a abertura serializada, os pedidos de elo feitos durante um refresh (uma passada extra somando os pedidos, completo compartilhado, completo pedido no meio de um parcial, passada extra depois de uma falha), a falta do Riot Client, os diálogos no idioma salvo e a saída ordenada.
 
 Nenhum desses testes autentica contas reais ou abre jogos.
 

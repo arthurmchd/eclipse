@@ -20,7 +20,7 @@ Só uma cópia do serviço roda por vez. Abrir de novo reutiliza a instância ex
 
 ## Primeiros passos
 
-1. No ⚙ do rodapé dos cartões, informe as chaves de API ([[Visão geral#Fontes de dados]]).
+1. Chaves de API são opcionais. Sem elas, o Eclipse lê o elo do jogo aberto: cada conta ganha elo na primeira vez em que você joga com ela, e ele se atualiza enquanto o jogo está aberto. Com chaves no ⚙ do rodapé, todas as contas se atualizam de uma vez, com o RR do VALORANT e os cortes de Mestre+ ([[Visão geral#Fontes de dados]]).
 2. Adicione a conta com Riot ID (pode colar `Nome#TAG`), servidor, usuário e senha.
 3. Escolha o jogo pelos ícones do rodapé e use **Jogar**.
 

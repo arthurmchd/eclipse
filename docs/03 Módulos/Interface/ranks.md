@@ -39,6 +39,7 @@ Até 2026-11-07 era documentado na nota da janela antiga ([[renderer]]), que tam
 ## Invariantes e decisões
 
 - **Banner e cartão só por ID.** `lolBanner` aceita só letras minúsculas, números e `_` no nome do banner, e `valCardArt` só aproveita um UUID. O host e o caminho são sempre montados aqui, então um valor salvo estranho não vira outra URL.
+- **VALORANT sem RR.** Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]), um elo lido do jogo pode vir com `rr: null`. O `rankOf` mostra o elo sem a linha de RR, com a barra vazia, e pontua só pelo tier. Antes aparecia "null RR".
 - **Pontuação.** LoL/TFT: índice do tier × 1000 + divisão × 100 + LP; Master+ sem divisão, barra até 1500 LP. VALORANT: tier × 1000 + RR, ranqueado a partir do tier 3, Radiant (27) com barra até 1000 RR. Sem elo na fila (ou VALORANT abaixo do tier 3): `score = -1`.
 - **Emblemas de LoL.** Os arquivos têm 1280×720 com o emblema no meio; quem desenha precisa ampliar a imagem para passar do preenchimento.
 

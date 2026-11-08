@@ -25,7 +25,7 @@ Lê e valida o `lockfile` do Riot Client. Extrai o certificado raiz da interface
 ## Dependências
 
 - Usa: [[asar]] (para ler o certificado), [[windowsEnvironment]] (`localAppDataForRiot`).
-- Usado por: [[riotTransport]].
+- Usado por: [[riotTransport]] e, desde 2026-11-08, [[gameRanks]] (`parseBackendLockfile` para o `lockfile` do cliente do LoL, que tem o mesmo formato).
 
 ## Invariantes e decisões
 

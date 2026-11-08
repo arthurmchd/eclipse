@@ -23,10 +23,13 @@ riot-account-manager/
 │   │   ├── managerService.js
 │   │   ├── sessionKeeper.js
 │   │   ├── riotWakeup.js
+│   │   ├── rankWatcher.js              elo lido do jogo aberto
 │   │   ├── language.js
 │   │   └── rankApi.js
 │   ├── riot/                           controle do Riot Client
 │   │   ├── riotClient.js
+│   │   ├── riotState.js
+│   │   ├── gameRanks.js                elo pelo cliente do LoL e pelo chat
 │   │   ├── signInFlow.js
 │   │   ├── riotAuthentication.js
 │   │   ├── riotInterface.js

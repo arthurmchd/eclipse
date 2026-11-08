@@ -262,7 +262,7 @@ test('accounts asked for during a rank update are refreshed right after it, in o
   const refreshed = [];
   const failing = new Set();
   const f = fixture({
-    accounts: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+    accounts: [{ id: 'a' }, { id: 'b' }, { id: 'c' }], keys: { riot: 'synthetic-key' },
     refreshAccount: async (account) => {
       refreshed.push(account.id);
       await new Promise((open) => gates.push(open));
@@ -309,16 +309,48 @@ test('accounts asked for during a rank update are refreshed right after it, in o
   assert.deepEqual(refreshed, ['a', 'b']);
 });
 
+test('the game rank watcher starts after the wakeup, reads for the saved accounts outside a sign-in and stops on quit', async () => {
+  const f = fixture();
+  await flush();
+  assert.ok(f.events.indexOf('watcher-start') > f.events.indexOf('wakeup-start') && f.events.indexOf('watcher-start') < f.events.indexOf('overlay-start'));
+  const options = f.watcherOptions();
+  assert.equal(options.riot, f.riotClient);
+  assert.equal(options.store, f.store);
+  assert.equal(options.busy(), false);
+  f.setBusy(true);
+  assert.equal(options.busy(), true);
+  options.onUpdated({ id: 'synthetic-account', public: true });
+  assert.deepEqual(f.publicEvents.at(-1), { channel: 'account-updated', payload: { id: 'synthetic-account', public: true } });
+  f.app.emit('before-quit', { preventDefault() {} });
+  await flush();
+  assert.ok(f.events.indexOf('watcher-stop') > f.events.indexOf('cancel'));
+});
+
+test('without any API key, a rank update only reads the open game and still marks the update', async () => {
+  const refreshed = [];
+  const f = fixture({ accounts: [{ id: 'a' }, { id: 'b' }], refreshAccount: async (account) => { refreshed.push(account.id); return { fields: {} }; } });
+  await flush();
+  const result = await f.managerOptions().refreshAll();
+  assert.deepEqual(refreshed, []);
+  assert.equal(count(f, 'watcher-check'), 1);
+  assert.ok(Number.isFinite(Date.parse(result.lastRefresh)));
+  const keyed = fixture({ accounts: [{ id: 'a' }], keys: { henrik: 'synthetic-key' }, refreshAccount: async (account) => { refreshed.push(account.id); return { fields: {} }; } });
+  await flush();
+  await keyed.managerOptions().refreshAll();
+  assert.deepEqual(refreshed, ['a']);
+  assert.equal(count(keyed, 'watcher-check'), 0);
+});
+
 test('a second controller process exits without starting anything', async () => {
   const f = fixture({ singleInstance: false });
   await flush();
   assert.deepEqual(f.events, ['quit']);
 });
 
-function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath = 'C:/test/RiotClientServices.exe', waitForReady = false, openGate, operation = null, singleInstance = true, accounts = [], refreshAccount = async () => ({}), packaged = false } = {}) {
+function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath = 'C:/test/RiotClientServices.exe', waitForReady = false, openGate, operation = null, singleInstance = true, accounts = [], refreshAccount = async () => ({}), packaged = false, keys = {} } = {}) {
   const events = [], publicEvents = [], dialogs = [], openedClientPaths = [], managerCalls = [], languages = [], balloons = [], loginItemCalls = [];
   const app = new EventEmitter();
-  let releaseReady, managerOptions, launchOptions, overlayOptions, keeperOptions, wakeupOptions, trayMenu, busy = false;
+  let releaseReady, managerOptions, launchOptions, overlayOptions, keeperOptions, wakeupOptions, watcherOptions, trayMenu, busy = false;
   const ready = waitForReady ? new Promise((resolve) => { releaseReady = resolve; }) : Promise.resolve();
   const switches = [], loginItems = {};
   Object.assign(app, { requestSingleInstanceLock: () => singleInstance, whenReady: () => ready, quit: () => events.push('quit'),
@@ -355,7 +387,7 @@ function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath 
     dir: 'C:/synthetic-data',
     data: { accounts, settings: { refreshMinutes: 0, riotClientPath: 'C:/configured/RiotClientServices.exe' } },
     listAccounts: () => [], publicSettings: () => ({}), log: () => {}, publicAccount: (account) => ({ id: account.id, public: true }),
-    getKeys: () => ({}), updateAccountFields: () => null, save: () => {},
+    getKeys: () => ({ ...keys }), updateAccountFields: () => null, save: () => {},
   };
   const deps = {
     electron, fs: { existsSync: () => false, appendFileSync: () => {} }, path,
@@ -380,6 +412,9 @@ function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath 
       start: () => events.push('keeper-start'), check: () => events.push('keeper-check'), stop: () => events.push('keeper-stop'),
       keep: (yaml) => { events.push('keeper-keep'); return yaml === 'owned' ? { id: 'owner' } : null; },
     }) },
+    '../core/rankWatcher': { createRankWatcher: (options) => (watcherOptions = options, {
+      start: () => events.push('watcher-start'), stop: () => events.push('watcher-stop'), check: async () => { events.push('watcher-check'); return false; },
+    }) },
     '../core/riotWakeup': { createRiotWakeup: (options) => (wakeupOptions = options, { start: () => events.push('wakeup-start'), stop: () => events.push('wakeup-stop') }) },
     '../core/managerService': {
       createManagerEvents: () => ({ publish: (channel, payload) => publicEvents.push({ channel, payload }) }),
@@ -396,6 +431,6 @@ function fixture({ trayIcon = 'C:/app/src/renderer/assets/icon.ico', clientPath 
   return { app, events, publicEvents, dialogs, openedClientPaths, managerCalls, riotClient, store, languages, balloons, loginItems, loginItemCalls,
     setOperation: (value) => { operation = value; }, releaseReady: () => releaseReady(),
     managerOptions: () => managerOptions, launchOptions: () => launchOptions, overlayOptions: () => overlayOptions,
-    keeperOptions: () => keeperOptions, wakeupOptions: () => wakeupOptions, trayMenu: () => trayMenu, trayState,
+    keeperOptions: () => keeperOptions, wakeupOptions: () => wakeupOptions, watcherOptions: () => watcherOptions, trayMenu: () => trayMenu, trayState,
     setBusy: (value) => { busy = value; } };
 }

@@ -32,6 +32,7 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 | `readSettingsYaml()` / `writeSettingsYaml(text, { expected })` | função / função async | Lê (ou `null`) e grava o `RiotGamesPrivateSettings.yaml`. Exportadas desde 2026-11-06 para o [[sessionKeeper]]. Desde 2026-11-06, a gravação usa `replaceFile` e devolve `true`, ou `false` quando o arquivo não é mais `expected`. Qualquer falha vira "Could not update the Riot Client settings file", sem caminho. |
 | `replaceFile(file, text, options)` | função async | Grava num temporário `eclipse-<uuid>.tmp` na mesma pasta e troca com `rename`. Opções: `expected`, `fs`, `sleep`, `attempts` (5), `delayMs` (100), `now`, `staleMs` (60 s). Exportada para os testes. |
 | `authorizationOf(response)` | função | `'yes'` com 200, `'no'` com 404, `'unknown'` com qualquer outra resposta ou sem resposta. Exportada para os testes. |
+| `gameRanks` | objeto | `{ league, valorant }` do [[gameRanks]], com dois transportes do [[riotTransport]]: um para o cliente do LoL (`connection: readLeagueLockfile`) e um para o chat do Riot Client (até 8 MiB). Desde 2026-11-08, para o [[rankWatcher]] ([[ADR-031 Elo lido do próprio jogo, sem chave]]). |
 | `look()` | função | Uma olhada do [[riotState]] sobre `runningGames`, `authorization` e `sessionState` reais. Desde 2026-11-07, para o [[sessionKeeper]] e o [[riotWakeup]] ([[ADR-029 Estado da Riot definido num lugar só]]). |
 | `createCloseEverything(deps)` | função | Monta o `closeEverything` com `runningGames`, `authorization`, `activeRiotId`, `localApi`, `taskkill`, `readSettingsYaml` e `waitFor`. Exportada para os testes. |
 | `createClientStarter(deps)` | função | Monta o `startClient` com `detectClientPath`, `runningGames`, `reveal`, `launchClient` e `select`. Exportada para os testes. |
@@ -48,8 +49,8 @@ Não guarda contas nem sessões ([[store]], [[signInService]]). Não decide a or
 
 ## Dependências
 
-- Usa: [[signInFlow]], [[riotTransport]], [[riotAuthentication]], [[riotAppControls]], [[riotProcess]], [[windowController]], [[windowsEnvironment]], [[paths]] (`windowsHelper('login.ps1')`), [[login.ps1]].
-- Usado por: [[main]] (`openClient`, `closeClient`, `readLoginScreenState`, `saveLeavingSession`, encerramento), [[signInService]] (`signIn`), [[managerService]] (`runningGames`), [[sessionKeeper]] e [[riotWakeup]].
+- Usa: [[signInFlow]], [[gameRanks]], [[riotTransport]], [[riotAuthentication]], [[riotAppControls]], [[riotProcess]], [[windowController]], [[windowsEnvironment]], [[paths]] (`windowsHelper('login.ps1')`), [[login.ps1]].
+- Usado por: [[main]] (`openClient`, `closeClient`, `readLoginScreenState`, `saveLeavingSession`, encerramento), [[signInService]] (`signIn`), [[managerService]] (`runningGames`), [[sessionKeeper]], [[riotWakeup]] e [[rankWatcher]] (`look`, `gameRanks`, `sameRiotId`).
 - **API sem o modo antigo.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saíram `ensureBackgroundClient` (só a cópia privada o usava), `showClient` e o export `readAuthenticationState`. O [[signInFlow]] continua recebendo `readAuthenticationState` pelo `io` interno.
 
 ## Estado do módulo
