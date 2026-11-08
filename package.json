@@ -2,7 +2,7 @@
   "name": "riot-account-manager",
   "version": "1.0.0",
   "description": "Account switcher for League of Legends, TFT and VALORANT",
-  "author": "Arthur",
+  "author": "Eclipse",
   "main": "src/main/index.js",
   "private": true,
   "engines": {
@@ -24,7 +24,7 @@
     "@fontsource/teko": "^5.3.0"
   },
   "build": {
-    "appId": "io.github.arthurmchd.eclipse",
+    "appId": "Eclipse.AccountManager",
     "productName": "Eclipse",
     "directories": {
       "output": "dist",
@@ -52,6 +52,7 @@
     },
     "nsis": {
       "oneClick": true,
+      "guid": "1cee5ad5-fb20-5488-b349-ffcaaa593158",
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,

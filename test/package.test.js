@@ -38,7 +38,7 @@ test('the installer is per user, without admin, with shortcuts and without publi
   assert.equal(build.npmRebuild, false);
   assert.equal(Object.hasOwn(build, 'electronDist'), false);
   assert.deepEqual({ ...build.nsis, include: undefined }, {
-    oneClick: true, perMachine: false, createDesktopShortcut: true, createStartMenuShortcut: true, shortcutName: 'Eclipse',
+    oneClick: true, guid: '1cee5ad5-fb20-5488-b349-ffcaaa593158', perMachine: false, createDesktopShortcut: true, createStartMenuShortcut: true, shortcutName: 'Eclipse',
     runAfterFinish: true, deleteAppDataOnUninstall: false, packElevateHelper: false, include: undefined,
   });
   assert.equal(pkg.devDependencies['electron-builder'], '26.18.0');
@@ -54,4 +54,12 @@ test('uninstalling removes only the Eclipse start with Windows entry, and keeps 
     ['Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run', 'Eclipse'],
   ]);
   assert.doesNotMatch(script, /DeleteRegKey|RMDir|Delete\s|APPDATA|^\s*[;#]/m);
+});
+
+test('the installer names Eclipse as its maker and keeps the uninstall key of the first Setup, so a new one installs over it', () => {
+  assert.equal(pkg.author, 'Eclipse');
+  assert.equal(build.appId, 'Eclipse.AccountManager');
+  assert.equal(build.copyright, undefined);
+  assert.equal(build.nsis.guid, '1cee5ad5-fb20-5488-b349-ffcaaa593158');
+  assert.doesNotMatch(JSON.stringify(pkg), /arthur/i);
 });

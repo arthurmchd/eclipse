@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { createRiotOverlay, overlayBounds, overlayShape, coverRect, cardsLeft, cornerInsets, cornerRadius } = require('../../../src/integration/overlay/riotOverlay');
+const { createRiotOverlay, overlayBounds, overlayShape, coverRect, cardsLeft, cornerInsets, cornerRadius, topEdge } = require('../../../src/integration/overlay/riotOverlay');
 const { toggleRect } = require('../../../src/integration/overlay/overlayToggle');
 const { PANEL_POINT } = require('../../../src/platform/windows/riotWindowObserver');
 const fakeToggle = () => ({ open: async () => {}, setLanguage() {}, setVisible() {}, dispose() {} });
@@ -56,7 +56,7 @@ test('cards attach automatically, stay with an unfocused Riot window, follow mov
   assert.deepEqual(window.bounds, overlayBounds({ x: -850, y: 60, width: 800, height: 500 }));
   assert.equal(window.shape, shaped);
   sample({ id: '1', x: -1700, y: 120, width: 1600, height: 1000, corner: 16 });
-  assert.deepEqual(window.shape, overlayShape(window.bounds, { corner: 7.5 }));
+  assert.deepEqual(window.shape, overlayShape(window.bounds, { top: 1, corner: 7.5 }));
   const rounded = window.shape;
   sample({ id: '1', x: -1600, y: 120, width: 1600, height: 1000, corner: 16 });
   assert.equal(window.shape, rounded);
@@ -398,7 +398,7 @@ test('while a sign-in runs the login column is covered and the toggle hidden unt
   sample({ id: '1', x: 0, y: 0, width: 1536, height: 864, corner: 8 });
   await new Promise(setImmediate);
   assert.equal(window.visible, true);
-  const plain = overlayShape(window.bounds, { corner: 7 }), covered = overlayShape(window.bounds, { corner: 7, covered: true });
+  const plain = overlayShape(window.bounds, { top: 1, corner: 7 }), covered = overlayShape(window.bounds, { top: 1, corner: 7, covered: true });
   assert.deepEqual(window.shape, covered);
   events.length = 0;
   overlay.setOperation({ status: 'running', needsAttention: true });
@@ -410,7 +410,7 @@ test('while a sign-in runs the login column is covered and the toggle hidden unt
   assert.deepEqual(window.shape, covered);
   assert.deepEqual(events, ['cover true', 'toggle false', 'shape']);
   toggleOptions.onChange(true);
-  assert.deepEqual(window.shape, overlayShape(window.bounds, { corner: 7, covered: true, hidden: true }));
+  assert.deepEqual(window.shape, overlayShape(window.bounds, { top: 1, corner: 7, covered: true, hidden: true }));
   toggleOptions.onChange(false);
   assert.deepEqual(window.shape, covered);
   overlay.setOperation({ status: 'running', signedIn: true });
@@ -459,7 +459,7 @@ test('the toggle leaves with the Riot sign-in form, manual or through Play, come
  sample(target);
  await new Promise(setImmediate);
  assert.equal(window.visible, true);
- const left = cardsLeft(1536), shapeOf = options => overlayShape(window.bounds, { corner: 7, ...options });
+ const left = cardsLeft(1536), shapeOf = options => overlayShape(window.bounds, { top: 1, corner: 7, ...options });
  assert.deepEqual(window.shape, shapeOf({}));
  events.length = 0;
  sample({ ...target, formHidden: true });
@@ -565,4 +565,27 @@ test('the cards follow the rounded corners of the Riot window on the right and n
   assert.deepEqual(overlayShape(size, { corner: 7, hidden: true }), [toggleRect(size)]);
   assert.deepEqual(overlayShape(size), [toggleRect(size), { x: left, y: 0, width: 1536 - left, height: 864 }]);
   assert.equal(overlayShape({ width: 400, height: 300 }, { corner: 500 }).every((r) => r.width > 0 && r.height > 0), true);
+});
+
+test('the top row stays with the Riot border, so nothing paints past it on any side, at the top corners included', () => {
+  assert.deepEqual([undefined, 0, 1, 2, 8, 16, '8', 7.5].map((corner) => topEdge({ corner })), [0, 0, 0, 1, 1, 1, 0, 0]);
+  const size = { width: 1536, height: 864 }, left = cardsLeft(1536);
+  for (const covered of [false, true]) {
+    const shape = overlayShape(size, { corner: 7, top: 1, covered });
+    const inside = (x, y) => shape.some((r) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height);
+    const within = (x, y, cx, cy) => Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= 7;
+    for (let x = 0; x < 1536; x += 1) assert.equal(inside(x, 0), false, `row 0 at ${x}`);
+    for (let y = 1; y < 9; y += 1) {
+      for (let x = 1536 - 8; x < 1536; x += 1) if (inside(x, y)) assert.ok(within(x, y, 1536 - 7, 1 + 7), `top right ${x},${y}`);
+      if (covered) for (let x = 0; x < 8; x += 1) if (inside(x, y)) assert.ok(within(x, y, 7, 1 + 7), `top left ${x},${y}`);
+    }
+    for (let y = 863 - 8; y < 864; y += 1) for (let x = 1536 - 8; x < 1536; x += 1) if (inside(x, y)) assert.ok(within(x, y, 1536 - 7, 864 - 7), `bottom right ${x},${y}`);
+    assert.ok(inside(1531, 1) && !inside(1532, 1) && inside(1535, 5) && inside(left, 1) && inside(1200, 1) && inside(1531, 863));
+    assert.equal(inside(4, 1), covered);
+    const cards = shape.filter((r) => r.x >= left);
+    assert.equal(cards.reduce((sum, r) => sum + r.width * r.height, 0), (1536 - left) * 863 - 2 * (4 + 3 + 2 + 1));
+    assert.deepEqual(shape[0], toggleRect(size));
+  }
+  assert.deepEqual(overlayShape(size, { top: 1 }), [toggleRect(size), { x: left, y: 1, width: 1536 - left, height: 863 }]);
+  for (const top of [-1, 864, 2.5, '1']) assert.deepEqual(overlayShape(size, { top }), overlayShape(size));
 });

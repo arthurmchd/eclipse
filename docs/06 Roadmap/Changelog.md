@@ -7,6 +7,12 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-08 · Borda de cima da Riot e Setup sem o nome do autor
+
+- **[[riotOverlay]]:** a pedido do usuário, os cartões não passam mais da borda da Riot em cima. O Windows desenha a borda de 1 px da Riot por cima da primeira linha da área cliente, só em cima (conferido na Riot real, só lendo). Com cantos arredondados, essa linha sai da região dos cartões e da coluna coberta, e as pontas de cima descem junto. A janela e os cartões não mudam de tamanho. Não conferido na tela: o usuário preferiu não ter a tela capturada.
+- **Setup:** o `author` passou de "Arthur" para "Eclipse" (empresa, copyright e editor no Windows) e o `appId` passou a `Eclipse.AccountManager`. O `nsis.guid` fica na chave do primeiro Setup, para o novo instalar por cima ([[ADR-030 Eclipse instalado por um Setup próprio]]).
+- Testes novos: a borda de cima em `test/integration/overlay/riotOverlay.test.js` e o nome do instalador em `test/package.test.js`. 383 testes.
+
 ## 2026-11-08 · Elo do LoL conferido na Riot real
 
 - Com o LoL do usuário aberto e só `GET` ([[gameRanks]]): o certificado foi aceito e as rotas e os campos vieram como esperado, com `queues` e `queueMap` juntos e as filas sem elo com `tier` vazio e `"NA"`. O Eclipse instalado gravou sozinho o elo do LoL e do TFT numa conta salva ("updated a saved account from the League client"). O VALORANT não foi conferido: estava fechado ([[Backlog]]).

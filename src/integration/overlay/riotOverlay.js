@@ -25,6 +25,9 @@ function cornerRadius(target, rect) {
   if (!Number.isSafeInteger(target?.corner) || target.corner <= 1 || !(target.width > 0)) return 0;
   return Math.round((target.corner - 1) * rect.width / target.width * 100) / 100;
 }
+function topEdge(target) {
+  return Number.isSafeInteger(target?.corner) && target.corner > 1 ? 1 : 0;
+}
 function coverRect({ width, height }) {
   return { x: 0, y: 0, width: Math.max(1, cardsLeft(width)), height: Math.max(1, height) };
 }
@@ -43,29 +46,30 @@ function without(rect, hole) {
     { x: rect.x, y: bottom, width: rect.width, height: rect.y + rect.height - bottom },
   ];
 }
-function coverShape({ width, height }, corner = 0) {
-  const area = cardsLeft(width);
+function coverShape({ width, height }, corner = 0, top = 0) {
+  const area = cardsLeft(width), inner = height - top;
   if (area <= 0) return [];
-  const insets = cornerInsets(Math.min(corner, area / 2, height / 2)), rows = insets.length;
+  const insets = cornerInsets(Math.min(corner, area / 2, inner / 2)), rows = insets.length;
   return [
-    ...insets.map((inset, row) => ({ x: inset, y: row, width: area - inset, height: 1 })),
-    ...without({ x: 0, y: rows, width: area, height: height - rows * 2 }, panelHole({ width, height })),
+    ...insets.map((inset, row) => ({ x: inset, y: top + row, width: area - inset, height: 1 })),
+    ...without({ x: 0, y: top + rows, width: area, height: inner - rows * 2 }, panelHole({ width, height })),
     ...insets.map((inset, row) => ({ x: inset, y: height - 1 - row, width: area - inset, height: 1 })),
   ].filter(part => part.width > 0 && part.height > 0);
 }
-function overlayShape({ width, height }, { hidden = false, corner = 0, covered = false, toggle = true } = {}) {
+function overlayShape({ width, height }, { hidden = false, corner = 0, top = 0, covered = false, toggle = true } = {}) {
+  const edge = Number.isSafeInteger(top) && top > 0 && top < height ? top : 0, inner = height - edge;
   const box = toggle ? [toggleRect({ width, height })] : [];
-  const column = covered ? coverShape({ width, height }, corner) : [];
+  const column = covered ? coverShape({ width, height }, corner, edge) : [];
   if (hidden) return [...box, ...column];
   const left = cardsLeft(width), area = width - left;
-  const insets = cornerInsets(Math.min(corner, area / 2, height / 2));
-  if (!insets.length) return [...box, ...column, { x: left, y: 0, width: area, height }];
+  const insets = cornerInsets(Math.min(corner, area / 2, inner / 2));
+  if (!insets.length) return [...box, ...column, { x: left, y: edge, width: area, height: inner }];
   const rows = insets.length;
   return [
     ...box,
     ...column,
-    ...insets.map((inset, row) => ({ x: left, y: row, width: area - inset, height: 1 })),
-    { x: left, y: rows, width: area, height: height - rows * 2 },
+    ...insets.map((inset, row) => ({ x: left, y: edge + row, width: area - inset, height: 1 })),
+    { x: left, y: edge + rows, width: area, height: inner - rows * 2 },
     ...insets.map((inset, row) => ({ x: left, y: height - 1 - row, width: area - inset, height: 1 })),
   ];
 }
@@ -77,8 +81,8 @@ function nativeHandle(window) {
 function createRiotOverlay({ electron = require('electron'), request, readAuthenticationState = async () => null, createObserver = createRiotWindowObserver, createHost = createManagerHost, createToggle = createOverlayToggle, createCover = createOverlayCover, closeClient = async () => { throw new Error('The Riot Client is unavailable'); }, onError = () => {}, setInterval: repeat = setInterval, clearInterval: clear = clearInterval, now = Date.now } = {}) {
   const { BrowserWindow, screen } = electron;
   let window = null, host = null, toggle = null, cover = null, observer = null, target = null, disposed = false, loaded = false;
-  let loginVisible = false, checkedAt = 0, timer = null, pending = null, generation = 0, signedIn = false, hidden = false, covered = false, formHidden = false, language = 'pt', corner = 0;
-  const shape = bounds => overlayShape(bounds, { hidden, corner, covered, toggle: !formHidden });
+  let loginVisible = false, checkedAt = 0, timer = null, pending = null, generation = 0, signedIn = false, hidden = false, covered = false, formHidden = false, language = 'pt', corner = 0, edge = 0;
+  const shape = bounds => overlayShape(bounds, { hidden, corner, top: edge, covered, toggle: !formHidden });
   function reshape() {
     if (!window || window.isDestroyed()) return;
     const parts = shape(window.getBounds());
@@ -138,12 +142,13 @@ function createRiotOverlay({ electron = require('electron'), request, readAuthen
     if (!window || window.isDestroyed()) return;
     if (!loaded || !target || target.minimized || target.dimmed || !loginVisible || signedIn || now() - checkedAt > 2500) { window.hide(); return; }
     const rect = screen.screenToDipRect(null, { x: target.x, y: target.y, width: target.width, height: target.height });
-    const bounds = overlayBounds(rect), current = window.getBounds(), radius = cornerRadius(target, rect);
+    const bounds = overlayBounds(rect), current = window.getBounds(), radius = cornerRadius(target, rect), border = topEdge(target);
     if (!shape(bounds).length) { window.hide(); return; }
     const resized = current.width !== bounds.width || current.height !== bounds.height;
     if (Object.keys(bounds).some(key => current[key] !== bounds[key])) window.setBounds(bounds, false);
-    if (resized || radius !== corner) {
+    if (resized || radius !== corner || border !== edge) {
       corner = radius;
+      edge = border;
       window.setShape(shape(bounds));
     }
     if (!window.isVisible()) window.showInactive();
@@ -199,4 +204,4 @@ function createRiotOverlay({ electron = require('electron'), request, readAuthen
   };
 }
 
-module.exports = { createRiotOverlay, overlayBounds, overlayShape, coverRect, cardsLeft, cornerInsets, cornerRadius };
+module.exports = { createRiotOverlay, overlayBounds, overlayShape, coverRect, cardsLeft, cornerInsets, cornerRadius, topEdge };
