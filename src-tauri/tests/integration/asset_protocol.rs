@@ -3,6 +3,8 @@ use std::path::Path;
 use eclipse::integration::asset_protocol::{allowed, is_page, mime, page_url, resolve, served_url, CARDS_PAGE, COVER_PAGE, TOGGLE_PAGE};
 use eclipse::paths::project_root;
 
+use crate::bundle::{bundled_files, same_file};
+
 fn join(base: &str, reference: &str) -> String {
     let mut parts: Vec<&str> = base.split('/').collect();
     for segment in reference.split('/') {
@@ -21,13 +23,14 @@ fn folder(path: &str) -> &str {
     path.rsplit_once('/').unwrap().0
 }
 
-#[test]
-fn the_three_overlay_pages_and_everything_they_load_are_served() {
+fn served_files() -> Vec<String> {
     let root = project_root();
+    let mut served = Vec::new();
     for page in [CARDS_PAGE, TOGGLE_PAGE, COVER_PAGE] {
         let (file, kind) = resolve(&root, &page_url(page)).unwrap();
         assert!(file.is_file(), "{page}");
         assert_eq!(kind, "text/html; charset=utf-8");
+        served.push(page.to_string());
         let html = std::fs::read_to_string(&file).unwrap();
         for reference in html.split('"').filter(|part| [".css", ".js", ".png"].iter().any(|kind| part.ends_with(kind))) {
             let path = join(folder(page), reference);
@@ -40,12 +43,35 @@ fn the_three_overlay_pages_and_everything_they_load_are_served() {
                     let (font_file, kind) = resolve(&root, &served_url(&font_path)).unwrap_or_else(|| panic!("{path} loads {font_path}"));
                     assert!(font_file.is_file(), "{font_path}");
                     assert!(kind.starts_with("font/"));
+                    served.push(font_path);
                 }
             }
+            served.push(path);
         }
     }
     for module in ["src/renderer/cards.js", "src/renderer/ranks.js", "src/renderer/cardsText.js", "src/integration/overlay/toggle-check.svg"] {
         assert!(resolve(&root, &page_url(module)).is_some_and(|(file, _)| file.is_file()), "{module}");
+        served.push(module.to_string());
+    }
+    served
+}
+
+#[test]
+fn the_three_overlay_pages_and_everything_they_load_are_served() {
+    assert!(served_files().len() > 20);
+}
+
+#[test]
+fn the_setup_carries_every_served_file_at_its_own_path_and_nothing_the_protocol_would_refuse() {
+    let root = project_root();
+    let bundled = bundled_files();
+    for path in served_files() {
+        let found = bundled.iter().find(|file| file.target == path).unwrap_or_else(|| panic!("{path} is not in the Setup"));
+        assert!(same_file(&found.source, &root.join(&path)), "{path}");
+    }
+    for file in bundled.iter().filter(|file| !file.target.ends_with(".ps1")) {
+        assert_eq!(allowed(&file.target), Some(file.target.as_str()), "{}", file.target);
+        assert!(same_file(&file.source, &root.join(&file.target)), "{}", file.target);
     }
 }
 

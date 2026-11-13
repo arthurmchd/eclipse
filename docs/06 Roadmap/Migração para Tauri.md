@@ -16,7 +16,7 @@ Acompanha a [[ADR-032 Migração para Tauri e Rust]]. O app Electron em `src/` c
 | 2. Riot | [[asar]], [[backend]], [[riotTransport]], [[riotState]], [[riotAuthentication]], [[riotInterface]], [[riotAppControls]], [[riotProcess]], [[gameRanks]], [[riotClient]], [[signInFlow]], [[windowController]], [[windowsEnvironment]] | Feita em 2026-11-13, sem conferir na Riot real |
 | 3. Serviços | [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[rankApi]], [[startWithWindows]] e o novo [[timers]] | Feita em 2026-11-13, sem ligar ao app nem conferir na Riot real |
 | 4. Sobreposição | [[riotOverlay]], [[overlayToggle]], [[overlayCover]], [[riotWindowObserver]], [[managerHost]], [[manager-preload]], a ponte `window.api` dos [[cards]], o [[main]] que liga os serviços, mais os novos [[assetProtocol]], [[refresher]] e [[appPorts]] | Feita em 2026-11-13, sem rodar o app nem conferir na Riot real |
-| 5. Troca | Bandeja completa, Setup do Tauri, tag no git e remoção do Electron | A fazer |
+| 5. Troca | Bandeja completa, Setup do Tauri, tag no git e remoção do Electron, mais [[notices]], [[toasts]] e [[electronInstance]] ([[ADR-034 Troca do Electron pelo Tauri]]) | Bandeja e Setup feitos em 2026-11-13; a tag e a remoção do Electron esperam o usuário conferir o app na Riot real |
 
 ## Onde fica cada módulo
 
@@ -36,7 +36,9 @@ Acompanha a [[ADR-032 Migração para Tauri e Rust]]. O app Electron em `src/` c
 | `src/integration/overlay/riotOverlay.js`, `overlayToggle.js`, `overlayCover.js` | `src-tauri/src/integration/overlay/riot_overlay.rs`, `overlay_toggle.rs`, `overlay_window.rs` | `src-tauri/tests/integration/overlay/` |
 | `src/integration/manager/managerHost.js`, `manager-preload.js` | `src-tauri/src/integration/manager/manager_host.rs` (o preload é o mesmo arquivo, embutido) | `src-tauri/tests/integration/manager/manager_host.rs` |
 | `file://` das views | `src-tauri/src/integration/asset_protocol.rs` | `src-tauri/tests/integration/asset_protocol.rs` |
-| `src/main/index.js` | `src-tauri/src/main.rs`, mais `application/refresher.rs` e `app_ports.rs` | `src-tauri/tests/application/refresher.rs`, `app_ports.rs` e `tests/paths.rs` |
+| `src/main/index.js` | `src-tauri/src/main.rs`, mais `application/refresher.rs`, `app_ports.rs` e `notices.rs` | `src-tauri/tests/application/refresher.rs`, `app_ports.rs`, `notices.rs` e `tests/paths.rs` |
+| `displayBalloon` e `requestSingleInstanceLock` do Electron | `src-tauri/src/platform/windows/toasts.rs`, `electron_instance.rs` e o `tauri-plugin-single-instance` | `src-tauri/tests/platform/windows/` |
+| `build` do `package.json` e `scripts/build/installer.nsh` | `bundle` do `src-tauri/tauri.conf.json` e `src-tauri/windows/hooks.nsh` | `tests/integration/asset_protocol.rs` e `tests/paths.rs` conferem os arquivos do Setup |
 
 A camada `src/core` virou `application` no Rust, porque `core` é o nome de uma biblioteca padrão do Rust e criaria caminhos ambíguos.
 
@@ -68,13 +70,24 @@ A camada `src/core` virou `application` no Rust, porque `core` é o nome de uma 
 - `cargo test` em `src-tauri/`: 359 testes, mais o manual da fase 1 e um ignorado do observador. Os 383 do `npm test` continuam passando. Cinco mutações de propósito foram pegas pelos testes e desfeitas.
 - O app não foi rodado. Mesmo com uma pasta de dados fictícia, ele vigia a janela da Riot real e os serviços leem e limpam o login lembrado da Riot; rodar só com permissão do usuário.
 
+## O que a fase 5 entrega até aqui
+
+- A bandeja do Electron inteira: "Iniciar com o Windows" com a marca de ligado (só no app compilado em modo release), a segunda cópia abrindo as contas da primeira e os balões, agora notificações do Windows que abrem as contas ao clicar.
+- O Eclipse em Tauri não abre enquanto o Electron estiver aberto ([[electronInstance]]), conferido com o `lockfile` do Electron do usuário aberto pelo `npm start`.
+- O Setup: `cargo tauri build` em `src-tauri/` gera `src-tauri/target/release/bundle/nsis/Eclipse_1.0.0_x64-setup.exe`, com 2,3 MB (o do Electron tem perto de 100 MB) e um `eclipse.exe` de 5,3 MB. Instala por usuário em `%LOCALAPPDATA%\Eclipse`, leva só os arquivos da lista fechada e, se achar o Eclipse em Electron instalado, o desinstala mantendo os dados e o início com o Windows ([[ADR-034 Troca do Electron pelo Tauri]]).
+- `cargo test` em `src-tauri/`: 369 testes, mais o manual da fase 1 e um ignorado do observador. Os 383 do `npm test` continuam passando. Duas mutações de propósito (uma fonte fora do Setup e a trava do Electron invertida) foram pegas e desfeitas.
+- Nada foi instalado nem rodado: o Setup só foi compilado. O app em Tauri ainda não abriu nesta máquina.
+
+## Para terminar a fase 5
+
+1. Com permissão do usuário, abrir o Eclipse em Tauri (o de desenvolvimento, com `ECLIPSE_DATA_DIR` numa pasta de teste, ou o Setup) e conferir na Riot real: a sobreposição, os cartões, a caixa, a bandeja, as notificações e o login de uma conta.
+2. Com a aprovação do usuário, instalar o Setup do Tauri, que substitui o do Electron.
+3. Tag no git no último commit com o Electron e remoção de `src/main`, `src/core`, do resto do JS do Electron, dos testes JS que só valem para ele, do `electron` e do `electron-builder` do `package.json` e de `scripts/build/`. Ficam `src/renderer`, os arquivos da caixa e da cobertura, os `.ps1` e as fontes.
+
 ## Pendências entre fases
 
-- `paths.rs` acha a raiz do projeto pela pasta do `Cargo.toml`, gravada na compilação. Isso serve para desenvolvimento; no app instalado, os helpers `.ps1` e os cartões precisam vir dos recursos do Tauri (fase 5).
-- O [[startWithWindows]] em Rust grava no registro do usuário. Na fase 5, conferir com o usuário que o Setup do Tauri e a entrada `Eclipse` do Electron convivem, porque o caminho do executável muda.
-- A CSP do `tauri.conf.json` vale só para páginas `tauri://`, que o Eclipse não usa: os cartões vêm do `eclipse://` com a CSP do próprio `cards.html`. Na fase 5, deixá-la mínima ou tirá-la.
+- O [[startWithWindows]] em Rust grava no registro do usuário. O Setup do Tauri troca o caminho da entrada `Eclipse` do Electron pelo novo; conferir quando o usuário instalar.
 - Conferir a sobreposição na Riot real, com permissão do usuário: posição, cantos, a caixa, a cobertura, o idioma e o ritmo da janela quando coberta.
-- Fase 5: balões da bandeja, a segunda cópia abrir as contas da primeira e Iniciar com o Windows na bandeja.
+- Conferir as notificações no app instalado: nome, ícone e o clique abrindo as contas ([[toasts]]).
 - O Tauri está com a feature `unstable` (webviews filhas). Fixar a versão do `tauri` no `Cargo.lock` e rever a cada atualização.
 - Conferir, com permissão do usuário e só com `GET`, se o [[riotTransport]] em Rust aceita o certificado da Riot real em `127.0.0.1`. O Node aceita (conferido em 2026-11-08); o Rust usa o TLS do Windows, que confere o endereço do certificado do seu jeito.
-- O `login.ps1` e o `windowGuard.ps1` são os mesmos do Electron, achados por `paths.rs`. Na fase 5 precisam ir nos recursos do Tauri.

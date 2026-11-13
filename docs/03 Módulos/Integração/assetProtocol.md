@@ -38,7 +38,7 @@ tags: [módulo, tauri, segurança]
 - **Nenhum escape.** Cada pedaço do caminho é conferido por uma expressão sem `%`, sem barra invertida e sem começar por ponto; `..`, pedaços vazios e caminhos de mais de 512 caracteres são recusados. Assim, nenhum caminho codificado chega ao disco.
 - **Só o próprio endereço.** `resolve` aceita `eclipse://localhost` e `http://eclipse.localhost`; `https`, outros hosts e outros esquemas não respondem.
 - **Os caminhos relativos das páginas continuam valendo.** Os endereços espelham as pastas do projeto, então o `../../node_modules/...` do `cards.html` e o `../../../node_modules/...` do `toggle.html` chegam às fontes sem mudar o HTML do Electron.
-
+- **No Setup (fase 5 da [[Migração para Tauri]]).** A lista de `bundle.resources` do `tauri.conf.json` leva exatamente os arquivos que este protocolo serve, nos mesmos caminhos. Um teste segue as três páginas e confere que cada arquivo servido está no Setup e que nenhum arquivo do Setup, fora os `.ps1`, seria recusado aqui.
 ## Testes
 
 `src-tauri/tests/integration/asset_protocol.rs` abre as três páginas, segue cada CSS, JS e imagem que elas citam e cada fonte que os CSS do `@fontsource` citam, e confere que tudo existe e é servido. Também tenta 26 caminhos proibidos, de escapes a arquivos vizinhos, e confere o reconhecimento exato das páginas.

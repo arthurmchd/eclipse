@@ -10,6 +10,8 @@ mod manager_host;
 mod overlay_toggle;
 #[path = "integration/overlay/riot_overlay.rs"]
 mod riot_overlay;
+#[path = "support/bundle.rs"]
+mod bundle;
 #[path = "support/manual_timers.rs"]
 mod manual_timers;
 

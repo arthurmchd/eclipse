@@ -60,7 +60,7 @@ fn tray_and_dialog_texts_exist_in_both_languages() {
     assert_eq!(main_text(None).tray_quit, "Sair");
     assert_eq!(main_text(Some("en")).tray_quit, "Quit");
     for text in [main_text(Some("en")), main_text(Some("pt"))] {
-        for value in [text.tray_accounts, text.tray_open_riot, text.tray_cancel, text.tray_start_with_windows, text.tray_quit, text.game_failed, text.needs_attention, text.open_failed, text.open_failed_detail, text.understood] {
+        for value in [text.tray_accounts, text.tray_open_riot, text.tray_cancel, text.tray_start_with_windows, text.tray_quit, text.game_failed, text.needs_attention, text.open_failed, text.open_failed_detail, text.understood, text.old_eclipse_open] {
             assert!(!value.is_empty());
         }
     }

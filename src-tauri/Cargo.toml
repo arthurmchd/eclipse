@@ -31,8 +31,11 @@ notify = { version = "6", default-features = false }
 sha2 = "0.10"
 winreg = "0.52"
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Security_Cryptography", "Win32_System_Memory", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
+tauri-plugin-single-instance = "2"
+tauri-winrt-notification = "0.8.1"
 
 [dev-dependencies]
+glob = "0.3.4"
 tempfile = "3"
 
 [profile.release]

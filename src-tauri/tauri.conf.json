@@ -10,12 +10,49 @@
     "windows": [],
     "withGlobalTauri": false,
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'none'"
     }
   },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "icon": ["../src/renderer/assets/icon.ico", "../src/renderer/assets/icon.png"]
+    "icon": ["../src/renderer/assets/icon.ico", "../src/renderer/assets/icon.png"],
+    "publisher": "Eclipse",
+    "resources": {
+      "../src/renderer/*.html": "src/renderer/",
+      "../src/renderer/*.css": "src/renderer/",
+      "../src/renderer/*.js": "src/renderer/",
+      "../src/renderer/assets/*.png": "src/renderer/assets/",
+      "../src/integration/overlay/toggle.html": "src/integration/overlay/toggle.html",
+      "../src/integration/overlay/toggle.css": "src/integration/overlay/toggle.css",
+      "../src/integration/overlay/toggle.js": "src/integration/overlay/toggle.js",
+      "../src/integration/overlay/toggle-check.svg": "src/integration/overlay/toggle-check.svg",
+      "../src/integration/overlay/cover.html": "src/integration/overlay/cover.html",
+      "../src/integration/overlay/cover.css": "src/integration/overlay/cover.css",
+      "../node_modules/@fontsource/inter/400.css": "node_modules/@fontsource/inter/400.css",
+      "../node_modules/@fontsource/inter/files/inter-*-400-normal.woff2": "node_modules/@fontsource/inter/files/",
+      "../node_modules/@fontsource/inter/files/inter-*-400-normal.woff": "node_modules/@fontsource/inter/files/",
+      "../node_modules/@fontsource/cinzel/700.css": "node_modules/@fontsource/cinzel/700.css",
+      "../node_modules/@fontsource/cinzel/files/cinzel-*-700-normal.woff2": "node_modules/@fontsource/cinzel/files/",
+      "../node_modules/@fontsource/cinzel/files/cinzel-*-700-normal.woff": "node_modules/@fontsource/cinzel/files/",
+      "../node_modules/@fontsource/teko/500.css": "node_modules/@fontsource/teko/500.css",
+      "../node_modules/@fontsource/teko/600.css": "node_modules/@fontsource/teko/600.css",
+      "../node_modules/@fontsource/teko/files/teko-*-500-normal.woff2": "node_modules/@fontsource/teko/files/",
+      "../node_modules/@fontsource/teko/files/teko-*-500-normal.woff": "node_modules/@fontsource/teko/files/",
+      "../node_modules/@fontsource/teko/files/teko-*-600-normal.woff2": "node_modules/@fontsource/teko/files/",
+      "../node_modules/@fontsource/teko/files/teko-*-600-normal.woff": "node_modules/@fontsource/teko/files/",
+      "../src/platform/windows/login.ps1": "src/platform/windows/login.ps1",
+      "../src/platform/windows/windowGuard.ps1": "src/platform/windows/windowGuard.ps1",
+      "../src/platform/windows/riotWindowObserver.ps1": "src/platform/windows/riotWindowObserver.ps1"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["PortugueseBR", "English"],
+        "displayLanguageSelector": false,
+        "installerIcon": "../src/renderer/assets/icon.ico",
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
   }
 }

@@ -1,9 +1,13 @@
+#[path = "platform/windows/electron_instance.rs"]
+mod electron_instance;
 #[path = "platform/windows/riot_window_observer.rs"]
 mod riot_window_observer;
 #[path = "platform/windows/safe_storage.rs"]
 mod safe_storage;
 #[path = "platform/windows/start_with_windows.rs"]
 mod start_with_windows;
+#[path = "platform/windows/toasts.rs"]
+mod toasts;
 #[path = "platform/windows/window_controller.rs"]
 mod window_controller;
 #[path = "platform/windows/windows_environment.rs"]

@@ -4,6 +4,8 @@ mod app_ports;
 mod language;
 #[path = "application/manager_service.rs"]
 mod manager_service;
+#[path = "application/notices.rs"]
+mod notices;
 #[path = "application/rank_api.rs"]
 mod rank_api;
 #[path = "application/rank_watcher.rs"]

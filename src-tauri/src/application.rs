@@ -1,6 +1,7 @@
 pub mod app_ports;
 pub mod language;
 pub mod manager_service;
+pub mod notices;
 pub mod rank_api;
 pub mod rank_watcher;
 pub mod refresher;

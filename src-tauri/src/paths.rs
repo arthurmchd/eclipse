@@ -1,14 +1,16 @@
 use std::env;
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub const DATA_FOLDER_NAME: &str = "riot-account-manager";
 
+pub fn root_from(debug: bool, manifest: &Path, exe: Option<PathBuf>) -> PathBuf {
+    let root = if debug { Some(manifest.to_path_buf()) } else { exe };
+    root.and_then(|path| path.parent().map(PathBuf::from)).unwrap_or_default()
+}
+
 pub fn project_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .map(PathBuf::from)
-        .unwrap_or_default()
+    root_from(cfg!(debug_assertions), Path::new(env!("CARGO_MANIFEST_DIR")), env::current_exe().ok())
 }
 
 pub fn source_dir() -> PathBuf {

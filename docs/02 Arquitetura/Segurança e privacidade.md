@@ -49,6 +49,8 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 ### Arquivos dentro dos limites
 - O Setup leva só `src/` e `package.json`, além das fontes; `backups/`, `.client-integration/`, logs e dados nunca entram no pacote. O `test/package.test.js` trava a lista ([[ADR-030 Eclipse instalado por um Setup próprio]]).
 - O Eclipse instalado usa a mesma pasta de dados do `npm start` e a desinstalação não a apaga.
+- O Setup do Tauri remove o Eclipse em Electron em modo de atualização (`--updated`), que mantém a pasta de dados e o início com o Windows. O Eclipse em Tauri não abre enquanto o Electron segura o `lockfile` da pasta de dados; ele só tenta abrir esse arquivo para leitura ([[ADR-034 Troca do Electron pelo Tauri]], [[electronInstance]]).
+- As notificações do Windows do Eclipse em Tauri só levam textos que já iam para a tela, sem nome de conta, usuário ou senha ([[notices]]).
 - A chave `Run` do usuário só ganha a entrada `Eclipse` quando o usuário liga "Iniciar com o Windows" na bandeja, e só no app instalado. Desligar a remove, e o desinstalador também ([[startWithWindows]]).
 - IDs de sessão validados contra travessia de caminho e streams NTFS ([[store]]).
 - A instalação original do Riot nunca é escrita. O `app.asar` oficial só é lido, com limites de tamanho e sem seguir links ou entradas fora do pacote ([[asar]], [[ADR-028 Modo antigo removido]]).

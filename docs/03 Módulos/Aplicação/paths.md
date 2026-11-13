@@ -57,7 +57,7 @@ Arquivo novo, criado na reorganização de pastas ([[Estrutura de pastas]]). Nã
 - **Versão Rust (fase 1 da [[Migração para Tauri]]).** `src-tauri/src/paths.rs` é o único lugar de caminhos no Rust: raiz do projeto, `src/`, `src/renderer/`, `src/platform/windows/` e a pasta de dados (`%APPDATA%
 iot-account-manager`, a mesma do Electron). A raiz vem da pasta do `Cargo.toml` gravada na compilação; serve para desenvolvimento e muda na fase 5, quando o app instalado passar a ler os recursos do Tauri.
 - **Pasta de dados em desenvolvimento (fase 4 da [[Migração para Tauri]]).** `data_dir()` devolve a pasta real só no app compilado em modo release. Em desenvolvimento, devolve a pasta de `ECLIPSE_DATA_DIR`, e só se for absoluta; sem ela, o Eclipse não abre. Assim, um `cargo run` nunca abre os dados reais por acidente ([[ADR-033 Sobreposição no Tauri]]). `observer_script()` acha o `riotWindowObserver.ps1`; testes em `src-tauri/tests/paths.rs`.
-
+- **Raiz do app instalado (fase 5 da [[Migração para Tauri]]).** `project_root()` é a pasta do projeto em desenvolvimento e a pasta do executável no app compilado em modo release (`root_from`). O Setup do Tauri põe os cartões, as fontes e os `.ps1` ao lado do executável nos mesmos caminhos relativos do projeto, então o resto do código não muda ([[ADR-034 Troca do Electron pelo Tauri]]). `tests/paths.rs` confere os dois modos e que o Setup leva os três `.ps1`, e só eles.
 ## Testes
 
 Sem teste próprio. Testes de outros módulos importam constantes daqui (`PROJECT_ROOT`, `SOURCE_DIR`, `RENDERER_DIR`, as páginas e `windowsHelper`). `mainStartup.test.js` lê o `index.js` por `SOURCE_DIR` e troca este módulo por um objeto falso com `APP_ICON` e `APP_TRAY_ICON`.

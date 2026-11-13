@@ -7,6 +7,14 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-13 · Migração para Tauri, fase 5: bandeja completa e Setup do Tauri
+
+- **Fase 5 da [[Migração para Tauri]], primeira parte ([[ADR-034 Troca do Electron pelo Tauri]]):** a bandeja do Tauri ganhou "Iniciar com o Windows" ([[startWithWindows]]), a segunda cópia passou a abrir as contas da primeira (`tauri-plugin-single-instance`) e os balões viraram notificações do Windows ([[notices]], [[toasts]], com o `tauri-winrt-notification`).
+- O Eclipse em Tauri não abre com o Electron aberto: confere se o Electron segura o `lockfile` da pasta de dados ([[electronInstance]]).
+- Setup do Tauri: `cargo tauri build` gera um instalador de 2,3 MB, por usuário, com os cartões, as fontes e os `.ps1` numa lista fechada; no app instalado, a raiz do [[paths]] é a pasta do executável. Se achar o Eclipse em Electron instalado, o Setup o desinstala em modo de atualização, mantendo a pasta de dados e o início com o Windows (`src-tauri/windows/hooks.nsh`). A CSP do `tauri.conf.json` ficou `default-src 'none'`.
+- Testes: 369 com `cargo test`, incluindo o conteúdo do Setup; os 383 do `npm test` continuam passando.
+- Nada foi instalado nem rodado; o Setup só foi compilado. A tag no git e a remoção do Electron esperam o usuário conferir o app em Tauri na Riot real.
+
 ## 2026-11-13 · Migração para Tauri, fase 4: a sobreposição e o app ligado
 
 - **Fase 4 da [[Migração para Tauri]]:** [[riotWindowObserver]], [[riotOverlay]], [[overlayToggle]], [[overlayCover]], [[managerHost]] e a ponte do [[manager-preload]] em Rust, e o [[main]] em Rust ligando o [[store]], os serviços da fase 3 e a bandeja. Novos: [[assetProtocol]] (o `eclipse://`, lista fechada de arquivos), [[refresher]] (a fila de elos que no Electron mora no `index.js`) e [[appPorts]] (as portas do [[managerService]] e o `saveLeavingSession`).

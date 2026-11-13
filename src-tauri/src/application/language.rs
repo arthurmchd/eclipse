@@ -88,6 +88,7 @@ pub struct MainText {
     pub open_failed: &'static str,
     pub open_failed_detail: &'static str,
     pub understood: &'static str,
+    pub old_eclipse_open: &'static str,
 }
 
 const MAIN_TEXT_PT: MainText = MainText {
@@ -101,6 +102,7 @@ const MAIN_TEXT_PT: MainText = MainText {
     open_failed: "Não foi possível abrir as contas no Riot.",
     open_failed_detail: "Tente de novo pelo ícone da bandeja. Se continuar, confira se o Riot Client está instalado.",
     understood: "Entendi",
+    old_eclipse_open: "O Eclipse antigo está aberto. Saia dele pela bandeja antes de abrir este.",
 };
 
 const MAIN_TEXT_EN: MainText = MainText {
@@ -114,6 +116,7 @@ const MAIN_TEXT_EN: MainText = MainText {
     open_failed: "Could not open the accounts in Riot.",
     open_failed_detail: "Try again from the tray icon. If it keeps failing, check that Riot Client is installed.",
     understood: "OK",
+    old_eclipse_open: "The old Eclipse is open. Quit it from the tray before opening this one.",
 };
 
 fn patterns() -> &'static Vec<(Regex, Regex, &'static str, &'static str)> {
