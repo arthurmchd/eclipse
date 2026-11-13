@@ -320,3 +320,16 @@ fn the_services_see_the_real_store_through_a_shared_lock() {
     shared.lock().unwrap().data.settings.insert("staySignedIn".into(), json!(false));
     assert!(!stay_signed_in(&shared));
 }
+
+#[test]
+fn sign_in_lines_go_to_their_own_log_which_rolls_over_past_its_limit() {
+    let (dir, store) = temporary_store();
+    store.sign_in_log("synthetic sign-in line");
+    let log = fs::read_to_string(dir.path().join("sign-in.log")).unwrap();
+    assert!(log.trim_end().ends_with(" synthetic sign-in line"));
+    assert!(!fs::read_to_string(dir.path().join("data.log")).unwrap().contains("synthetic sign-in line"));
+    fs::write(dir.path().join("sign-in.log"), "x".repeat(200 * 1024 + 1)).unwrap();
+    store.sign_in_log("after the limit");
+    assert_eq!(fs::metadata(dir.path().join("sign-in.log.old")).unwrap().len(), 200 * 1024 + 1);
+    assert!(fs::read_to_string(dir.path().join("sign-in.log")).unwrap().contains("after the limit"));
+}

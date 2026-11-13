@@ -143,14 +143,22 @@ impl Store {
         store
     }
 
-    pub fn log(&self, line: &str) {
-        let file = self.dir.join("data.log");
+    fn append(&self, name: &str, line: &str) {
+        let file = self.dir.join(name);
         if fs::metadata(&file).map(|meta| meta.len() > LOG_LIMIT).unwrap_or(false) {
-            let _ = fs::rename(&file, self.dir.join("data.log.old"));
+            let _ = fs::rename(&file, self.dir.join(format!("{name}.old")));
         }
         if let Ok(mut handle) = fs::OpenOptions::new().create(true).append(true).open(&file) {
             let _ = writeln!(handle, "{} {}", now_iso(), line);
         }
+    }
+
+    pub fn log(&self, line: &str) {
+        self.append("data.log", line);
+    }
+
+    pub fn sign_in_log(&self, line: &str) {
+        self.append("sign-in.log", line);
     }
 
     fn encrypt(&self, text: &str) -> Result<Value, String> {

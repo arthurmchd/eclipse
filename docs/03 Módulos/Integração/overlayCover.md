@@ -41,6 +41,7 @@ Cria uma terceira visualização dentro da janela da sobreposição, com a pági
 - **Carregamento no centro.** Um anel de 36 px com traço de 3 px, cinza `rgba(126, 126, 126, .15)` com o arco vermelho `#d53235` da Riot, girando a cada 1 s, no centro da coluna. A primeira versão o punha a 34% da altura só para não bater na caixa. A página usa a unidade `100vw / 400`, então ele escala com a coluna (1 px a 1536 de largura). Com "reduzir movimento" do Windows, o anel fica parado, como nos [[cards]].
 - **Sem script.** A visualização roda com `javascript: false`, sandbox, sem Node e sem preload, numa partição própria em memória (`ram-overlay-cover`). A CSP da página só permite a folha de estilo local. Navegação, janelas novas, `webview` e permissões são recusados.
 - **Começa escondida.** `setVisible(false)` é aplicado ao criar. A região da janela também só inclui a coluna enquanto o [[riotOverlay]] cobre; esconder a visualização evita pintar à toa.
+- **Versão Rust (fase 4 da [[Migração para Tauri]]).** A cobertura é a webview `cover` da janela do [[riotOverlay]] (`overlay_window.rs`), com JavaScript desligado, perfil anônimo, fundo `#fcfcfc` e nenhum comando liberado. A área é o `cover_rect` de `riot_overlay.rs`.
 
 ## Testes
 

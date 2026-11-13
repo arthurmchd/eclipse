@@ -1,7 +1,19 @@
 #[path = "integration/asar.rs"]
 mod asar;
+#[path = "integration/asset_protocol.rs"]
+mod asset_protocol;
 #[path = "integration/backend.rs"]
 mod backend;
+#[path = "integration/manager/manager_host.rs"]
+mod manager_host;
+#[path = "integration/overlay/overlay_toggle.rs"]
+mod overlay_toggle;
+#[path = "integration/overlay/riot_overlay.rs"]
+mod riot_overlay;
+#[path = "support/manual_timers.rs"]
+mod manual_timers;
+
+pub use manual_timers::ManualTimers;
 
 use std::fs;
 use std::path::{Path, PathBuf};

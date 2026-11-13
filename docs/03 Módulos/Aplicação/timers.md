@@ -26,7 +26,7 @@ tags: [módulo, tauri]
 ## Dependências
 
 - Usa: só a biblioteca padrão.
-- Usado por: [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]].
+- Usado por: [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[refresher]], [[riotOverlay]] e [[riotWindowObserver]].
 
 ## Invariantes e decisões
 
@@ -37,7 +37,7 @@ tags: [módulo, tauri]
 
 ## Testes
 
-`src-tauri/tests/application/timers.rs` confere a ordem pelos prazos, o cancelamento, que uma tarefa lenta não segura a seguinte e que o temporizador destruído não roda mais nada. O temporizador manual fica em `src-tauri/tests/application.rs`.
+`src-tauri/tests/application/timers.rs` confere a ordem pelos prazos, o cancelamento, que uma tarefa lenta não segura a seguinte e que o temporizador destruído não roda mais nada. O temporizador manual fica em `src-tauri/tests/support/manual_timers.rs`, usado pelos testes de aplicação, integração e plataforma.
 
 ## Pontos de atenção
 

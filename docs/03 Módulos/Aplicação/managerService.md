@@ -50,6 +50,7 @@ Comandos de `dispatch`: `init`, `events`, `operation`, `saveAccount`, `deleteAcc
 - **Ações externas limitadas.** Links exigem HTTPS sem usuário ou senha na URL e abrem no navegador padrão.
 - **Idioma só `pt` ou `en`.** `saveSettings` aceita `language` apenas com um valor de `LANGUAGES` do [[language]]; o resto recusa com `Invalid setting`. Depois de salvar, chama `settingsChanged(configurações)`, que o [[main]] usa para refazer a bandeja e avisar a sobreposição. Uma falha nesse aviso não desfaz o salvamento. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
 - **Versão Rust (fase 1 da [[Migração para Tauri]]).** `src-tauri/src/application/manager_service.rs` valida os mesmos comandos, com os mesmos limites e códigos (400, 404, 409), e tem a mesma fila de eventos. O que o serviço pede ao resto do app (login, jogos abertos, link, atualização de elos, contexto inicial e aviso de configurações) vem pela trait `ManagerPorts`, implementada na fase 3. O aviso `settings_changed` que entra em pânico é contido, como o `try/catch` do JS. O tamanho de texto é contado em unidades UTF-16, como o `length` do JS.
+- **Portas reais no Tauri (fase 4 da [[Migração para Tauri]]).** O `ManagerPorts` é o `AppPorts` ([[appPorts]]); a fila de atualização é o [[refresher]].
 
 ## Testes
 

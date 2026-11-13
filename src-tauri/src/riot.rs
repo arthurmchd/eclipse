@@ -75,6 +75,10 @@ impl Cancel {
         self.0.load(Ordering::SeqCst)
     }
 
+    pub fn same(&self, other: &Cancel) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
     pub fn check(&self) -> RiotResult<()> {
         if self.is_cancelled() {
             Err(RiotError::cancelled())

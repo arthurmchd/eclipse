@@ -46,6 +46,7 @@ Cria e redimensiona um `WebContentsView`, carrega o HTML local dos [[cards]], fo
 - **Redimensionamento solidário.** A visualização acompanha o tamanho de conteúdo da janela pai, menos os recuos.
 - **Fechamento durante a carga.** Uma geração de carga impede que uma promessa antiga reative uma visualização descartada.
 - **Falha sem dados do formulário.** Erros do transporte voltam com uma mensagem fixa, sem ecoar argumentos de cadastro, senhas ou chaves.
+- **Versão Rust (fase 4 da [[Migração para Tauri]]).** `src-tauri/src/integration/manager/manager_host.rs`, testes em `src-tauri/tests/integration/manager/manager_host.rs`. Um comando só, `manager`, liberado pela capacidade do Tauri só para a webview `cards`; mesmo assim, o Rust confere que quem chamou é a webview `cards` no endereço exato `http://eclipse.localhost/src/renderer/cards.html` ([[assetProtocol]]). Mesma lista de métodos, até 4 argumentos, até 32 KB e erro genérico. `windowAction` vai ao [[riotOverlay]]. Um link `https:` aberto pelos cartões vira `openExternal`; navegação para fora da página, janelas novas, downloads e permissões do navegador são negados na webview.
 
 ## Testes
 

@@ -7,6 +7,14 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-13 · Migração para Tauri, fase 4: a sobreposição e o app ligado
+
+- **Fase 4 da [[Migração para Tauri]]:** [[riotWindowObserver]], [[riotOverlay]], [[overlayToggle]], [[overlayCover]], [[managerHost]] e a ponte do [[manager-preload]] em Rust, e o [[main]] em Rust ligando o [[store]], os serviços da fase 3 e a bandeja. Novos: [[assetProtocol]] (o `eclipse://`, lista fechada de arquivos), [[refresher]] (a fila de elos que no Electron mora no `index.js`) e [[appPorts]] (as portas do [[managerService]] e o `saveLeavingSession`).
+- Decisões na [[ADR-033 Sobreposição no Tauri]]: uma janela transparente com três webviews (feature `unstable` do Tauri), `SetWindowRgn`, pixels físicos, o mesmo `.ps1`, comandos liberados por webview, oclusão do WebView2 desligada e Win32 só na thread principal.
+- Em desenvolvimento, o app exige `ECLIPSE_DATA_DIR` com uma pasta absoluta e não abre sem ela ([[paths]]). O [[store]] em Rust grava também o `sign-in.log`.
+- Testes novos em `src-tauri/tests/`: 359 com `cargo test`; o temporizador manual foi para `tests/support/`. Os 383 do `npm test` continuam passando; o app Electron não mudou.
+- O app em Tauri não foi rodado: ligado, ele vigia a janela da Riot real e mexe no login lembrado da Riot, mesmo com dados fictícios. Nada leu os dados reais nem falou com a Riot.
+
 ## 2026-11-13 · Migração para Tauri, fase 3: os serviços em Rust
 
 - **Fase 3 da [[Migração para Tauri]]:** [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[rankApi]] e [[startWithWindows]] portados para `src-tauri/src/`, com o novo [[timers]] no lugar do `setTimeout`. O login roda numa thread própria. O [[store]] ganhou o `ServiceStore`, a interface que os serviços usam.

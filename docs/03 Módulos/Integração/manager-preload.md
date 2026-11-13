@@ -35,6 +35,7 @@ As assinaturas públicas continuam `onAccountUpdated`, `onRefreshProgress`, `onN
 - **Espera limitada.** O prazo padrão de espera do resultado é dez minutos, incluindo a intervenção manual quando necessária. Um prazo excedido devolve instrução de recuperação, sem repetir credenciais nem iniciar outro login.
 - **Descarte não cancela o login.** Ao descarregar o renderer, remove listeners, limpa o timer e resolve as esperas locais com o aviso de visualização fechada. Não envia cancelamento ao serviço.
 - **Valores salvos não voltam.** Cadastro e edição enviam o texto recém-digitado, enquanto o estado recebido contém contas públicas e chaves mascaradas. Nenhuma função lê ou copia uma senha guardada.
+- **Versão Rust (fase 4 da [[Migração para Tauri]]).** O mesmo arquivo é embutido no executável (`include_str!`) e vira o script de inicialização da webview `cards` (`bridge_script` em `manager_host.rs`): dentro de uma função, com `process` e `module` vazios para os trechos do Electron não rodarem, e com o `ipcRenderer.invoke` trocado pelo `invoke('manager', { method, args })` do Tauri. O `window.api` sai congelado, com os mesmos métodos; conferido no Node com um `invoke` falso. Diferença: sem `contextIsolation`, a ponte vive no mesmo mundo da página; a defesa é a validação no Rust ([[ADR-033 Sobreposição no Tauri]]).
 
 ## Testes
 
