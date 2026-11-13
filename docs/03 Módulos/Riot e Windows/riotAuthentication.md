@@ -95,6 +95,7 @@ Fonte: enumeração `PlayerSessionStateType` lida (sem alterar nada) em `C:\Riot
 - **Cancelamento antes e depois de cada requisição.** Cancelar após o `DELETE` impede o `start` e o envio da senha.
 - **`remember` segue a configuração "Manter login".** `authenticate(account, signal, { remember })` envia `remember: true` por padrão e `false` só quando a opção está desmarcada. Com `true`, o cliente grava o login lembrado que o app guarda por conta ([[Armazenamento e dados]]). Desmarcado desde 2026-11-04, a Riot não lembra a conta.
 - **Conta autorizada não está na tela de login.** `loginScreenState` devolve `auth` só se `GET /rso-auth/v1/authorization` não responder 200. O autenticador pode continuar reportando `auth` depois de entrar; sem essa conferência, os cartões ficavam sobre a página inicial do Riot.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_authentication.rs`, testes em `src-tauri/tests/riot/riot_authentication.rs` e `auth_context_regression.rs`. Mesmas rotas, mesma sequência e mesmos erros fixos; os estados e os resultados viraram enums (`AuthKind`, `AuthOutcome`). Um teste lê a lista `NON_BLOCKING_SESSION_STATES` do arquivo JS e confere que a do Rust é igual, na mesma ordem.
 
 ## Testes
 

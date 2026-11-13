@@ -44,6 +44,7 @@ Opções do `spawn`: `detached: true`, `stdio: 'ignore'`, `env: environmentForRi
 - **Perfil do Windows certo.** O ambiente passa por `environmentForRiot`, que corrige o `LOCALAPPDATA` de um AppContainer temporário.
 - **Interface só visível.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saiu `interfaceRequired`, que criava a interface com `windowsHide` para o monitor de janelas escondê-la. A interface só é pedida com `visible: true`; um `interfaceRequired` avulso é ignorado.
 - **Erro sem detalhes do sistema.** Qualquer falha de `spawn` vira "Could not start the Riot Client. Check its path and Windows permissions".
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_process.rs`, testes em `src-tauri/tests/riot/riot_process.rs`. `plan` monta o início sem executar nada (argumentos, `DETACHED_PROCESS`, `CREATE_NEW_PROCESS_GROUP` e, escondido, `CREATE_NO_WINDOW`), e o processo recebe o ambiente do [[windowsEnvironment]] inteiro.
 
 ## Testes
 

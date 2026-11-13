@@ -40,6 +40,7 @@ Define que o Eclipse fala `pt` ou `en`, com `pt` como padrão, e tem o catálogo
 - **Par usado pelo lado em português conta como usado.** No mesmo dia saíram por engano mais dois pares cujo texto em inglês não aparecia no código: o [[signInFlow]] escrevia "Preparando o login no Riot Client…" e o [[riotWindowObserver]] "Não foi possível acompanhar a janela do Riot…", e com o app em inglês esses textos ficariam em português. Os pares voltaram, e os dois módulos passaram a escrever em inglês, como o resto. Um teste confere que todo status do [[signInFlow]] e o erro do observador têm par.
 - **Sem par, sem erro.** Uma mensagem nova que não entrou no catálogo aparece no texto original. Ao criar mensagem que chega ao usuário, acrescente o par.
 - **Padrão português.** Qualquer valor diferente de `'en'` vira `pt`, inclusive dados antigos sem o campo.
+- **Versão Rust (fase 1 da [[Migração para Tauri]]).** `src-tauri/src/application/language.rs` tem o mesmo catálogo. Enquanto os dois apps conviverem, um teste Rust lê o `MESSAGES` deste arquivo JS e exige os mesmos pares, na mesma ordem: acrescentar um par aqui sem acrescentá-lo lá quebra o `cargo test`. O teste dos status do [[signInFlow]] entra na fase 2.
 
 ## Testes
 

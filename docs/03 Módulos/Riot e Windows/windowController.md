@@ -53,6 +53,7 @@ Métodos do controlador:
 - **Timeout não depende do `close`.** O pedido falha no prazo mesmo se matar o processo não emitir `close`.
 - **`stop()` é definitivo.** Depois dele, todo método falha com "The background window guard is shutting down". Chamadas repetidas só esperam a fila.
 - **Mensagens antigas mantidas.** Os textos de erro continuam os de antes, com "guard", para o `sign-in.log` e o [[language]] não mudarem.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/platform/windows/window_controller.rs`, testes em `src-tauri/tests/platform/windows/window_controller.rs`. O PowerShell roda pela trait `HelperRunner`; um `Mutex` faz os helpers rodarem um por vez e o `stop` espera o que está rodando. No prazo, o Rust encerra a árvore do PowerShell (`taskkill /T`). O mesmo executor aceita cancelamento, usado pelo `login.ps1` no [[riotClient]]. Veio para a fase 2 porque o [[signInFlow]] depende dele.
 
 ## Testes
 

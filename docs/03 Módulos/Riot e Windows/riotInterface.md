@@ -47,6 +47,7 @@ Cada caminho escreve uma linha no `sign-in.log` pelo `log` recebido.
 - **Nunca dois clientes.** Se os serviços não saírem em 10 s, a abertura falha em vez de iniciar uma segunda instância.
 - **Cancelamento antes de cada efeito.** O `signal` é conferido antes do `show`, do encerramento e do lançamento.
 - **A janela nova fica visível.** Desde 2026-11-07 nada a esconde, e a opção `visible` saiu: a interface sempre abre visível, mesmo que alguém peça o contrário. Antes, o [[signInFlow]] chamava `windows.hide()` antes do `typeCredentials`, e o monitor do [[windowGuard.ps1]] ocultava a interface assim que ela era criada.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_interface.rs`, testes em `src-tauri/tests/riot/riot_interface.rs`. O `InterfaceOpener` recebe processos, API local, parada, início e espera como funções, e devolve `Existing`, `Shown` ou `Launched`.
 
 ## Testes
 

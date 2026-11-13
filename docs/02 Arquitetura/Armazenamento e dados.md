@@ -19,6 +19,8 @@ Tudo do usuário fica em `%APPDATA%\riot-account-manager\`, fora da pasta do có
 
 Senhas, chaves de API e sessões usam `safeStorage` do Electron, que no Windows é o DPAPI: só o mesmo usuário Windows, na mesma máquina, consegue abrir. Copiar `data.json` para outro PC não leva as senhas. Ver [[ADR-002 Segredos protegidos pelo DPAPI]].
 
+A versão Tauri lê e grava o mesmo formato, com a mesma chave do arquivo `Local State` da pasta de dados ([[safeStorage]], [[ADR-032 Migração para Tauri e Rust]]). Os dois apps abrem os segredos um do outro.
+
 ## Regras de gravação
 
 - **Backups só para edições do usuário.** Inclusões, exclusões, edições de conta e mudanças de configuração geram backup. Atualização de elo e horário de abertura não, para não gastar a rotação.

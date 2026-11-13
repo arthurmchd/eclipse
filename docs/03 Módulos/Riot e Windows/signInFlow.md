@@ -110,6 +110,7 @@ Em erro: se o formulário foi usado, a autenticação não terminou, não há at
 - **Atraso do jogo não é desafio de autenticação.** O aviso de jogo demorando não marca pendência nativa. Aviso de login lento não revela a janela automaticamente.
 - **Erros de autenticação viram mensagens fixas.** `auth_failure` → "Wrong username or password"; `rate_limited` → "Too many attempts, wait a few minutes"; outros → "Riot sign-in error: <código>". Os códigos já vêm filtrados por [[riotAuthentication]].
 - **Avisos sem repetição.** `attention()` só emite `status` quando o texto muda e marca `nativeClient` se o formulário foi usado. Após 35 s sem aviso, `awaitAuthorization` avisa a demora.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/sign_in_flow.rs`, testes em `src-tauri/tests/riot/sign_in_flow.rs`. O fluxo recebe tudo pela trait `SignInIo` (que estende a `RiotProbe` do [[riotState]]) e o pedido pela struct `SignInRequest`; relógio e espera vêm da trait, então os testes andam com um relógio falso. Prazos, textos e a ordem das etapas são os mesmos do JS. Os 61 cenários do teste JS foram portados um a um, e três mutações de propósito no fluxo (sem as marcas de atenção, sem esperar a verificação do jogador e sem a carência da checagem automática) fizeram testes falharem. Diferenças: as marcas do erro (`needs_attention`, `native_client`, `session_rejected`) são `false` em vez de ausentes, e uma resposta inválida do login direto é `None`.
 
 ## Testes
 

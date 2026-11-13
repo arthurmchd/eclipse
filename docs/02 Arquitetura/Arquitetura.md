@@ -5,6 +5,8 @@ tags: [arquitetura]
 
 # Arquitetura
 
+> Em migração para Tauri e Rust desde 2026-11-13 ([[ADR-032 Migração para Tauri e Rust]]). Esta nota descreve o app Electron, que continua sendo o Eclipse até a fase 5; o andamento fica em [[Migração para Tauri]].
+
 App Electron com um processo de serviços em segundo plano: a lógica, os segredos persistidos e o controle do Riot ficam no main. A interface são os [[cards]], uma `WebContentsView` numa janela transparente presa à janela oficial da Riot ([[Integração com o Riot Client]]). Não existe janela independente do gerenciador nem cópia da interface da Riot ([[ADR-028 Modo antigo removido]]).
 
 ## Processos

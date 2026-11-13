@@ -37,6 +37,7 @@ Lê e valida o `lockfile` do Riot Client. Extrai o certificado raiz da interface
 - **Nada volta para a UI ou para logs.** O token do `lockfile` só vai para o [[riotTransport]].
 - **Certificado da instalação, só lido.** `readBackendCertificate` lê o `app.asar` instalado, ao lado de `RiotClientServices.exe`, pelo [[asar]], que nunca escreve.
 - **Sem verificação própria desde 2026-11-07.** `verifyBackend` só servia à cópia privada e saiu com a [[ADR-028 Modo antigo removido]]. O [[riotTransport]] já trata um serviço que não responde.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/integration/backend.rs`, testes em `src-tauri/tests/integration/backend.rs`. `read_backend_with` recebe a pasta e a leitura do disco; os erros são os mesmos textos genéricos, sem o conteúdo do lockfile.
 
 ## Testes
 

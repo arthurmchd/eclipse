@@ -33,6 +33,7 @@ Abre um `app.asar`, valida o cabeçalho e a árvore de entradas e lê arquivos e
 - **Validação da árvore.** Profundidade máxima de 128. `size` deve ser inteiro seguro e não negativo. `offset` deve ser string só com dígitos, e `offset + size` deve caber no payload.
 - **Só entradas empacotadas.** `readFile` recusa entradas ausentes, `unpacked` e `link`, e qualquer leitura acima do limite pedido.
 - **Limites fixos.** Cabeçalho até 64 MiB; leitura de uma entrada até 32 MiB.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/integration/asar.rs`, testes em `src-tauri/tests/integration/asar.rs`. Mesmas checagens ao abrir; `read_file` recebe o limite de leitura e o arquivo fecha quando o `Archive` sai de escopo, sem `close`.
 
 ## Testes
 

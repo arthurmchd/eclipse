@@ -47,6 +47,7 @@ tags: [módulo]
 - **Conferido no LoL real em 2026-11-08.** Com o LoL aberto e só `GET`, o certificado foi aceito com a validação ligada. `current-summoner` trouxe `gameName`, `tagLine`, `summonerLevel` e `profileIconId`. `current-ranked-stats` trouxe `queues` e `queueMap` juntos, com filas a mais (`JADE_RANKED_SOLO_5x5`, `RANKED_PREMADE_5x5`) que são ignoradas. Uma fila sem elo vem com `tier` vazio e `division` `"NA"` e vira `null`. O TFT em jogos provisórios já vem com elo. O Eclipse instalado gravou a leitura numa conta salva sozinho ("updated a saved account from the League client").
 - **Nome do elo igual ao da HenrikDev.** `valTierName` dá "Iron 1" … "Immortal 3" e "Radiant", que os [[cards]] já traduzem. O cartão só entra como UUID, montado na mesma URL do [[rankApi]].
 - **O que o jogo não dá.** Sem RR, última partida, pico e temporada passada no VALORANT, e sem os cortes de Mestre+ no LoL. O [[rankWatcher]] mantém os que vieram de uma chave.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/game_ranks.rs`, testes em `src-tauri/tests/riot/game_ranks.rs`, incluindo o formato real que o cliente do LoL mandou em 2026-11-08. O resultado é a struct `Reading` com o Riot ID e os elos como JSON no formato dos [[cards]].
 
 ## Testes
 

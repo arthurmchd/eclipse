@@ -24,7 +24,8 @@ App Electron para Windows que gerencia várias contas Riot, faz login pelo servi
 
 ## Comandos
 
-- `npm test` antes de declarar qualquer mudança pronta.
+- `npm test` antes de declarar qualquer mudança pronta. Se mexeu em `src-tauri/`, também `cargo test` dentro dela.
+- Migração para Tauri em andamento: leia `docs/06 Roadmap/Migração para Tauri.md` antes de mexer em `src-tauri/`.
 - `npm run preview` para ver os cartões no navegador com dados fictícios (porta 5178).
 
 ## Diagnóstico

@@ -40,6 +40,7 @@ Regra de `localAppDataForRiot`:
 - **Nunca inventar uma pasta.** Sem `USERPROFILE` absoluto com letra de unidade, o valor original fica como está.
 - **Só o padrão `sandbox.{guid}` é corrigido.** Outros pacotes em `Packages\...\AC` e perfis em outras unidades não mudam.
 - **Cópia, não mutação.** `environmentForRiot` copia o ambiente e preserva todas as outras variáveis.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/platform/windows/windows_environment.rs`, testes em `src-tauri/tests/platform/windows/windows_environment.rs`. As funções recebem o ambiente como `HashMap`, e as versões sem sufixo leem o do processo.
 
 ## Testes
 

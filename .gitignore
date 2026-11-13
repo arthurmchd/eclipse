@@ -58,3 +58,7 @@ docs/.obsidian/workspace*.json
 docs/.obsidian/cache
 docs/.obsidian/plugins/
 docs/.trash/
+
+# Rust and Tauri build output
+src-tauri/target/
+src-tauri/gen/

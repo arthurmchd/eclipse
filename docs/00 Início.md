@@ -7,6 +7,8 @@ tags: [moc]
 
 Nome do app desde 2026-11-04 (antes Riot Account Manager). A pasta do projeto, o `name` do `package.json` e a pasta de dados continuam `riot-account-manager`; ver [[main]].
 
+Desde 2026-11-13 o Eclipse está migrando de Electron para Tauri e Rust, por fases ([[ADR-032 Migração para Tauri e Rust]], [[Migração para Tauri]]). Até a última fase, o app de verdade continua sendo o Electron em `src/`.
+
 Este vault é o cérebro do projeto. O código não tem comentários: o **porquê** de cada decisão, as regras de segurança e o mapa dos módulos ficam aqui. Antes de mudar um módulo, leia a nota dele; depois de mudar, atualize a nota.
 
 ## Comece por aqui
@@ -31,7 +33,7 @@ Um modo só desde 2026-11-07 ([[ADR-028 Modo antigo removido]]): os [[cards]] so
 |---|---|
 | Aplicação | [[main]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] · [[rankWatcher]] |
 | Riot | [[riotClient]] · [[riotState]] · [[gameRanks]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
-| Windows | [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[riotWindowObserver]] · [[startWithWindows]] |
+| Windows | [[safeStorage]] (Tauri) · [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[riotWindowObserver]] · [[startWithWindows]] |
 | Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] |
 | Interface | [[cards]] |
 
@@ -62,6 +64,7 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-029 Estado da Riot definido num lugar só]]
 - [[ADR-030 Eclipse instalado por um Setup próprio]]
 - [[ADR-031 Elo lido do próprio jogo, sem chave]]
+- [[ADR-032 Migração para Tauri e Rust]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]
@@ -84,6 +87,7 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 ## Roadmap
 
 - [[Backlog]]: próximas melhorias, por prioridade
+- [[Migração para Tauri]]: fases e onde cada módulo fica no Rust
 - [[Limitações conhecidas]]
 - [[Changelog]]
 - [[Glossário]]

@@ -40,6 +40,7 @@ Repete a decisão do botão de fechar da Riot: mandar o cliente para o segundo p
 - **Leitura que falha não decide.** Cada leitura com resposta fora de 2xx (por exemplo 404 de uma opção nunca salva) vale como ausente. Se o serviço local não responde, `close` falha antes de qualquer POST.
 - **Um POST só.** Nada é repetido. Uma resposta fora de 2xx vira o erro fixo `The Riot Client did not accept the close request`. O [[riotOverlay]] trata qualquer falha fechando só a janela, como Alt+F4.
 - **Não é o encerramento do Eclipse.** Parar um cliente travado durante o login continua com `/process-control/v1/process/quit` em [[riotClient]], que encerra mesmo com o segundo plano ligado. Este módulo só serve ao clique do usuário no X.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_app_controls.rs`, testes em `src-tauri/tests/riot/riot_app_controls.rs`. Mesma regra do botão de fechar da Riot; as seis leituras são feitas uma depois da outra em vez de juntas.
 
 ## Testes
 

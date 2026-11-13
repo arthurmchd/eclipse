@@ -48,6 +48,7 @@ tags: [módulo]
 - **Segundo plano pela API.** Com a Riot aberta, sem janela e sem jogo, a API de sessão responder separa `'hidden'` de `'background'`. Em segundo plano a API local só responde `/help` (conferido na Riot v142 em 2026-11-06, [[riotWakeup]]). Uma falha de `sessionState` vale como segundo plano.
 - **A lista de processos manda.** Um jogo aberto sem processo da Riot conta como Riot fechada para `mode()`, embora `inGame()` diga que há jogo. Falha da lista de processos chega a quem perguntou, como antes: cada consumidor já trata esse erro.
 - **Comportamento sem mudança.** Até 2026-11-07 cada consumidor combinava as mesmas consultas do seu jeito; com as consultas reais, as respostas são as mesmas. A diferença fica nos testes, que agora passam pela regra real em vez de simular `clientRunning` e `runningGames` separados.
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_state.rs`, testes em `src-tauri/tests/riot/riot_state.rs`. As três consultas vêm da trait `RiotProbe`; um `Look` guarda cada resposta em `OnceCell`, então cada pergunta é feita uma vez por olhada, como no JS.
 
 ## Testes
 

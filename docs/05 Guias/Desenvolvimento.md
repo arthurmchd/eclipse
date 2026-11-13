@@ -10,6 +10,7 @@ tags: [dev]
 - Windows 10/11 (DPAPI, PowerShell e o Riot Client são requisitos reais, inclusive para parte dos testes)
 - Node.js 22 ou mais novo
 - `npm ci` na primeira vez
+- Para a versão Tauri ([[Migração para Tauri]]): Rust pelo `rustup` (`winget install Rustlang.Rustup`), as Build Tools do Visual Studio com C++ e o WebView2, que já vem no Windows 11. `cargo install tauri-cli --version "^2" --locked` dá o `cargo tauri`.
 
 ## Comandos
 
@@ -18,6 +19,8 @@ tags: [dev]
 | `npm start` | Inicia o Eclipse na bandeja; os cartões aparecem sobre a Riot oficial |
 | `npm test` | Roda todos os testes (`node --test "test/**/*.test.js"`) |
 | `npm run preview` | Cartões no navegador com contas fictícias em <http://localhost:5178> |
+| `cargo test` (em `src-tauri/`) | Roda os testes Rust da versão Tauri |
+| `cargo run` (em `src-tauri/`) | Abre a versão Tauri em desenvolvimento; na fase 1, só a bandeja |
 | `npm run dist` | Gera `dist/Eclipse Setup <versão>.exe`, o instalador do Eclipse ([[ADR-030 Eclipse instalado por um Setup próprio]]) |
 
 Os comandos do modo antigo (`start:riot-login`, `start:private`, `preview:riot-login`, `integration:*`, `legacy:*`) saíram em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
@@ -26,7 +29,7 @@ Rodar um teste só: `node --test test/riot/signInFlow.test.js`.
 
 ## Testes
 
-- `test/` espelha `src/`.
+- `test/` espelha `src/`. No Rust, `src-tauri/tests/` espelha `src-tauri/src/`: cada camada é um arquivo (`tests/application.rs`) que inclui os testes da pasta dela por `#[path]`.
 - Não autenticam contas reais nem abrem jogos.
 - Os testes do helper de janelas (`windowGuard.ps1`: compila o C# e roda um autoteste que não toca janelas do desktop) e o teste dos cartões com Electron real usam recursos reais do Windows com dados sintéticos.
 - Pastas temporárias são criadas dentro da pasta do próprio teste e removidas no fim; os testes conferem isso antes de apagar.

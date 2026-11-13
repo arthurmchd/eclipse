@@ -54,6 +54,7 @@ Arquivo novo, criado na reorganização de pastas ([[Estrutura de pastas]]). Nã
 - **`.client-integration/` sobra de um modo removido.** A pasta guardava a cópia da interface da Riot. O código não a usa mais; ela continua no `.gitignore` e não pode ser distribuída, porque contém recursos proprietários. Ver [[Integração com o Riot Client]].
 - **Ícone do Eclipse.** Desde 2026-11-04, `APP_TRAY_ICON` (`.ico` com 16, 24, 32, 48, 64, 128 e 256 px) é o ícone da bandeja no [[main]], para o Windows escolher o tamanho certo em cada escala. `APP_ICON` é o mesmo desenho em PNG de 256 px e fica como última reserva. A imagem foi enviada pelo usuário (fundo branco removido, recortada e centralizada); por parecer arte de jogo da Riot, serve para uso pessoal e não deve ir para uma distribuição pública do app.
 - **A view usa caminhos centralizados.** [[managerHost]] recebe o HTML local e o preload dedicado pelas constantes deste módulo.
+- **Versão Rust (fase 1 da [[Migração para Tauri]]).** `src-tauri/src/paths.rs` é o único lugar de caminhos no Rust: raiz do projeto, `src/`, `src/renderer/`, `src/platform/windows/` e a pasta de dados (`%APPDATA%iot-account-manager`, a mesma do Electron). A raiz vem da pasta do `Cargo.toml` gravada na compilação; serve para desenvolvimento e muda na fase 5, quando o app instalado passar a ler os recursos do Tauri.
 
 ## Testes
 

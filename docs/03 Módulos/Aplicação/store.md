@@ -72,6 +72,7 @@ Exporta só a classe `Store`.
 - **Máscara.** Primeiros 8 e últimos 4 caracteres da chave.
 - **Chaves em `updateSettings`.** `undefined` = não mexe, `''` = remove, outro valor = substitui (com `trim`).
 - **`language`** (padrão `'pt'`) guarda o idioma do Eclipse. `publicSettings` devolve `'en'` só quando o valor salvo é exatamente `'en'`; qualquer outro valor, inclusive dados antigos sem o campo, vira `'pt'`. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
+- **Versão Rust (fase 1 da [[Migração para Tauri]]).** `src-tauri/src/application/store.rs` faz o mesmo, com testes em `src-tauri/tests/application/store.rs`. Lê e grava o mesmo `data.json`, os mesmos backups e as mesmas sessões, com a criptografia do [[safeStorage]], compatível com a do Electron ([[ADR-032 Migração para Tauri e Rust]]). As contas ficam como objetos JSON com a ordem das chaves preservada, para um campo que o Rust não conhece (como `puuidCache`) não sumir ao salvar; um teste carrega um `data.json` no formato do Electron, salva e confere que nada mudou além da limpeza de nomes. Diferenças: `hasSession` com ID inválido vira `false` em vez de lançar erro, e o `Store` recebe a pasta e o `Cipher` em vez de perguntá-los ao Electron. Os testes Rust cobrem também a recuperação de `data.json` corrompido, o limite de 30 backups e o `clean_name`, que os testes JS deixam de fora.
 
 ## Testes
 

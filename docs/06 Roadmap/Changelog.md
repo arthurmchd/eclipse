@@ -7,6 +7,21 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-13 · Migração para Tauri, fase 2: a camada da Riot em Rust
+
+- **Fase 2 da [[Migração para Tauri]]:** [[asar]], [[backend]], [[riotTransport]], [[riotState]], [[riotAuthentication]], [[riotInterface]], [[riotAppControls]], [[riotProcess]], [[gameRanks]], [[riotClient]] e [[signInFlow]] portados para `src-tauri/src/`, mais [[windowController]] e [[windowsEnvironment]], que o login usa. As regras de segurança não mudaram: senha só para a rota local da Riot ou para o `login.ps1` pela entrada padrão, nenhuma tentativa de contornar CAPTCHA ou 2FA, logs só com textos fixos.
+- O executor do PowerShell ganhou cancelamento e, no prazo ou no cancelamento, encerra a árvore inteira do processo.
+- Testes novos em `src-tauri/tests/riot/`, `tests/integration/` e `tests/platform/windows/`, portados dos testes JS: 215 com `cargo test`. Os 383 do `npm test` continuam passando; o app Electron não mudou.
+- Não conferido com a Riot real: nenhum processo da Riot foi aberto, fechado ou consultado. Falta ver se o TLS do Windows aceita o certificado local da Riot.
+
+## 2026-11-13 · Começa a migração para Tauri e Rust
+
+- A pedido do usuário, para deixar o Eclipse mais leve ([[ADR-032 Migração para Tauri e Rust]]). O app Electron não mudou e continua sendo o Eclipse de verdade; o Tauri cresce ao lado, em `src-tauri/`, por fases ([[Migração para Tauri]]).
+- **Fase 1, base:** projeto Tauri 2 com bandeja e Sair; [[store]], [[language]], [[managerService]] e `paths` portados para Rust; [[safeStorage]] (novo) lê e grava os segredos no formato do `safeStorage` do Electron, conferido com o Electron 44 do projeto numa pasta temporária.
+- Rust 1.100 instalado pelo `rustup` (winget, só no usuário) e `tauri-cli` 2 pelo `cargo`.
+- Testes novos em `src-tauri/tests/`: 39 com `cargo test`, mais um manual com uma amostra do Electron. Os 383 do `npm test` continuam passando.
+- `.gitignore` ganhou `src-tauri/target/` e `src-tauri/gen/`.
+
 ## 2026-11-08 · Borda de cima da Riot e Setup sem o nome do autor
 
 - **[[riotOverlay]]:** a pedido do usuário, os cartões não passam mais da borda da Riot em cima. O Windows desenha a borda de 1 px da Riot por cima da primeira linha da área cliente, só em cima (conferido na Riot real, só lendo). Com cantos arredondados, essa linha sai da região dos cartões e da coluna coberta, e as pontas de cima descem junto. A janela e os cartões não mudam de tamanho. Não conferido na tela: o usuário preferiu não ter a tela capturada.
