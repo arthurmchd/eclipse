@@ -7,6 +7,13 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-13 · Migração para Tauri, fase 3: os serviços em Rust
+
+- **Fase 3 da [[Migração para Tauri]]:** [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[rankApi]] e [[startWithWindows]] portados para `src-tauri/src/`, com o novo [[timers]] no lugar do `setTimeout`. O login roda numa thread própria. O [[store]] ganhou o `ServiceStore`, a interface que os serviços usam.
+- O [[startWithWindows]] em Rust grava ele mesmo a entrada de inicialização no registro do usuário, no formato do Electron. Crates novos: `sha2` (hash da chave do [[rankApi]]) e `winreg`.
+- Testes novos em `src-tauri/tests/application/` e `tests/platform/windows/`, portados dos testes JS: 315 com `cargo test`. Os 383 do `npm test` continuam passando; o app Electron não mudou.
+- Os serviços ainda não estão ligados ao app; ligar o [[main]] e o `ManagerPorts` ficou para a fase 4. Nada leu os dados reais, consultou a Riot, chamou as APIs de elo ou tocou o registro do Windows.
+
 ## 2026-11-13 · Migração para Tauri, fase 2: a camada da Riot em Rust
 
 - **Fase 2 da [[Migração para Tauri]]:** [[asar]], [[backend]], [[riotTransport]], [[riotState]], [[riotAuthentication]], [[riotInterface]], [[riotAppControls]], [[riotProcess]], [[gameRanks]], [[riotClient]] e [[signInFlow]] portados para `src-tauri/src/`, mais [[windowController]] e [[windowsEnvironment]], que o login usa. As regras de segurança não mudaram: senha só para a rota local da Riot ou para o `login.ps1` pela entrada padrão, nenhuma tentativa de contornar CAPTCHA ou 2FA, logs só com textos fixos.

@@ -1,3 +1,9 @@
 pub mod language;
 pub mod manager_service;
+pub mod rank_api;
+pub mod rank_watcher;
+pub mod riot_wakeup;
+pub mod session_keeper;
+pub mod sign_in_service;
 pub mod store;
+pub mod timers;

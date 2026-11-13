@@ -112,6 +112,7 @@ Decisões em [[ADR-019 Sessão salva por conta no modo cartões]], [[ADR-020 Rio
   - Uma falha ao apagar uma sessão não impede as outras. O log registra só quantas foram apagadas ([[ADR-022 Sessões de antes do modo cartões são descartadas]]).
 - **Startup confere uma vez.** Se o Eclipse estava fechado quando a Riot gravou o login, ele ainda está no arquivo. Na abertura do Eclipse, com a Riot fechada ou desconectada, o login é guardado e limpo.
 - **Log sem dados da conta.** As linhas não levam nome, Riot ID, `sub` nem trechos do arquivo.
+- **Versão Rust (fase 3 da [[Migração para Tauri]]).** `src-tauri/src/application/session_keeper.rs`, testes em `src-tauri/tests/application/session_keeper.rs` com os 28 cenários do JS. A Riot entra pelo `KeeperRiot` e o disco pelo `ServiceStore`; os prazos vêm de um [[timers]]. Com o temporizador real, a conferência do arquivo e a do cliente podem rodar em threads diferentes ao mesmo tempo. O que no JS era a identidade do objeto `held` virou um número de série, e as mesmas conferências de "ainda é o mesmo" do JS protegem a troca entre threads. `KEPT_SINCE_MS` é 1793970000000, conferido por teste contra `2026-11-06T13:00:00Z`. `keep` devolve o ID da dona ou o erro de gravação, para o [[signInService]] parar o login como no JS. `start` só vale uma vez, mesmo sem observador do arquivo.
 
 ## Testes
 

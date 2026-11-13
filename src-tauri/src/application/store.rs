@@ -506,3 +506,85 @@ impl Store {
         ApiKeys { riot: readable("riotApiKey"), tft: readable("riotTftApiKey"), henrik: readable("henrikApiKey") }
     }
 }
+
+pub trait ServiceStore: Send + Sync {
+    fn accounts(&self) -> Vec<Map<String, Value>>;
+    fn account(&self, id: &str) -> Option<Map<String, Value>>;
+    fn setting(&self, name: &str) -> Option<Value>;
+    fn password(&self, id: &str) -> Result<String, String>;
+    fn has_session(&self, id: &str) -> bool;
+    fn load_session(&self, id: &str) -> Option<String>;
+    fn save_session(&self, id: &str, yaml: &str) -> Result<(), String>;
+    fn session_saved_at(&self, id: &str) -> Result<f64, String>;
+    fn forget_session(&self, id: &str) -> Result<(), String>;
+    fn set_current_account(&self, id: &str) -> Result<(), String>;
+    fn update_account_fields(&self, id: &str, fields: Map<String, Value>) -> Result<Option<Map<String, Value>>, String>;
+    fn public_account(&self, id: &str) -> Option<Map<String, Value>>;
+}
+
+pub fn stay_signed_in(store: &dyn ServiceStore) -> bool {
+    store.setting("staySignedIn") != Some(Value::Bool(false))
+}
+
+pub fn client_path(store: &dyn ServiceStore) -> String {
+    store.setting("riotClientPath").and_then(|value| value.as_str().map(str::to_string)).unwrap_or_default()
+}
+
+impl ServiceStore for std::sync::Mutex<Store> {
+    fn accounts(&self) -> Vec<Map<String, Value>> {
+        self.lock().map(|store| store.data.accounts.clone()).unwrap_or_default()
+    }
+
+    fn account(&self, id: &str) -> Option<Map<String, Value>> {
+        self.lock().ok()?.get_account(id).cloned()
+    }
+
+    fn setting(&self, name: &str) -> Option<Value> {
+        self.lock().ok()?.data.settings.get(name).cloned()
+    }
+
+    fn password(&self, id: &str) -> Result<String, String> {
+        self.lock().map_err(|error| error.to_string())?.get_password(id)
+    }
+
+    fn has_session(&self, id: &str) -> bool {
+        self.lock().ok().and_then(|store| store.has_session(id).ok()).unwrap_or(false)
+    }
+
+    fn load_session(&self, id: &str) -> Option<String> {
+        self.lock().ok()?.load_session(id)
+    }
+
+    fn save_session(&self, id: &str, yaml: &str) -> Result<(), String> {
+        self.lock().map_err(|error| error.to_string())?.save_session(id, yaml)
+    }
+
+    fn session_saved_at(&self, id: &str) -> Result<f64, String> {
+        self.lock().map_err(|error| error.to_string())?.session_saved_at(id)
+    }
+
+    fn forget_session(&self, id: &str) -> Result<(), String> {
+        self.lock().map_err(|error| error.to_string())?.forget_session(id)
+    }
+
+    fn set_current_account(&self, id: &str) -> Result<(), String> {
+        self.lock().map_err(|error| error.to_string())?.set_current_account(id)
+    }
+
+    fn update_account_fields(&self, id: &str, fields: Map<String, Value>) -> Result<Option<Map<String, Value>>, String> {
+        self.lock().map_err(|error| error.to_string())?.update_account_fields(id, fields)
+    }
+
+    fn public_account(&self, id: &str) -> Option<Map<String, Value>> {
+        let store = self.lock().ok()?;
+        store.get_account(id).map(|account| store.public_account(account))
+    }
+}
+
+pub fn account_riot_id(account: &Map<String, Value>) -> crate::riot::RiotId {
+    crate::riot::RiotId::new(&text_of(account.get("gameName")), &text_of(account.get("tagLine")))
+}
+
+pub fn account_id(account: &Map<String, Value>) -> String {
+    text_of(account.get("id"))
+}

@@ -69,6 +69,7 @@ Decisão em [[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]
 - **Pedido sem plano B.** `showInterface` é o `POST /riot-client-lifecycle/v1/show`, o mesmo do "Show" da bandeja da Riot e do "Abrir Riot" do Eclipse ([[riotInterface]]). Se falhar, só o log registra. Diferente do `openInterface`, nada reinicia a Riot, porque isso poderia derrubar um jogo começando.
 - **Mudanças seguidas no `lockfile`** substituem a conferência pendente. Uma conferência antiga que termina depois de uma nova mudança é descartada.
 - **Login do Eclipse tem prioridade.** `busy()` é conferido antes e depois de cada consulta à Riot. Um login em andamento zera a lembrança do segundo plano, porque ele mesmo fecha e reinicia a Riot.
+- **Versão Rust (fase 3 da [[Migração para Tauri]]).** `src-tauri/src/application/riot_wakeup.rs`, testes em `src-tauri/tests/application/riot_wakeup.rs` com os 6 cenários do JS. A Riot entra pelo `WakeupRiot` e os prazos por um [[timers]]. O observador do `lockfile` guarda só uma referência fraca ao serviço, para não prendê-lo na memória; fechar é soltar o observador. `start` só vale uma vez.
 
 ## Testes
 

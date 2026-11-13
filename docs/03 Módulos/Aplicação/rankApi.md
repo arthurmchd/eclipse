@@ -71,6 +71,7 @@ Antes se chamava `riotApi` (`src/riotApi.js`); foi renomeado na reorganização 
 - **Card.** Se vier string, vira `media.valorant-api.com/playercards/<id>/smallart.png`; se vier objeto, usa `card.small`.
 - **Erro não apaga dado antigo.** `stats` parte de `acc.stats`. Um jogo com erro mantém os valores anteriores e ganha `errors.<jogo>`.
 - **Sem Riot ID, nada é buscado.** Devolve só `errors.all`.
+- **Versão Rust (fase 3 da [[Migração para Tauri]]).** `src-tauri/src/application/rank_api.rs`, testes em `src-tauri/tests/application/rank_api.rs`. O HTTP entra pelo `RankHttp`; o real (`UreqHttp`) usa o TLS do Windows com os certificados do sistema, e o prazo de 15 s cobre também a leitura do corpo, conferido por teste contra um servidor local que nunca responde e outro que para no meio do corpo. As chamadas são em sequência, com 80 ms entre duas próximas, como a fila do JS; as duas chamadas que o JS fazia com `Promise.all` já saíam em fila, então nada ficou mais lento. O hash da chave e a codificação da URL batem com o Node (conferido por teste). Uma resposta 2xx que não é JSON vira "The rank service sent an invalid answer", sem tradução.
 
 ## Testes
 

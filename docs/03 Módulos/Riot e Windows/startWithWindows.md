@@ -39,6 +39,7 @@ tags: [módulo]
 - **Nome fixo `Eclipse`.** A entrada não depende do AppUserModelId do Electron, que o main não define. O desinstalador apaga esse mesmo nome (`scripts/build/installer.nsh`).
 - **Desligar limpa tudo do usuário.** Desligar remove a entrada `Eclipse` e qualquer outra entrada do usuário que aponte para o mesmo executável, para a opção não continuar marcada por uma entrada antiga com outro nome. Entradas de outros programas e da máquina (`HKLM`) ficam.
 - **Erro vira linha fixa.** Uma falha do registro vai ao `sign-in.log` como "could not turn on the start with Windows" ou "... off ...", sem o texto da exceção, e a opção mostra o estado lido depois.
+- **Versão Rust (fase 3 da [[Migração para Tauri]]).** `src-tauri/src/platform/windows/start_with_windows.rs`, testes em `src-tauri/tests/platform/windows/start_with_windows.rs`, só com um registro falso. Sem o Electron, grava ela mesma o que o `setLoginItemSettings` gravava: o valor `Eclipse` em `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, com o caminho entre aspas, e 12 bytes começando em `02` em `...\Explorer\StartupApproved\Run`. Lê como o Electron: a entrada conta se o executável do comando for o do Eclipse (sem diferenciar maiúsculas e barras) e se o primeiro byte do `StartupApproved` for par, ou se ele não existir. O registro entra pelo `StartupRegistry`; o real usa o crate `winreg` e só toca o usuário atual. `packaged` substitui o `app.isPackaged`. Nenhum teste tocou o registro real.
 
 ## Testes
 

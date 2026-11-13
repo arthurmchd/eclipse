@@ -44,6 +44,7 @@ tags: [módulo]
 - **Log só quando muda.** Linhas fixas no `data.log`, sem nome de conta, e só quando o resultado é diferente do anterior: "updated a saved account from the …", "could not read the ranks from the …", "… is signed in to an account that is not saved in Eclipse", "could not check the running games".
 - **Uma leitura por vez.** Um `check()` pedido durante outro devolve o mesmo.
 - **Corrida com a atualização por chave.** Uma atualização por chave que começou antes de uma leitura pode escrever por cima dela; a próxima leitura, 1 min depois, corrige.
+- **Versão Rust (fase 3 da [[Migração para Tauri]]).** `src-tauri/src/application/rank_watcher.rs`, testes em `src-tauri/tests/application/rank_watcher.rs`. `start` agenda a primeira leitura num [[timers]] com espera zero, em vez de ler na thread de quem chamou. Duas conferências ao mesmo tempo não leem o jogo duas vezes: a segunda espera a primeira e devolve o resultado dela, como a promessa compartilhada do JS. A comparação sem `updatedAt` compara os valores JSON, sem depender da ordem das chaves. Uma falha ao gravar a conta vira a linha "could not check the running games", como a exceção no JS.
 
 ## Testes
 

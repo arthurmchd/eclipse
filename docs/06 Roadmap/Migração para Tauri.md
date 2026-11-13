@@ -14,8 +14,8 @@ Acompanha a [[ADR-032 Migração para Tauri e Rust]]. O app Electron em `src/` c
 |---|---|---|
 | 1. Base | Projeto Tauri, `paths`, [[safeStorage]], [[store]], [[language]], [[managerService]] | Feita em 2026-11-13 |
 | 2. Riot | [[asar]], [[backend]], [[riotTransport]], [[riotState]], [[riotAuthentication]], [[riotInterface]], [[riotAppControls]], [[riotProcess]], [[gameRanks]], [[riotClient]], [[signInFlow]], [[windowController]], [[windowsEnvironment]] | Feita em 2026-11-13, sem conferir na Riot real |
-| 3. Serviços | [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[rankApi]], [[startWithWindows]] | A fazer |
-| 4. Sobreposição | [[riotOverlay]], [[overlayToggle]], [[overlayCover]], [[riotWindowObserver]], [[managerHost]], [[manager-preload]] e a ponte `window.api` dos [[cards]] | A fazer |
+| 3. Serviços | [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[rankApi]], [[startWithWindows]] e o novo [[timers]] | Feita em 2026-11-13, sem ligar ao app nem conferir na Riot real |
+| 4. Sobreposição | [[riotOverlay]], [[overlayToggle]], [[overlayCover]], [[riotWindowObserver]], [[managerHost]], [[manager-preload]], a ponte `window.api` dos [[cards]] e o [[main]] que liga os serviços | A fazer |
 | 5. Troca | Bandeja completa, Setup do Tauri, tag no git e remoção do Electron | A fazer |
 
 ## Onde fica cada módulo
@@ -30,6 +30,8 @@ Acompanha a [[ADR-032 Migração para Tauri e Rust]]. O app Electron em `src/` c
 | `src/integration/asar.js`, `backend.js` | `src-tauri/src/integration/asar.rs`, `backend.rs` | `src-tauri/tests/integration/` |
 | `src/riot/*.js` | `src-tauri/src/riot/*.rs`, com nomes em `snake_case` (`signInFlow.js` vira `sign_in_flow.rs`) | `src-tauri/tests/riot/` |
 | `src/platform/windows/windowController.js`, `windowsEnvironment.js` | `src-tauri/src/platform/windows/window_controller.rs`, `windows_environment.rs` | `src-tauri/tests/platform/windows/` |
+| `src/core/signInService.js`, `sessionKeeper.js`, `riotWakeup.js`, `rankWatcher.js`, `rankApi.js` | `src-tauri/src/application/sign_in_service.rs`, `session_keeper.rs`, `riot_wakeup.rs`, `rank_watcher.rs`, `rank_api.rs`, mais `timers.rs` | `src-tauri/tests/application/` |
+| `src/platform/windows/startWithWindows.js` | `src-tauri/src/platform/windows/start_with_windows.rs` | `src-tauri/tests/platform/windows/start_with_windows.rs` |
 
 A camada `src/core` virou `application` no Rust, porque `core` é o nome de uma biblioteca padrão do Rust e criaria caminhos ambíguos.
 
@@ -45,10 +47,18 @@ A camada `src/core` virou `application` no Rust, porque `core` é o nome de uma 
 - `cargo test` em `src-tauri/`: 215 testes, mais o manual da fase 1. Os 61 cenários do [[signInFlow]] e os testes de [[riotAuthentication]], [[riotClient]], [[riotTransport]], [[gameRanks]] e dos demais foram portados do JS; o teste de [[language]] confere que todo status e erro do login em Rust tem tradução.
 - Nada da fase 2 falou com a Riot real. Os testes usam uma Riot falsa em memória; nenhum processo da Riot foi aberto, fechado ou consultado.
 
+## O que a fase 3 entrega
+
+- Os serviços em Rust, cada um com suas dependências trocáveis: a Riot por uma trait que o [[riotClient]] implementa, o disco pelo `ServiceStore` do [[store]], o tempo pelo [[timers]], o HTTP do [[rankApi]] pelo `RankHttp` e o registro do [[startWithWindows]] pelo `StartupRegistry`.
+- O login roda numa thread própria e `start_from_manager` volta na hora, resolvendo a pendência da fase 2.
+- `cargo test` em `src-tauri/`: 315 testes, mais o manual da fase 1. Os cenários dos testes JS dos seis módulos foram portados; os poucos que não existem em Rust estão explicados nas notas dos módulos. Três mutações de propósito (no [[sessionKeeper]], na redação do [[signInService]] e no regravar do [[rankWatcher]]) foram pegas pelos testes e desfeitas.
+- Os serviços ainda não estão ligados ao app: `cargo run` continua só com a bandeja. Nada da fase 3 leu os dados reais, consultou a Riot, falou com a API da Riot ou da HenrikDev, nem tocou o registro do Windows.
+
 ## Pendências entre fases
 
 - `paths.rs` acha a raiz do projeto pela pasta do `Cargo.toml`, gravada na compilação. Isso serve para desenvolvimento; no app instalado, os helpers `.ps1` e os cartões precisam vir dos recursos do Tauri (fase 5).
-- O `ManagerPorts` do [[managerService]] é síncrono. Na fase 3 ele recebe as implementações reais; `refresh_all` precisa voltar logo e fazer o trabalho em outra thread, como o JS faz com uma promessa solta.
+- O `ManagerPorts` do [[managerService]] recebe as implementações reais na fase 4, junto com o [[main]] em Rust: a fila de `refreshAll`, `scheduleRefresh`, `saveLeavingSession` e o início e fim dos serviços. Ficou para lá porque ligar os serviços faz o `cargo run` abrir os dados reais e vigiar a Riot de verdade, o que só deve acontecer quando o app em Tauri puder substituir o Electron. `refresh_all` precisa voltar logo e fazer o trabalho em outra thread.
+- O [[startWithWindows]] em Rust grava no registro do usuário. Na fase 5, conferir com o usuário que o Setup do Tauri e a entrada `Eclipse` do Electron convivem, porque o caminho do executável muda.
 - A CSP do `tauri.conf.json` ainda aceita imagens `https:`. Rever na fase 4, quando os cartões entrarem.
 - Conferir, com permissão do usuário e só com `GET`, se o [[riotTransport]] em Rust aceita o certificado da Riot real em `127.0.0.1`. O Node aceita (conferido em 2026-11-08); o Rust usa o TLS do Windows, que confere o endereço do certificado do seu jeito.
 - O `login.ps1` e o `windowGuard.ps1` são os mesmos do Electron, achados por `paths.rs`. Na fase 5 precisam ir nos recursos do Tauri.

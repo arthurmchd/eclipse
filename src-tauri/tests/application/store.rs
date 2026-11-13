@@ -287,3 +287,36 @@ fn names_lose_invisible_direction_marks() {
     assert_eq!(clean_name("\u{2066}Nome\u{2069}\u{200B} "), "Nome");
     assert_eq!(clean_name("\u{FEFF}A\u{202A}B\u{200F}"), "AB");
 }
+
+#[test]
+fn the_services_see_the_real_store_through_a_shared_lock() {
+    use eclipse::application::store::{account_id, account_riot_id, client_path, stay_signed_in, ServiceStore};
+    let (_dir, mut store) = temporary_store();
+    let id = add_account(&mut store);
+    let shared = std::sync::Mutex::new(store);
+    let services: &dyn ServiceStore = &shared;
+    assert_eq!(services.accounts().len(), 1);
+    let account = services.account(&id).unwrap();
+    assert_eq!(account_id(&account), id);
+    assert!(!account_riot_id(&account).game_name.is_empty());
+    assert!(stay_signed_in(services));
+    assert_eq!(client_path(services), "");
+    assert!(!services.has_session(&id));
+    services.save_session(&id, "yaml-session").unwrap();
+    assert!(services.has_session(&id));
+    assert_eq!(services.load_session(&id).as_deref(), Some("yaml-session"));
+    assert!(services.session_saved_at(&id).unwrap() > 0.0);
+    let mut fields = Map::new();
+    fields.insert("lastGame".into(), json!("lol"));
+    let public = services.update_account_fields(&id, fields).unwrap().unwrap();
+    assert_eq!(public["lastGame"], "lol");
+    assert!(public.get("password").is_none());
+    assert_eq!(services.public_account(&id).unwrap()["hasSession"], true);
+    services.set_current_account(&id).unwrap();
+    assert_eq!(shared.lock().unwrap().data.current_account_id.as_deref(), Some(id.as_str()));
+    services.forget_session(&id).unwrap();
+    assert!(!services.has_session(&id));
+    assert_eq!(services.account("missing"), None);
+    shared.lock().unwrap().data.settings.insert("staySignedIn".into(), json!(false));
+    assert!(!stay_signed_in(&shared));
+}
