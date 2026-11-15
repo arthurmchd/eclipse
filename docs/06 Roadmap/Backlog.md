@@ -14,11 +14,10 @@ Desde 2026-11-15 o Eclipse é só Tauri ([[ADR-034 Troca do Electron pelo Tauri]
 
 - **Feito em 2026-11-14**, com o app de desenvolvimento e uma pasta de dados de teste: um login de LoL e o jogo aberto ([[signInFlow]]), os cartões sobre a Riot ([[riotOverlay]]) e o certificado da API local ([[riotTransport]]).
 - **Feito em 2026-11-15**, com o app instalado: as contas reais abriram normalmente, segundo o usuário. Foi a primeira leitura, pelo Rust, do `data.json`, das senhas e das sessões gravadas pelo Electron ([[store]], [[safeStorage]]).
+- **Feito em 2026-11-15**, com a 2.0.1 instalada, segundo o usuário: o arraste rápido da Riot com os cartões colados e a caixa "Ocultar contas" à vista durante o arraste ([[ADR-036 Arraste da Riot assumido pelo Eclipse]]), e os cartões indo para trás junto com a Riot no Alt+Tab e no clique em outro programa ([[riotWindowObserver]]).
 
 Falta:
 
-- arraste rápido da Riot com os cartões colados ([[ADR-036 Arraste da Riot assumido pelo Eclipse]]). Em 2026-11-15 o `sign-in.log` mostrou `riot drag: Eclipse moved the Riot window and the cards together`, e o usuário viu a caixa "Ocultar contas" sumir durante o arraste; corrigido no [[riotWindowObserver]], falta conferir que ela fica;
-- com a Riot em segundo plano (Alt+Tab, clique em outro programa), os cartões vão para trás junto com ela, também depois de a Riot reabrir a janela ([[riotWindowObserver]]);
 - caixa "Ocultar contas", cobertura da coluna durante o login e cópias de minimizar e fechar ([[overlayToggle]], [[overlayCover]]);
 - login com e sem "Manter login" e troca entre contas com sessão guardada ([[signInService]], [[sessionKeeper]]);
 - elos atualizando, pela API e pelo jogo aberto ([[rankWatcher]], [[gameRanks]]);
