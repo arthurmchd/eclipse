@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/platform/windows/riotWindowObserver.js
+arquivo: [src-tauri/src/platform/windows/riot_window_observer.rs, src/platform/windows/riotWindowObserver.ps1]
 camada: plataforma
-testes: test/platform/windows/riotWindowObserver.test.js
+testes: src-tauri/tests/platform/windows/riot_window_observer.rs
 tags: [módulo, janelas]
 ---
 
 # riotWindowObserver
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 ## Responsabilidade
 

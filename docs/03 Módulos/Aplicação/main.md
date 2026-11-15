@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/main/index.js
+arquivo: src-tauri/src/main.rs
 camada: aplicação
-testes: test/main/mainStartup.test.js
+testes: src-tauri/tests/paths.rs
 tags: [módulo]
 ---
 
 # main
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Processo de serviços em segundo plano: mantém os dados e as operações e mostra os cartões de contas sobre a janela oficial da Riot.
 

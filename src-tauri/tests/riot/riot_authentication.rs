@@ -410,10 +410,11 @@ fn invalid_credential_inputs_are_rejected_without_any_local_requests() {
 }
 
 #[test]
-fn the_non_blocking_player_session_states_match_the_javascript_list() {
-    let source = std::fs::read_to_string(eclipse::paths::source_dir().join("riot").join("riotAuthentication.js")).unwrap();
-    let start = source.find("NON_BLOCKING_SESSION_STATES").unwrap();
-    let list = &source[start..source[start..].find("]").unwrap() + start];
-    let names: Vec<String> = regex::Regex::new(r"'([a-z]+)'").unwrap().captures_iter(list).map(|captures| captures[1].to_string()).collect();
-    assert_eq!(names, NON_BLOCKING_SESSION_STATES.map(str::to_string));
+fn the_non_blocking_player_session_states_are_the_31_lowercase_names_kept_from_the_electron_version() {
+    let mut names = NON_BLOCKING_SESSION_STATES.to_vec();
+    assert!(names.iter().all(|name| !name.is_empty() && name.chars().all(|letter| letter.is_ascii_lowercase())));
+    assert_eq!(names[..4], ["authorized", "initializing", "pendingproductcontext", "pendingproductcontextinitialization"]);
+    names.sort_unstable();
+    names.dedup();
+    assert_eq!(names.len(), 31);
 }

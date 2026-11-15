@@ -7,6 +7,14 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Eclipse 2.0.0: só Tauri
+
+- A pedido do usuário, o Electron saiu do projeto antes da conferência na Riot real ([[ADR-034 Troca do Electron pelo Tauri]], revisão). O último commit com ele tem a tag `electron-final`. Detalhes do que saiu e do que ficou em [[Migração para Tauri]].
+- Versão 2.0.0, a primeira só em Tauri. O Setup do Tauri foi gerado e instalado nesta máquina; ele desinstalou o Eclipse em Electron, mantendo as contas, as sessões e o início com o Windows.
+- Os `.bat` saíram: o Eclipse abre pelo atalho do Setup. Em desenvolvimento, `cargo run` com `ECLIPSE_DATA_DIR`.
+- O `CLAUDE.md`, o README, o [[00 Início]], o [[Como usar]] e as notas dos módulos passaram a apontar para os arquivos em Rust; o texto sobre o JS ficou marcado como histórico.
+- Testes: 388 com `cargo test` e 24 com `npm test`.
+
 ## 2026-11-15 · Migração para Tauri: o Eclipse assume o arraste da Riot
 
 - O usuário conferiu a [[ADR-035 Posição da sobreposição movida pelo helper]] na Riot real e disse que, arrastando rápido, os cartões continuavam para trás. Pela [[ADR-036 Arraste da Riot assumido pelo Eclipse]], no Tauri, o arraste pela barra de cima com os cartões à vista passa a ser do Eclipse: o [[overlayDrag]] (novo) toma a captura do mouse e move a Riot e a sobreposição juntas num único `DeferWindowPos` por movimento.

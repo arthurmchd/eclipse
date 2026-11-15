@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/paths.js
+arquivo: [src-tauri/src/paths.rs, src/paths.js]
 camada: aplicação
-testes: nenhum
+testes: src-tauri/tests/paths.rs
 tags: [módulo]
 ---
 
 # paths
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Fonte única dos caminhos do projeto: raiz, renderer, páginas da sobreposição e helpers do Windows.
 

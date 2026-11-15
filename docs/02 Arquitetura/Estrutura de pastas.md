@@ -5,6 +5,9 @@ tags: [arquitetura, pastas]
 
 # Estrutura de pastas
 
+> [!note] Só Tauri desde 2026-11-15
+> O Eclipse em Electron saiu do projeto na versão 2.0.0 ([[ADR-034 Troca do Electron pelo Tauri]], tag `electron-final`). Onde esta nota fala de `npm start`, `npm run dist`, `.bat`, `src/main`, `src/core` ou `src/riot`, é histórico.
+
 ```
 riot-account-manager/
 ├── Abrir Riot com minhas contas.bat    instala na primeira vez e inicia o Eclipse

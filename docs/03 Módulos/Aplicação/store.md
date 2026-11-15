@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/core/store.js
+arquivo: src-tauri/src/application/store.rs
 camada: aplicação
-testes: test/core/store.test.js
+testes: src-tauri/tests/application/store.rs
 tags: [módulo]
 ---
 
 # store
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Armazenamento persistente de contas, configurações e sessões salvas do Riot Client, com segredos criptografados pelo `safeStorage` do Electron.
 

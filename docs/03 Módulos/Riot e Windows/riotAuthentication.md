@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/riot/riotAuthentication.js
+arquivo: src-tauri/src/riot/riot_authentication.rs
 camada: riot
-testes: test/riot/riotAuthentication.test.js, test/riot/authContextRegression.test.js
+testes: [src-tauri/tests/riot/riot_authentication.rs, src-tauri/tests/riot/auth_context_regression.rs]
 tags: [módulo]
 ---
 
 # riotAuthentication
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Login direto pela API local do Riot Client e leitura do estado de sessão, devolvendo só valores fixos ao [[signInFlow]].
 

@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/riot/riotState.js
+arquivo: src-tauri/src/riot/riot_state.rs
 camada: riot
-testes: test/riot/riotState.test.js
+testes: src-tauri/tests/riot/riot_state.rs
 tags: [módulo]
 ---
 
 # riotState
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Diz onde a Riot está (fechada, em jogo, com janela, sem janela ou em segundo plano) e se há conta conectada, com uma regra só para o [[sessionKeeper]], o [[riotWakeup]] e o login.
 

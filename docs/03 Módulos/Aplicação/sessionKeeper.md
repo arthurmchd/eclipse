@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/core/sessionKeeper.js
+arquivo: src-tauri/src/application/session_keeper.rs
 camada: aplicação
-testes: test/core/sessionKeeper.test.js
+testes: src-tauri/tests/application/session_keeper.rs
 tags: [módulo]
 ---
 
 # sessionKeeper
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Guarda no cofre do Eclipse cada sessão que a Riot grava e tira o login lembrado do arquivo da Riot assim que ela solta a conta, para a Riot sempre abrir desconectada, na tela de login com os cartões.
 

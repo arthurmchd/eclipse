@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/core/rankApi.js
+arquivo: src-tauri/src/application/rank_api.rs
 camada: aplicação
-testes: test/core/rankApi.test.js
+testes: src-tauri/tests/application/rank_api.rs
 tags: [módulo]
 ---
 
 # rankApi
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Busca elos de LoL e TFT na API oficial da Riot e de VALORANT na HenrikDev, e devolve os campos a mesclar em cada conta.
 

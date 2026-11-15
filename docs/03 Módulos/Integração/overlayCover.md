@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/integration/overlay/overlayCover.js
+arquivo: [src-tauri/src/integration/overlay/overlay_window.rs, src/integration/overlay/cover.html]
 camada: integração
-testes: test/integration/overlay/overlayCover.test.js
+testes: src-tauri/tests/integration/overlay/riot_overlay.rs
 tags: [módulo, interface]
 ---
 
 # overlayCover
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Cobre a coluna de login da Riot com um painel vazio e um carregamento enquanto o Eclipse faz o login, para o [[riotOverlay]]. A caixa "Ocultar contas" some junto.
 

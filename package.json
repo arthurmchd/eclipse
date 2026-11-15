@@ -1,66 +1,19 @@
 {
   "name": "riot-account-manager",
-  "version": "1.0.0",
-  "description": "Account switcher for League of Legends, TFT and VALORANT",
+  "version": "2.0.0",
+  "description": "Account switcher for League of Legends, TFT and VALORANT. The app is the Tauri project in src-tauri; npm only serves the card preview, the fonts and the JS tests.",
   "author": "Eclipse",
-  "main": "src/main/index.js",
   "private": true,
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "start": "electron .",
     "test": "node --test \"test/**/*.test.js\"",
-    "preview": "node scripts/dev/preview-server.js",
-    "dist": "electron-builder --win nsis --x64"
-  },
-  "devDependencies": {
-    "electron": "44.9.3",
-    "electron-builder": "26.18.0"
+    "preview": "node scripts/dev/preview-server.js"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@fontsource/teko": "^5.3.0"
-  },
-  "build": {
-    "appId": "Eclipse.AccountManager",
-    "productName": "Eclipse",
-    "directories": {
-      "output": "dist",
-      "buildResources": "scripts/build"
-    },
-    "publish": null,
-    "npmRebuild": false,
-    "files": [
-      "src/**/*",
-      "package.json"
-    ],
-    "asarUnpack": [
-      "src/platform/windows/*.ps1"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "src/renderer/assets/icon.ico"
-    },
-    "nsis": {
-      "oneClick": true,
-      "guid": "1cee5ad5-fb20-5488-b349-ffcaaa593158",
-      "perMachine": false,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Eclipse",
-      "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false,
-      "include": "scripts/build/installer.nsh",
-      "packElevateHelper": false
-    }
   }
 }

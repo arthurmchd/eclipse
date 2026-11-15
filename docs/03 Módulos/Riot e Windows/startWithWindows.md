@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/platform/windows/startWithWindows.js
+arquivo: src-tauri/src/platform/windows/start_with_windows.rs
 camada: plataforma
-testes: test/platform/windows/startWithWindows.test.js
+testes: src-tauri/tests/platform/windows/start_with_windows.rs
 tags: [módulo]
 ---
 
 # startWithWindows
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Liga e desliga o início do Eclipse instalado junto com o Windows, para a opção "Iniciar com o Windows" da bandeja.
 

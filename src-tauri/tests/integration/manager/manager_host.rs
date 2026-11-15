@@ -94,5 +94,6 @@ fn the_bridge_reuses_the_manager_preload_over_the_single_manager_command() {
     assert!(script.contains(include_str!("../../../../src/integration/manager/manager-preload.js")));
     assert!(script.contains("window.__TAURI_INTERNALS__.invoke('manager', { method, args })"));
     assert!(script.contains("Object.defineProperty(window, 'api', { value: api, enumerable: true })"));
-    assert!(script.starts_with("(() => {\nconst process = {};\nconst module = undefined;\n"));
+    assert!(script.starts_with("(() => {\nconst module = undefined;\n"));
+    assert!(!script.contains("electron") && !script.contains("require("));
 }

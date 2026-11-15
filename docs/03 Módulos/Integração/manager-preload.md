@@ -8,6 +8,9 @@ tags: [módulo, interface]
 
 # manager-preload
 
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
+
 > Preserva a API funcional da interface de contas, agora isolada dentro da visualização filha da janela Riot.
 
 ## Responsabilidade

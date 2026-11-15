@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/riot/signInFlow.js
+arquivo: src-tauri/src/riot/sign_in_flow.rs
 camada: riot
-testes: test/riot/signInFlow.test.js
+testes: src-tauri/tests/riot/sign_in_flow.rs
 tags: [módulo]
 ---
 
 # signInFlow
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Sequência de login e abertura do jogo, montada pelo [[riotClient]] e chamada pelo [[signInService]].
 

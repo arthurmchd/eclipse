@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/platform/windows/windowsEnvironment.js
+arquivo: src-tauri/src/platform/windows/windows_environment.rs
 camada: plataforma
-testes: test/platform/windows/windowsEnvironment.test.js
+testes: src-tauri/tests/platform/windows/windows_environment.rs
 tags: [módulo]
 ---
 
 # windowsEnvironment
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Corrige o `LOCALAPPDATA` quando o app herda o de um AppContainer temporário, para que o app e o Riot usem o perfil normal do Windows.
 

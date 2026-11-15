@@ -7,7 +7,7 @@ tags: [moc]
 
 Nome do app desde 2026-11-04 (antes Riot Account Manager). A pasta do projeto, o `name` do `package.json` e a pasta de dados continuam `riot-account-manager`; ver [[main]].
 
-Desde 2026-11-13 o Eclipse está migrando de Electron para Tauri e Rust, por fases ([[ADR-032 Migração para Tauri e Rust]], [[Migração para Tauri]]). Até a última fase, o app de verdade continua sendo o Electron em `src/`.
+Desde 2026-11-15, na versão 2.0.0, o Eclipse é só Tauri e Rust (`src-tauri/`); o Electron saiu e está na tag `electron-final` ([[ADR-032 Migração para Tauri e Rust]], [[ADR-034 Troca do Electron pelo Tauri]], [[Migração para Tauri]]). Em `src/` ficam os cartões, a caixa, a cobertura, o preload dos cartões e os `.ps1`, que o Tauri serve ou roda.
 
 Este vault é o cérebro do projeto. O código não tem comentários: o **porquê** de cada decisão, as regras de segurança e o mapa dos módulos ficam aqui. Antes de mudar um módulo, leia a nota dele; depois de mudar, atualize a nota.
 

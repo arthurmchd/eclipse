@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/riot/gameRanks.js
+arquivo: src-tauri/src/riot/game_ranks.rs
 camada: riot
-testes: test/riot/gameRanks.test.js
+testes: src-tauri/tests/riot/game_ranks.rs
 tags: [módulo]
 ---
 
 # gameRanks
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Lê o elo da conta que está no jogo aberto, pelo cliente do LoL e pela API local do Riot Client, sem chave de API.
 

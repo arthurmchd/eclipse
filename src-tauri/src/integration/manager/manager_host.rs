@@ -66,6 +66,6 @@ impl ManagerHost {
 
 pub fn bridge_script() -> String {
     format!(
-        "(() => {{\nconst process = {{}};\nconst module = undefined;\n{PRELOAD}\nconst api = createManagerApi({{\n  ipcRenderer: {{ invoke: (_channel, method, args) => window.__TAURI_INTERNALS__.invoke('{COMMAND}', {{ method, args }}) }},\n  onUnload: (callback) => window.addEventListener('unload', callback, {{ once: true }}),\n}});\nObject.defineProperty(window, 'api', {{ value: api, enumerable: true }});\n}})();\n"
+        "(() => {{\nconst module = undefined;\n{PRELOAD}\nconst api = createManagerApi({{\n  ipcRenderer: {{ invoke: (_channel, method, args) => window.__TAURI_INTERNALS__.invoke('{COMMAND}', {{ method, args }}) }},\n  onUnload: (callback) => window.addEventListener('unload', callback, {{ once: true }}),\n}});\nObject.defineProperty(window, 'api', {{ value: api, enumerable: true }});\n}})();\n"
     )
 }

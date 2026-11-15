@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use eclipse::paths::windows_helpers_dir;
 use eclipse::platform::windows::riot_window_observer::{read_line, BadLine, request_line, valid_target, ObserverChild, ObserverHooks, ObserverSpawn, Output, RiotWindowObserver, Target, FOLLOW_FAILED, KILL_DELAY_MS, PANEL_POINT, STALE_CHECK_MS};
+use regex::Regex;
 use serde_json::{json, Value};
 
 use super::ManualTimers;
@@ -210,6 +211,38 @@ fn the_panel_point_left_uncovered_is_the_one_the_helper_reads_and_the_box_matche
     let source = std::fs::read_to_string(windows_helpers_dir().join("riotWindowObserver.ps1")).unwrap();
     assert!(source.contains(&format!("const double PANEL_X = {}, PANEL_Y = {};", PANEL_POINT.0, PANEL_POINT.1)));
     assert_eq!(PANEL_POINT, (0.026, 0.5));
+    let box_point = Regex::new(r"const double BOX_X = ([\d.]+), BOX_Y = ([\d.]+);").unwrap().captures(&source).map(|found| (found[1].to_string(), found[2].to_string()));
+    let login = std::fs::read_to_string(windows_helpers_dir().join("login.ps1")).unwrap();
+    let remember = Regex::new(r"\$REMEMBER = @\(([\d.]+), ([\d.]+)\)").unwrap().captures(&login).map(|found| (found[1].to_string(), found[2].to_string()));
+    assert!(box_point.is_some());
+    assert_eq!(box_point, remember);
+    assert_eq!(box_point, Some(("0.0417".to_string(), "0.5023".to_string())));
+}
+
+fn self_test() -> (Option<i32>, String) {
+    let mut child = Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"])
+        .arg(windows_helpers_dir().join("riotWindowObserver.ps1"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"{\"action\":\"self-test\"}
+").unwrap();
+    let output = child.wait_with_output().unwrap();
+    (output.status.code(), String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+#[test]
+fn the_helper_self_test_passes_using_only_its_own_off_screen_windows() {
+    let mut result = self_test();
+    for _ in 1..3 {
+        if result.0 == Some(0) {
+            break;
+        }
+        result = self_test();
+    }
+    assert_eq!(result, (Some(0), "ok".to_string()));
 }
 
 #[test]

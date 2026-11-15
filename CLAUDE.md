@@ -1,6 +1,6 @@
 # Eclipse (Riot Account Manager)
 
-App Electron para Windows que gerencia várias contas Riot, faz login pelo serviço local do Riot Client e mostra elos. Leia `docs/00 Início.md` no começo de qualquer tarefa que não seja trivial.
+App Windows em Tauri e Rust (`src-tauri/`) que gerencia várias contas Riot, faz login pelo serviço local do Riot Client e mostra elos. Leia `docs/00 Início.md` no começo de qualquer tarefa que não seja trivial.
 
 ## O vault é o cérebro
 
@@ -15,17 +15,17 @@ App Electron para Windows que gerencia várias contas Riot, faz login pelo servi
 
 ## Regras de código
 
-- **Nenhum comentário** em JS, CSS, HTML, PowerShell ou no C# embutido.
-- Caminhos do projeto só por `src/paths.js`. Nada de `path.resolve(__dirname, '..', '..')`.
-- Testes espelham `src/` em `test/`. Comportamento novo vem com teste.
-- Ao adicionar um `require` em `src/main/index.js`, inclua o módulo no mapa `deps` de `test/main/mainStartup.test.js`.
-- Fábricas com dependências injetáveis (`createX({ spawn, request })`) para tudo que toca processo, rede ou disco.
-- CommonJS no main e scripts; ES modules no renderer; sem build.
+- **Nenhum comentário** em Rust, JS, CSS, HTML, PowerShell ou no C# embutido.
+- O app é só o Tauri desde 2026-11-15; o Electron saiu (tag `electron-final`, [[ADR-034 Troca do Electron pelo Tauri]]). `src/` guarda o que o Tauri serve ou roda: os cartões (`src/renderer`), a caixa e a cobertura, o `manager-preload.js` embutido e os `.ps1`.
+- Caminhos do projeto só por `src-tauri/src/paths.rs` no Rust e `src/paths.js` nos scripts e testes JS.
+- Testes do Rust espelham `src-tauri/src/` em `src-tauri/tests/`; os testes JS cobrem os cartões, o preload, a prévia e os `.ps1`. Comportamento novo vem com teste.
+- Dependências trocáveis (traits e ganchos injetados) para tudo que toca processo, rede ou disco.
+- ES modules no renderer, sem build; CommonJS nos scripts e testes JS.
 
 ## Comandos
 
-- `npm test` antes de declarar qualquer mudança pronta. Se mexeu em `src-tauri/`, também `cargo test` dentro dela.
-- Migração para Tauri em andamento: leia `docs/06 Roadmap/Migração para Tauri.md` antes de mexer em `src-tauri/`.
+- `cargo test` dentro de `src-tauri/` e `npm test` antes de declarar qualquer mudança pronta.
+- `cargo tauri build` dentro de `src-tauri/` gera o Setup em `src-tauri/target/release/bundle/nsis/`. Em desenvolvimento, `cargo run` só abre com `ECLIPSE_DATA_DIR` apontando para uma pasta de teste.
 - `npm run preview` para ver os cartões no navegador com dados fictícios (porta 5178).
 
 ## Diagnóstico

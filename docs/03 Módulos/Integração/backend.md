@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/integration/backend.js
+arquivo: src-tauri/src/integration/backend.rs
 camada: integração
-testes: test/integration/backend.test.js
+testes: src-tauri/tests/integration/backend.rs
 tags: [módulo]
 ---
 
 # backend
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Localiza o serviço de fundo do Riot Client pelo `lockfile` e lê o certificado raiz embutido no próprio Riot, para o [[riotTransport]] falar com ele por HTTPS.
 

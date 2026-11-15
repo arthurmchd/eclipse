@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::fs;
 
 use eclipse::application::language::{localize, main_text, normalize_language, DEFAULT_LANGUAGE, LANGUAGES, MESSAGES};
-use eclipse::paths::source_dir;
 use regex::Regex;
 
 #[test]
@@ -36,17 +35,6 @@ fn messages_with_a_variable_part_keep_it_in_both_languages() {
     assert_eq!(localize("Riot sign-in error: invalid_session", Some("pt")), "Erro de login da Riot: invalid_session");
     assert_eq!(localize("Erro de login da Riot: invalid_session", Some("en")), "Riot sign-in error: invalid_session");
     assert_eq!(localize("Riot Client window script failed: 5", Some("pt")), "O script da janela do Riot Client falhou: 5");
-}
-
-#[test]
-fn the_messages_match_the_electron_version() {
-    let full = fs::read_to_string(source_dir().join("core").join("language.js")).unwrap();
-    let start = full.find("const MESSAGES").unwrap();
-    let source = &full[start..start + full[start..].find("\n];").unwrap()];
-    let pair = Regex::new(r"\[\s*'((?:[^'\\]|\\.)+)',\s*'((?:[^'\\]|\\.)+)'\s*\]").unwrap();
-    let electron: Vec<(String, String)> = pair.captures_iter(source).map(|found| (found[1].to_string(), found[2].to_string())).collect();
-    let rust: Vec<(String, String)> = MESSAGES.iter().map(|(en, pt)| (en.to_string(), pt.to_string())).collect();
-    assert_eq!(rust, electron);
 }
 
 #[test]

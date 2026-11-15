@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/integration/overlay/overlayToggle.js
+arquivo: [src-tauri/src/integration/overlay/overlay_toggle.rs, src/integration/overlay/toggle.html]
 camada: integração
-testes: test/integration/overlay/overlayToggle.test.js
+testes: src-tauri/tests/integration/overlay/overlay_toggle.rs
 tags: [módulo, interface]
 ---
 
 # overlayToggle
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Desenha a caixa "Ocultar contas" ao lado do "Stay signed in" da Riot e avisa o [[riotOverlay]] quando ela muda.
 

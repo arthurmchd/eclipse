@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/core/rankWatcher.js
+arquivo: src-tauri/src/application/rank_watcher.rs
 camada: aplicação
-testes: test/core/rankWatcher.test.js
+testes: src-tauri/tests/application/rank_watcher.rs
 tags: [módulo]
 ---
 
 # rankWatcher
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > A cada minuto, com o LoL ou o VALORANT aberto, lê o elo pelo [[gameRanks]] e grava na conta salva com o mesmo Riot ID.
 

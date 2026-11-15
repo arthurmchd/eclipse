@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/integration/asar.js
+arquivo: src-tauri/src/integration/asar.rs
 camada: integração
-testes: [test/integration/asar.test.js, test/integration/backend.test.js]
+testes: src-tauri/tests/integration/asar.rs
 tags: [módulo, segurança]
 ---
 
 # asar
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Leitor mínimo de arquivos ASAR, usado só para tirar o certificado raiz do `app.asar` oficial da Riot.
 

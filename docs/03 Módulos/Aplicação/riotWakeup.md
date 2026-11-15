@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/core/riotWakeup.js
+arquivo: src-tauri/src/application/riot_wakeup.rs
 camada: aplicação
-testes: test/core/riotWakeup.test.js
+testes: src-tauri/tests/application/riot_wakeup.rs
 tags: [módulo]
 ---
 
 # riotWakeup
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Pede a janela da Riot quando ela sai do segundo plano sem abrir nenhuma, para o ícone da bandeja e os atalhos da Riot abrirem no primeiro clique.
 

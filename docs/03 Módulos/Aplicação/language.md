@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/core/language.js
+arquivo: src-tauri/src/application/language.rs
 camada: aplicação
-testes: test/core/language.test.js
+testes: src-tauri/tests/application/language.rs
 tags: [módulo]
 ---
 
 # language
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Guarda os idiomas aceitos e traduz para português ou inglês as mensagens que o processo principal mostra ao usuário.
 

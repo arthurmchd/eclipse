@@ -6,7 +6,7 @@ tags: [roadmap, tauri]
 
 # Migração para Tauri
 
-Acompanha a [[ADR-032 Migração para Tauri e Rust]]. O app Electron em `src/` continua sendo o Eclipse de verdade até a fase 5; o Tauri cresce ao lado, em `src-tauri/`.
+Acompanha a [[ADR-032 Migração para Tauri e Rust]]. Desde 2026-11-15 o Eclipse é só o Tauri, em `src-tauri/`; o Electron saiu e está na tag `electron-final`. A tabela abaixo diz onde cada módulo JS foi parar.
 
 ## Fases
 
@@ -16,7 +16,7 @@ Acompanha a [[ADR-032 Migração para Tauri e Rust]]. O app Electron em `src/` c
 | 2. Riot | [[asar]], [[backend]], [[riotTransport]], [[riotState]], [[riotAuthentication]], [[riotInterface]], [[riotAppControls]], [[riotProcess]], [[gameRanks]], [[riotClient]], [[signInFlow]], [[windowController]], [[windowsEnvironment]] | Feita em 2026-11-13; do que fala com a Riot real, só o certificado do [[riotTransport]] foi conferido (2026-11-14) |
 | 3. Serviços | [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[rankApi]], [[startWithWindows]] e o novo [[timers]] | Feita em 2026-11-13, sem ligar ao app nem conferir na Riot real |
 | 4. Sobreposição | [[riotOverlay]], [[overlayToggle]], [[overlayCover]], [[riotWindowObserver]], [[managerHost]], [[manager-preload]], a ponte `window.api` dos [[cards]], o [[main]] que liga os serviços, mais os novos [[assetProtocol]], [[refresher]] e [[appPorts]] | Feita em 2026-11-13, sem rodar o app nem conferir na Riot real |
-| 5. Troca | Bandeja completa, Setup do Tauri, tag no git e remoção do Electron, mais [[notices]], [[toasts]] e [[electronInstance]] ([[ADR-034 Troca do Electron pelo Tauri]]) | Bandeja e Setup feitos em 2026-11-13; a tag e a remoção do Electron esperam o usuário conferir o app na Riot real |
+| 5. Troca | Bandeja completa, Setup do Tauri, tag no git e remoção do Electron, mais [[notices]], [[toasts]] e [[electronInstance]] ([[ADR-034 Troca do Electron pelo Tauri]]) | Bandeja e Setup feitos em 2026-11-13; tag `electron-final`, remoção do Electron e versão 2.0.0 em 2026-11-15, a pedido do usuário, antes da conferência na Riot real |
 
 ## Onde fica cada módulo
 
@@ -93,3 +93,14 @@ A camada `src/core` virou `application` no Rust, porque `core` é o nome de uma 
 - Conferir a sobreposição na Riot real, com permissão do usuário: posição, cantos, a caixa, a cobertura, o idioma e o ritmo da janela quando coberta.
 - Conferir as notificações no app instalado: nome, ícone e o clique abrindo as contas ([[toasts]]).
 - O Tauri está com a feature `unstable` (webviews filhas). Fixar a versão do `tauri` no `Cargo.lock` e rever a cada atualização.
+
+## Troca feita em 2026-11-15
+
+A pedido do usuário, antes de ele conferir o app na Riot real:
+
+- **Tag `electron-final`** no commit com o arraste da [[ADR-036 Arraste da Riot assumido pelo Eclipse]], o último com o Electron.
+- **Removidos:** `src/main`, `src/core`, `src/riot`, os módulos JS de `src/integration` e `src/platform/windows`, o `toggle-preload.js`, `scripts/build/`, os dois `.bat`, o `electron` e o `electron-builder` e a seção `build` do `package.json`, e os testes JS desses módulos. O `manager-preload.js` perdeu o trecho que só rodava no Electron, e a ponte do [[managerHost]] em Rust, o `const process = {}` que o neutralizava.
+- **Ficam:** `src/renderer`, a caixa e a cobertura, o `manager-preload.js`, os `.ps1`, `src/paths.js` (só caminhos, para a prévia e os testes JS), a prévia e as fontes no `package.json`.
+- **Testes:** o autoteste do `riotWindowObserver.ps1` e a conferência da caixa com o `login.ps1` passaram para o Rust. Dois testes do Rust que comparavam com o JS (as traduções do [[language]] e os estados de sessão do [[riotAuthentication]]) viraram conferências da própria lista. O `npm test` ficou com 24 testes (cartões, preload, prévia, `login.ps1`, `windowGuard.ps1` e o `package.json`); o `cargo test`, com 388.
+- **Versão 2.0.0** no `tauri.conf.json`, no `Cargo.toml` e no `package.json`.
+- **Instalado nesta máquina:** o Setup 2.0.0 substituiu o Eclipse em Electron, mantendo `%APPDATA%\riot-account-manager`.

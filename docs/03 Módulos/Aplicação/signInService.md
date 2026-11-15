@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/core/signInService.js
+arquivo: src-tauri/src/application/sign_in_service.rs
 camada: aplicação
-testes: test/core/signInService.test.js
+testes: src-tauri/tests/application/sign_in_service.rs
 tags: [módulo]
 ---
 
 # signInService
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Dono único das operações de login: valida a conta, serializa os pedidos, chama o [[riotClient]] e publica o progresso sem expor credenciais.
 

@@ -1,12 +1,15 @@
 ---
 tipo: módulo
-arquivo: src/integration/manager/managerHost.js
+arquivo: src-tauri/src/integration/manager/manager_host.rs
 camada: integração
-testes: test/integration/manager/managerHost.test.js
+testes: src-tauri/tests/integration/manager/manager_host.rs
 tags: [módulo, interface]
 ---
 
 # managerHost
+
+> [!note] Só Rust desde 2026-11-15
+> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
 
 > Hospeda os [[cards]] como visualização filha da janela da sobreposição, sem criar outra `BrowserWindow`.
 
