@@ -41,3 +41,15 @@ test('a VALORANT rank read from the game has no RR, and the card shows the tier 
   const fromKey = rankOf({ stats: { val: { tier: 16, tierName: 'Platinum 2', rr: 45 } } }, 'val', 'competitive');
   assert.deepEqual([fromKey.sub, fromKey.progress, fromKey.score], ['45 RR', 0.45, 16045]);
 });
+
+test('every League tier uses its icon shipped with the app, and only Unranked keeps the remote crest', async () => {
+  const fs = require('node:fs');
+  const { LOL_TIERS, lolCrest } = await load('ranks.js');
+  for (const tier of LOL_TIERS.filter((t) => t.id !== 'UNRANKED')) {
+    const crest = lolCrest(tier.id);
+    assert.equal(crest, `assets/rank-${tier.id.toLowerCase()}.png`);
+    assert.ok(fs.statSync(path.join(RENDERER_DIR, crest)).size > 0, crest);
+  }
+  assert.match(lolCrest('UNRANKED'), /ranked-mini-crests\/unranked\.svg$/);
+  assert.match(lolCrest('NOT_A_TIER'), /ranked-mini-crests\/unranked\.svg$/);
+});

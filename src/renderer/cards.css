@@ -37,7 +37,7 @@ h2 { font-size: 19px; }
 .edit { position: absolute; top: 8px; right: 6px; border: 0; background: transparent; font-size: 17px; line-height: 1.2; padding: 2px 7px; }
 .who { min-width: 0; max-width: 100%; }
 .climb { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 11px; font-variant-numeric: tabular-nums; }
-.climb img { width: 14px; height: 14px; flex-shrink: 0; }
+.climb img { width: 18px; height: 18px; flex-shrink: 0; }
 .rr { display: flex; align-items: center; gap: 10px; }
 .rr progress { flex: 1; min-width: 0; height: 4px; border: 0; appearance: none; }
 .change { font: 600 17px/1 'Teko', sans-serif; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
@@ -52,7 +52,8 @@ h2 { font-size: 19px; }
 .plate .level { position: relative; margin-top: -9px; padding: 1px 7px; border: 1px solid var(--tier); border-radius: 8px; background: #12151c; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .plate .who strong { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plate .tag { font-size: 12px; color: #9aa2b1; }
-.plate .crest { width: 56px; height: 56px; object-fit: contain; filter: drop-shadow(0 2px 6px #000a); }
+.plate .crest { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 2px 6px #000a); }
+.plate .crest[src$="unranked.svg"] { box-sizing: border-box; padding: 14px; }
 .plate .queue-name { display: block; font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #9aa2b1; }
 .plate .tier { display: block; font: 600 25px/1 'Teko', sans-serif; letter-spacing: .03em; margin-top: 3px; }
 .plate .tier.none { font-size: 19px; line-height: 1.15; }
@@ -84,7 +85,8 @@ h2 { font-size: 19px; }
 .row .tag { margin-left: 4px; font-size: 12px; color: #686b73; }
 .queue-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .queue-cell > span { min-width: 0; }
-.queue-cell img { flex-shrink: 0; width: 28px; height: 28px; object-fit: contain; }
+.queue-cell img { flex-shrink: 0; width: 34px; height: 34px; object-fit: contain; }
+.queue-cell img[src$="unranked.svg"] { box-sizing: border-box; padding: 6px; }
 .queue-cell strong { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .win-cell { min-width: 0; font-size: 12px; color: #686b73; font-variant-numeric: tabular-nums; }
 .win-cell strong { font-size: 13px; font-weight: 700; color: #202125; }

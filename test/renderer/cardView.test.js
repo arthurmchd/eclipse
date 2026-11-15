@@ -29,7 +29,7 @@ test('a LoL account becomes the same plain fields for any layout', async () => {
     [view.main.name, view.main.tier, view.main.points, view.main.winrate, view.main.games, view.main.wins, view.main.record, view.main.played],
     ['Solo/Duo', 'Diamante II', '57 PdL', 53, 185, 98, '98V 87D', '53% · 185 partidas'],
   );
-  assert.match(view.main.crest, /ranked-mini-crests\/diamond\.svg$/);
+  assert.match(view.main.crest, /^assets\/rank-diamond\.png$/);
   assert.equal(view.others.length, 1);
   assert.deepEqual([view.others[0].name, view.others[0].ranked, view.others[0].tier, view.others[0].points, view.others[0].played, view.others[0].winrate], ['Flex', false, 'Sem classificação', 'Sem partidas', '', null]);
   assert.equal(accountView({ ...lolAccount, stats: { lol: { ...lolAccount.stats.lol, iconId: -1 } } }, 'lol', TEXT.en).avatar, '');
@@ -55,5 +55,5 @@ test('the climb to Grandmaster or Challenger comes with the queue', async () => 
   const account = { id: '4', gameName: 'A', tagLine: 'B', stats: { lol: { solo: { tier: 'MASTER', division: '', lp: 215, wins: 10, losses: 5, cutoffs: { grandmaster: 300, challenger: 900 } } } } };
   const { climb } = accountView(account, 'lol', TEXT.pt).main;
   assert.deepEqual([climb.tier, climb.label], ['Grão-Mestre', 'faltam 85 PdL']);
-  assert.match(climb.crest, /grandmaster\.svg$/);
+  assert.match(climb.crest, /^assets\/rank-grandmaster\.png$/);
 });

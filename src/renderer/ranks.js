@@ -40,7 +40,9 @@ const valGroup = (tier) => VAL_GROUPS.find((g) => g.tiers.includes(tier)) || VAL
 
 export const lolEmblem = (tierId) =>
   tierId === 'UNRANKED' ? `${CD}/ranked-mini-crests/unranked.svg` : `${CD}/ranked-emblem/emblem-${tierId.toLowerCase()}.png`;
-export const lolCrest = (tierId) => `${CD}/ranked-mini-crests/${tierId.toLowerCase()}.svg`;
+const LOCAL_CRESTS = new Set(LOL_TIERS.filter((t) => t.id !== 'UNRANKED').map((t) => t.id));
+export const lolCrest = (tierId) =>
+  LOCAL_CRESTS.has(tierId) ? `assets/rank-${tierId.toLowerCase()}.png` : `${CD}/ranked-mini-crests/unranked.svg`;
 export const valIcon = (tier, size = 'large') => `${VAL_TIERS}/${tier}/${size}icon.png`;
 export const valGroupIcon = (group) => valIcon(group.id === 'UNRATED' ? 0 : group.tiers[group.tiers.length - 1], 'small');
 export const profileIcon = (id) =>

@@ -7,6 +7,13 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Ícones do elo do pacote do usuário
+
+- Pedido do usuário: trocar os ícones do elo do League, que "não são bons", pelos do pacote do emoji.gg que ele baixou. Os nove viraram PNG dentro do app; o de Esmeralda, que falta no pacote, saiu do emblema oficial com o mesmo recorte ([[ranks]]). Sem elo continua o símbolo do CommunityDragon.
+- Os emblemas ficaram maiores na placa, na lista e na linha do corte ([[cards]]).
+- Teste novo em `test/renderer/ranks.test.js`: todo elo aponta para um arquivo que existe. Conferido na prévia, em placas e lista.
+- Versão 2.2.0, gerada e instalada por cima nesta máquina. Desde este dia, o usuário autorizou gerar e instalar o Setup depois de toda mudança, sem perguntar.
+
 ## 2026-11-15 · Lista compacta sem o retângulo cinza
 
 - Relato do usuário na 2.1.0: na lista compacta, uma conta sem partidas no Solo/Duo mostrava um retângulo cinza na coluna de vitórias. Era a barra vazia; agora a coluna mostra só "—" ([[cards]]).
