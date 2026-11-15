@@ -103,4 +103,4 @@ A pedido do usuário, antes de ele conferir o app na Riot real:
 - **Ficam:** `src/renderer`, a caixa e a cobertura, o `manager-preload.js`, os `.ps1`, `src/paths.js` (só caminhos, para a prévia e os testes JS), a prévia e as fontes no `package.json`.
 - **Testes:** o autoteste do `riotWindowObserver.ps1` e a conferência da caixa com o `login.ps1` passaram para o Rust. Dois testes do Rust que comparavam com o JS (as traduções do [[language]] e os estados de sessão do [[riotAuthentication]]) viraram conferências da própria lista. O `npm test` ficou com 24 testes (cartões, preload, prévia, `login.ps1`, `windowGuard.ps1` e o `package.json`); o `cargo test`, com 388.
 - **Versão 2.0.0** no `tauri.conf.json`, no `Cargo.toml` e no `package.json`.
-- **Instalado nesta máquina:** o Setup 2.0.0 substituiu o Eclipse em Electron, mantendo `%APPDATA%\riot-account-manager`.
+- **Instalado nesta máquina:** o Setup 2.0.0 substituiu o Eclipse em Electron, mantendo `%APPDATA%\riot-account-manager`. O usuário abriu o app instalado e as contas reais abriram normalmente. O que falta conferir está no [[Backlog]].

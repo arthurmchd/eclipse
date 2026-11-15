@@ -8,14 +8,11 @@ tags: [módulo]
 
 # riotAuthentication
 
-> [!note] Só Rust desde 2026-11-15
-> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
-
 > Login direto pela API local do Riot Client e leitura do estado de sessão, devolvendo só valores fixos ao [[signInFlow]].
 
 ## Responsabilidade
 
-- `loginScreenState(signal)` faz somente GET e devolve `auth`, erro fixo de credenciais ou `null` para visibilidade. Um formulário `auth` que anuncia CAPTCHA continua sendo login; essa leitura não concede autorização, não submete dados e não muda as verificações de `sessionState` ou `authenticate`. MFA, sucesso e estados não reconhecidos não exibem cartões. Mantém fallback legado e cancelamento.
+- `login_screen_state` faz somente GET e devolve `auth`, erro fixo de credenciais ou `null` para visibilidade. Um formulário `auth` que anuncia CAPTCHA continua sendo login; essa leitura não concede autorização, não submete dados e não muda as verificações de `session_state` ou `authenticate`. MFA, sucesso e estados não reconhecidos não exibem cartões. Mantém fallback legado e cancelamento.
 - Envia usuário e senha uma única vez por tentativa à rota `rso-authenticator` do serviço local.
 - Normaliza o estado de autenticação em poucos tipos fixos.
 - Não espera autorização, não confere o Riot ID e não abre jogo. Isso é do [[signInFlow]].
@@ -23,22 +20,25 @@ tags: [módulo]
 
 ## API pública
 
-| Export | Tipo | Descrição |
+| Item | Tipo | Descrição |
 |---|---|---|
-| `createRiotAuthentication({ request })` | função | Exige `request` (o `localApi` do [[riotTransport]]). Retorna `{ authenticate, sessionState }`. |
-| `authenticate(account, signal)` | função async | Ver resultados abaixo. Lança erros com mensagens fixas. |
-| `sessionState(signal)` | função async | `{ type, error? }` normalizado. HTTP 429 vira `{ type: 'error', error: 'rate_limited' }`; outro status diferente de 200 vira `null`. Lança erro se a sessão do jogador não puder ser confirmada. |
+| `RiotAuthentication::new(api)` | construtor | Recebe a API local (trait `LocalApi` do [[riotTransport]]) |
+| `authenticate(conta, cancel, lembrar)` | método | `Credentials` de usuário e senha; `lembrar` segue "Manter login". Devolve um `AuthOutcome` (abaixo) ou erro com mensagem fixa |
+| `session_state(cancel)` | método | `AuthState { kind, error }` normalizado. HTTP 429 vira erro `rate_limited`; outro status diferente de 200 vira `None`. Erro se a sessão do jogador não puder ser confirmada |
+| `login_screen_state(cancel)` | método | Só leitura, para a sobreposição: `auth`, erro fixo de credenciais ou `None` |
+| `NON_BLOCKING_SESSION_STATES` | constante | Os 31 estados automáticos da sessão do jogador que não pedem atenção |
+| `AUTHENTICATION`, `START`, `COMPLETE`, `LEGACY_SESSION`, `AUTHORIZATION`, `PLAYER_SESSION` | constantes | As rotas usadas |
 
 Resultados de `authenticate`:
 
 | Resultado | Significado |
 |---|---|
-| `{ supported: false }` | Rota indisponível (404, 405 ou 501) **antes** do envio da senha. O fluxo pode usar o formulário nativo. Depois do envio, isso nunca acontece. |
-| `{ supported: true }` | Pedido aceito ou já autenticado. Não garante a conta certa. |
-| `{ supported: true, needsAttention: true, reason }` | `reason` é `multifactor` ou `challenge`. |
-| `{ supported: true, requiresNativeForm: true, reason: 'captcha' }` | CAPTCHA antes de qualquer senha enviada. |
+| `unsupported()` | Rota indisponível (404, 405 ou 501) **antes** do envio da senha. O fluxo pode usar o formulário nativo. Depois do envio, isso nunca acontece |
+| `done()` | Pedido aceito ou já autenticado. Não garante a conta certa |
+| `attention(motivo)` | `motivo` é `multifactor` ou `challenge` |
+| `native_form()` | CAPTCHA antes de qualquer senha enviada |
 
-Estados normalizados: `auth`, `authenticated`, `multifactor`, `challenge`, `error`. Erros possíveis: `auth_failure`, `rate_limited`, `captcha_not_allowed`, `invalid_request`, `authentication_error`.
+Estados normalizados (`AuthKind`): `auth`, `authenticated`, `multifactor`, `challenge`, `error`. Erros possíveis: `auth_failure`, `rate_limited`, `captcha_not_allowed`, `invalid_request`, `authentication_error`.
 
 ## Rotas usadas
 
@@ -53,8 +53,8 @@ Estados normalizados: `auth`, `authenticated`, `multifactor`, `challenge`, `erro
 
 ## Dependências
 
-- Usa: só a função `request` injetada ([[riotTransport]]).
-- Usado por: [[riotClient]], que entrega `authenticate` e `sessionState` ao [[signInFlow]].
+- Usa: só a API local recebida ([[riotTransport]]).
+- Usado por: [[riotClient]], que entrega `authenticate` e `session_state` ao [[signInFlow]] e `login_screen_state` à sobreposição ([[main]], [[riotOverlay]]).
 
 ## Sequência de `authenticate`
 
@@ -86,28 +86,28 @@ Fonte: enumeração `PlayerSessionStateType` lida (sem alterar nada) em `C:\Riot
 - **Tela de verificação desconhecida vira `challenge`.** Ela não pode receber envio automático de senha. O cliente normal mostra a ação necessária.
 - **CAPTCHA antes do envio usa o formulário nativo.** Esta operação ainda não enviou credenciais. O formulário nativo segue o caminho normal de CAPTCHA, em vez de enviar um token vazio.
 - **Corpos de erro não são confiáveis.** Só códigos conhecidos (tabela `SAFE_ERRORS`) mudam a mensagem. Diagnósticos do servidor e dados ecoados nunca entram nela.
-- **Identidade autenticada não basta.** A sessão do jogador ainda pode pedir consentimento, verificação de idade ou outra tela. Um token de autorização já emitido não pode pular essas ações. Por isso `sessionState` consulta `player-session-lifecycle` quando o estado é `authenticated`.
+- **Identidade autenticada não basta.** A sessão do jogador ainda pode pedir consentimento, verificação de idade ou outra tela. Um token de autorização já emitido não pode pular essas ações. Por isso `session_state` consulta `player-session-lifecycle` quando o estado é `authenticated`.
 - **`Initializing` e `PendingProductContext` não são telas de verificação.** O contexto de produto pode vir depois, no pedido de abertura do jogo já verificado.
 - **Contexto existe só com `suuid`.** Um `GET` bem-sucedido pode mostrar o objeto `auth` padrão sem contexto de login. Só um `suuid` não vazio (até 256 caracteres, sem controle nem espaço) confirma o contexto. O tipo sozinho não basta depois de um reinício `--headless`.
 - **Reiniciar antes de começar, como o formulário nativo.** O backend recusa `start` com o autenticador em estado de erro. Esse `DELETE` acontece antes de qualquer envio de credenciais nesta tentativa.
 - **Sucesso de transporte só confirma o pedido.** O [[signInFlow]] espera a autorização e verifica o Riot ID por conta própria.
 - **Uma senha por chamada.** `complete` é chamado no máximo uma vez. Falha de senha, limite, rede ou CAPTCHA depois do envio nunca geram nova tentativa.
-- **Depois do envio, rota indisponível é erro.** Um 404/405/501 no `complete` não prova que a senha deixou de chegar à Riot. Devolver `{ supported: false }` faria o [[signInFlow]] digitar a senha de novo no formulário nativo. Por isso o `complete` não tem o atalho de `UNSUPPORTED`: só `GET`, `DELETE` e `start`, todos antes da senha, podem pedir o formulário nativo. Corrigido em 2026-10-26.
+- **Depois do envio, rota indisponível é erro.** Um 404/405/501 no `complete` não prova que a senha deixou de chegar à Riot. Devolver `unsupported()` faria o [[signInFlow]] digitar a senha de novo no formulário nativo. Por isso o `complete` não tem esse atalho: só `GET`, `DELETE` e `start`, todos antes da senha, podem pedir o formulário nativo. Corrigido em 2026-10-26.
 - **Sessão do jogador falha fechada.** Só estados conhecidos como não bloqueantes liberam o jogo. Um estado novo da Riot vira `challenge`: o fluxo pede intervenção e espera, em vez de abrir o jogo com uma verificação pendente. Antes de 2026-10-26 era o contrário (lista de bloqueios, e todo o resto passava).
 - **Erros fixos.** Rede: "Could not contact the Riot authentication service". Formato inválido: "The Riot authentication service returned an invalid response". HTTP 429: "Too many attempts, wait a few minutes".
 - **Cancelamento antes e depois de cada requisição.** Cancelar após o `DELETE` impede o `start` e o envio da senha.
 - **`remember` segue a configuração "Manter login".** `authenticate(account, signal, { remember })` envia `remember: true` por padrão e `false` só quando a opção está desmarcada. Com `true`, o cliente grava o login lembrado que o app guarda por conta ([[Armazenamento e dados]]). Desmarcado desde 2026-11-04, a Riot não lembra a conta.
-- **Conta autorizada não está na tela de login.** `loginScreenState` devolve `auth` só se `GET /rso-auth/v1/authorization` não responder 200. O autenticador pode continuar reportando `auth` depois de entrar; sem essa conferência, os cartões ficavam sobre a página inicial do Riot.
-- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_authentication.rs`, testes em `src-tauri/tests/riot/riot_authentication.rs` e `auth_context_regression.rs`. Mesmas rotas, mesma sequência e mesmos erros fixos; os estados e os resultados viraram enums (`AuthKind`, `AuthOutcome`). Um teste lê a lista `NON_BLOCKING_SESSION_STATES` do arquivo JS e confere que a do Rust é igual, na mesma ordem.
+- **Conta autorizada não está na tela de login.** `login_screen_state` devolve `auth` só se `GET /rso-auth/v1/authorization` não responder 200. O autenticador pode continuar reportando `auth` depois de entrar; sem essa conferência, os cartões ficavam sobre a página inicial do Riot.
+- **Lista de estados herdada do Electron.** Um teste confere que `NON_BLOCKING_SESSION_STATES` tem os mesmos 31 nomes, em minúsculas, que o Electron usava.
 
 ## Testes
 
-- `riotAuthentication.test.js`: envio único; contexto ausente ou antigo; reset com falha; rotas indisponíveis antes do envio (formulário nativo) e depois do envio (erro, sem segundo envio); estados da sessão do jogador permitidos, bloqueantes e desconhecidos; 2FA e telas humanas sem senha; CAPTCHA antes e depois do envio; limite de tentativas; erros sem eco da resposta; estado já autenticado; estados da sessão do jogador; cancelamento; entradas inválidas.
-- `authContextRegression.test.js`: `suuid` vazio ou ausente exige `DELETE` + `start` antes da senha; `invalid_request` inicial é limpo; `invalid_request` após o envio não repete nem reinicia.
+- `src-tauri/tests/riot/riot_authentication.rs`: a sobreposição achando o formulário mesmo com CAPTCHA nativo e sumindo com sessão autenticada, MFA, estado desconhecido, conta já autorizada ou rota indisponível; envio único pelo contexto existente; "Manter login" desligado pedindo à Riot que não lembre; contexto ausente ou antigo; reset com falha; rotas indisponíveis antes do envio (formulário nativo) e depois do envio (erro, sem segundo envio); 2FA e telas humanas sem senha; CAPTCHA antes e depois do envio; limite de tentativas; erros sem eco da resposta; estado já autenticado; estados da sessão do jogador permitidos, bloqueantes e indisponíveis; cancelamento; entradas inválidas; e a lista dos 31 estados.
+- `src-tauri/tests/riot/auth_context_regression.rs`: `suuid` vazio ou ausente exige `DELETE` + `start` antes da senha; `invalid_request` inicial é limpo; `invalid_request` após o envio não repete nem reinicia.
 
 ## Pontos de atenção
 
-- **Estado novo da Riot trava o login em "atenção".** Consequência aceita da falha fechada: se a Riot criar um estado automático novo, o login mostra "Riot needs a security check" e expira em 180 s. Solução: incluir o estado em `NON_BLOCKING_SESSION_STATES` com teste.
-- **Listas de estados dependem da Riot.** `HUMAN_STEPS`, `NON_BLOCKING_SESSION_STATES` e `SAFE_ERRORS` precisam de revisão a cada versão: [[Atualização do Riot Client]].
-- **Idioma fixo.** `language: 'en_US'` em `start` e `complete`.
+- **Estado novo da Riot trava o login em "atenção".** Consequência aceita da falha fechada: se a Riot criar um estado automático novo, o login mostra "Riot needs a security check" e expira em 180 s. Solução: incluir o estado em `NON_BLOCKING_SESSION_STATES`, com teste.
+- **Listas de estados dependem da Riot.** As telas humanas, `NON_BLOCKING_SESSION_STATES` e os erros seguros precisam de revisão a cada versão: [[Atualização do Riot Client]].
+- **Idioma fixo.** `en_US` em `start` e `complete`.
 - Regras gerais: [[Segurança e privacidade]], [[Fluxo de login]].

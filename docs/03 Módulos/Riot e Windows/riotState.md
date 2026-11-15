@@ -8,9 +8,6 @@ tags: [módulo]
 
 # riotState
 
-> [!note] Só Rust desde 2026-11-15
-> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
-
 > Diz onde a Riot está (fechada, em jogo, com janela, sem janela ou em segundo plano) e se há conta conectada, com uma regra só para o [[sessionKeeper]], o [[riotWakeup]] e o login.
 
 ## Responsabilidade
@@ -22,42 +19,42 @@ tags: [módulo]
 
 ## API pública
 
-| Export | Tipo | Descrição |
+| Item | Tipo | Descrição |
 |---|---|---|
-| `createRiotState({ runningGames, authorization, sessionState })` | fábrica | Devolve `{ look }`. `authorization` e `sessionState` são opcionais: sem eles, a conta é `'unknown'` e os serviços, `'background'`. |
-| `look()` | método | Uma olhada nova, com as perguntas abaixo. |
+| `RiotProbe` | trait | As três consultas: `running_games`, `authorization` e `session_state`. As duas últimas têm padrão: sem elas, a conta é `Unknown` e os serviços, segundo plano |
+| `Look::new(sonda)` | construtor | Uma olhada nova, com as perguntas abaixo |
 
 | Pergunta da olhada | Resposta |
 |---|---|
-| `processes()` | a lista de `runningGames()`, como veio |
-| `running()` | `client`: algum processo da Riot aberto |
-| `inGame()` | `lol` ou `val` |
-| `window()` | `clientWindow`: `Riot Client.exe` ou `RiotClientUx.exe` |
-| `account()` | `'no'` com a Riot fechada, sem consultar a API; senão `'yes'`, `'no'` ou `'unknown'` |
-| `signedIn()` | `account()` é `'yes'` |
-| `services()` | `'off'` com a Riot fechada; `'ready'` se `sessionState()` devolve algo; `'background'` se não |
-| `mode()` | `'closed'`, `'game'`, `'window'`, `'hidden'` ou `'background'`, nessa ordem de prioridade |
+| `processes()` | a lista de `running_games()`, como veio |
+| `running()` | algum processo da Riot aberto |
+| `in_game()` | `lol` ou `val` |
+| `window()` | `Riot Client.exe` ou `RiotClientUx.exe` |
+| `account()` | `No` com a Riot fechada, sem consultar a API; senão `Yes`, `No` ou `Unknown` |
+| `signed_in()` | `account()` é `Yes` |
+| `services()` | `Off` com a Riot fechada; `Ready` se `session_state()` devolve algo; `Background` se não |
+| `mode()` | `Closed`, `Game`, `Window`, `Hidden` ou `Background`, nessa ordem de prioridade |
 
 ## Dependências
 
-- Usa: nada além das consultas recebidas. O [[riotClient]] entrega `runningGames`, `authorization` e `sessionState` reais.
-- Usado por: [[riotClient]] (`look()` exportado e o `closeEverything`), [[sessionKeeper]] e [[riotWakeup]] (por `riot.look()`), [[signInFlow]] (no começo do login).
+- Usa: só as consultas da `RiotProbe`. O [[riotClient]] a implementa com a lista de processos, a autorização e o estado da sessão reais.
+- Usado por: [[riotClient]] (`look()` e o fechamento de tudo), [[sessionKeeper]], [[riotWakeup]] e [[rankWatcher]] (pela olhada do [[riotClient]]) e [[signInFlow]] (no começo do login).
 
 ## Invariantes e decisões
 
 - **Uma olhada, uma consulta por pergunta.** As respostas ficam guardadas só dentro da olhada, então duas perguntas sobre a mesma coisa nunca se contradizem. Cada decisão pede uma olhada nova; guardar uma olhada entre decisões daria respostas velhas.
-- **Riot fechada não é consultada.** Sem processo da Riot, a conta é `'no'` e os serviços `'off'`, sem chamar a API local. Era a regra do `closeEverything` e do guardião, e agora vale para todos.
+- **Riot fechada não é consultada.** Sem processo da Riot, a conta é `'no'` e os serviços `'off'`, sem chamar a API local. Era a regra do fechamento de tudo e do guardião, e agora vale para todos.
 - **Conta em três valores.** Só `'yes'` e `'no'` são respostas firmes. Erro, resposta inesperada ou ausência de `authorization` viram `'unknown'`, que não prova nada ([[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]).
-- **Segundo plano pela API.** Com a Riot aberta, sem janela e sem jogo, a API de sessão responder separa `'hidden'` de `'background'`. Em segundo plano a API local só responde `/help` (conferido na Riot v142 em 2026-11-06, [[riotWakeup]]). Uma falha de `sessionState` vale como segundo plano.
-- **A lista de processos manda.** Um jogo aberto sem processo da Riot conta como Riot fechada para `mode()`, embora `inGame()` diga que há jogo. Falha da lista de processos chega a quem perguntou, como antes: cada consumidor já trata esse erro.
-- **Comportamento sem mudança.** Até 2026-11-07 cada consumidor combinava as mesmas consultas do seu jeito; com as consultas reais, as respostas são as mesmas. A diferença fica nos testes, que agora passam pela regra real em vez de simular `clientRunning` e `runningGames` separados.
-- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_state.rs`, testes em `src-tauri/tests/riot/riot_state.rs`. As três consultas vêm da trait `RiotProbe`; um `Look` guarda cada resposta em `OnceCell`, então cada pergunta é feita uma vez por olhada, como no JS.
+- **Segundo plano pela API.** Com a Riot aberta, sem janela e sem jogo, a API de sessão responder separa `'hidden'` de `'background'`. Em segundo plano a API local só responde `/help` (conferido na Riot v142 em 2026-11-06, [[riotWakeup]]). Uma falha de `session_state` vale como segundo plano.
+- **A lista de processos manda.** Um jogo aberto sem processo da Riot conta como Riot fechada para `mode()`, embora `in_game()` diga que há jogo. Falha da lista de processos chega a quem perguntou, como antes: cada consumidor já trata esse erro.
+- **Comportamento sem mudança.** Até 2026-11-07 cada consumidor combinava as mesmas consultas do seu jeito; com as consultas reais, as respostas são as mesmas. A diferença fica nos testes, que passam pela regra real em vez de simular cada consulta separada.
+- **Uma consulta por olhada.** Um `Look` guarda cada resposta em `OnceCell`, então cada pergunta vai à Riot no máximo uma vez por olhada; uma olhada nova pergunta de novo.
 
 ## Testes
 
-`test/riot/riotState.test.js`, com consultas falsas, cobre: Riot fechada sem consulta à API; cada modo da Riot aberta, com `sessionState` consultado só sem janela e sem jogo; conta `'yes'`, `'no'` e `'unknown'`, com resposta estranha e erro virando `'unknown'`; cada pergunta feita uma vez por olhada e de novo numa olhada nova; falha dos serviços valendo segundo plano e falha da lista de processos chegando a quem perguntou; jogo sem processo da Riot contando como fechada.
+`src-tauri/tests/riot/riot_state.rs`, com consultas falsas, cobre: Riot fechada sem consulta à API; cada modo da Riot aberta, com o estado da sessão consultado só sem janela e sem jogo; conta `Yes`, `No` e `Unknown`, com falha virando `Unknown`; cada pergunta feita uma vez por olhada e de novo numa olhada nova; falha dos serviços valendo segundo plano e falha da lista de processos chegando a quem perguntou; lista sem a Riot contando como fechada.
 
-Os testes do [[sessionKeeper]] e do [[riotWakeup]] montam `riot.look()` com esta fábrica sobre as consultas falsas deles.
+Os testes do [[sessionKeeper]] e do [[riotWakeup]] montam a olhada sobre as consultas falsas deles.
 
 ## Pontos de atenção
 

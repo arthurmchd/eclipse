@@ -8,9 +8,6 @@ tags: [módulo]
 
 # riotWakeup
 
-> [!note] Só Rust desde 2026-11-15
-> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
-
 > Pede a janela da Riot quando ela sai do segundo plano sem abrir nenhuma, para o ícone da bandeja e os atalhos da Riot abrirem no primeiro clique.
 
 ## Responsabilidade
@@ -19,7 +16,7 @@ O login em segundo plano inicia a Riot com `--headless` ([[signInFlow]]). Depois
 
 1. observa o `lockfile` da Riot, que ela regrava ao entrar e ao sair do segundo plano;
 2. lembra se a Riot estava em segundo plano;
-3. quando ela volta sem janela, espera 2 s e, se continua sem janela e sem jogo, pede a janela (`showInterface`).
+3. quando ela volta sem janela, espera 2 s e, se continua sem janela e sem jogo, pede a janela (`show_interface`).
 
 **Não faz:**
 
@@ -33,22 +30,12 @@ Decisão em [[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]
 
 ## API pública
 
-| Export | Tipo | Descrição |
+| Item | Tipo | Descrição |
 |---|---|---|
-| `createRiotWakeup(options)` | função | Devolve `{ start, stop }`. |
-| `start()` | função | Começa a observar o `lockfile` e confere uma vez em que modo a Riot está. |
-| `stop()` | função | Fecha o watcher e cancela a conferência pendente. Depois disso nada mais roda. |
-
-**`options`:**
-
-- `riot`: o [[riotClient]], com `watchLockfile`, `look` e `showInterface`.
-- `busy`: diz se há login em andamento.
-- `log`: grava no `sign-in.log`.
-- `setTimeout` e `clearTimeout`: injetáveis nos testes.
-- `settleMs`: padrão 1000. Espera depois da mudança no `lockfile`.
-- `retryMs`: padrão 1000. Intervalo entre conferências enquanto a Riot ainda carrega.
-- `attempts`: padrão 8. Quantas vezes conferir de novo enquanto a Riot ainda carrega.
-- `graceMs`: padrão 2000. Tempo para a Riot abrir a própria janela ou um jogo começar.
+| `RiotWakeup::new(riot, busy, log, timers, timing)` | construtor | `riot` é a trait `WakeupRiot` (observar o `lockfile`, olhar o modo e pedir a janela), que o [[riotClient]] implementa; `busy` diz se há login; `log` grava no `sign-in.log`; os prazos vêm do [[timers]] |
+| `start()` | método | Começa a observar o `lockfile` e confere uma vez em que modo a Riot está. Só vale uma vez |
+| `stop()` | método | Solta o observador e cancela a conferência pendente. Depois disso nada mais roda |
+| `WakeupTiming` | struct | `settle` 1 s depois da mudança no `lockfile`, `retry` 1 s entre conferências enquanto a Riot carrega, até 8 `attempts`, e `grace` 2 s para a Riot abrir a própria janela ou um jogo começar |
 
 ## Dependências
 
@@ -57,10 +44,10 @@ Decisão em [[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]
 
 ## Invariantes e decisões
 
-- **Estados pelo [[riotState]].** Desde 2026-11-07 ([[ADR-029 Estado da Riot definido num lugar só]]), cada conferência pede `riot.look().mode()`. Antes o módulo tinha os próprios modos `closed`, `shown`, `hidden` e `background`; agora são os do [[riotState]], com as mesmas consultas na mesma ordem.
+- **Estados pelo [[riotState]].** Desde 2026-11-07 ([[ADR-029 Estado da Riot definido num lugar só]]), cada conferência pede o modo a uma olhada do [[riotState]]. Antes o módulo tinha os próprios modos `closed`, `shown`, `hidden` e `background`; agora são os do [[riotState]], com as mesmas consultas na mesma ordem.
   - **Fechada (`closed`):** sem processo da Riot.
   - **Com janela ou jogo (`window`, `game`):** `Riot Client.exe` ou um jogo rodando. Para o wakeup, as duas valem igual.
-  - **Aberta sem janela (`hidden`):** o serviço roda e a rota de autenticação responde (`sessionState()` não nulo).
+  - **Aberta sem janela (`hidden`):** o serviço roda e a rota de autenticação responde (estado da sessão não nulo).
   - **Em segundo plano (`background`):** o serviço roda e a rota de autenticação não responde. Conferido em 2026-11-06 na Riot v142: em segundo plano, a API local só responde `/help`, e as rotas de conta dão 404 `RESOURCE_NOT_FOUND`.
 - **Só age na volta do segundo plano.**
   - A cada mudança no `lockfile`, o módulo guarda se a Riot estava em segundo plano antes dela.
@@ -69,23 +56,23 @@ Decisão em [[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]
   - Fechar a janela da Riot leva ao segundo plano e nunca a reabre.
 - **A Riot leva alguns segundos para carregar.** Logo depois da mudança no `lockfile`, a Riot que está saindo do segundo plano ainda parece estar nele. O módulo confere de novo a cada 1 s, até 8 vezes.
 - **2 s de tolerância antes de pedir.** Uma Riot iniciada normalmente abre a própria janela uns 1,6 s depois de sair do segundo plano. Um jogo aberto pelo atalho dele também precisa de um momento para aparecer. Só sem janela e sem jogo depois disso o módulo pede a janela. Pedir a uma Riot que já está abrindo a janela não faz mal: ela só traz a janela para a frente.
-- **Pedido sem plano B.** `showInterface` é o `POST /riot-client-lifecycle/v1/show`, o mesmo do "Show" da bandeja da Riot e do "Abrir Riot" do Eclipse ([[riotInterface]]). Se falhar, só o log registra. Diferente do `openInterface`, nada reinicia a Riot, porque isso poderia derrubar um jogo começando.
+- **Pedido sem plano B.** O pedido é o `POST /riot-client-lifecycle/v1/show`, o mesmo do "Show" da bandeja da Riot e do "Abrir Riot" do Eclipse ([[riotInterface]]). Se falhar, só o log registra. Diferente da abertura completa da interface, nada reinicia a Riot, porque isso poderia derrubar um jogo começando.
 - **Mudanças seguidas no `lockfile`** substituem a conferência pendente. Uma conferência antiga que termina depois de uma nova mudança é descartada.
-- **Login do Eclipse tem prioridade.** `busy()` é conferido antes e depois de cada consulta à Riot. Um login em andamento zera a lembrança do segundo plano, porque ele mesmo fecha e reinicia a Riot.
-- **Versão Rust (fase 3 da [[Migração para Tauri]]).** `src-tauri/src/application/riot_wakeup.rs`, testes em `src-tauri/tests/application/riot_wakeup.rs` com os 6 cenários do JS. A Riot entra pelo `WakeupRiot` e os prazos por um [[timers]]. O observador do `lockfile` guarda só uma referência fraca ao serviço, para não prendê-lo na memória; fechar é soltar o observador. `start` só vale uma vez.
+- **Login do Eclipse tem prioridade.** O login em curso é conferido antes e depois de cada consulta à Riot. Um login em andamento zera a lembrança do segundo plano, porque ele mesmo fecha e reinicia a Riot.
+- **Observador sem prender o serviço.** O observador do `lockfile` guarda só uma referência fraca ao serviço, para não prendê-lo na memória; parar é soltar o observador.
 
 ## Testes
 
-`test/core/riotWakeup.test.js`, com Riot e relógio falsos, cobre:
+`src-tauri/tests/application/riot_wakeup.rs`, com Riot e relógio falsos, cobre:
 
 - janela pedida depois da tolerância quando a Riot sai do segundo plano sem janela;
 - novas conferências enquanto a Riot carrega, e desistência depois do limite;
-- nenhum pedido quando a Riot abre a própria janela, um jogo começa, um login começa ou a Riot fecha durante a tolerância;
-- nenhum pedido ao entrar no segundo plano ou numa Riot que não passou por ele, e Riot fechada sem consulta à API;
-- login que começa durante a conferência, pedido que falha (só log) e falha ao listar processos;
-- mudança nova substituindo a pendente, e `stop`.
+- nenhum pedido quando a Riot abre a própria janela, um jogo começa ou um login está em curso;
+- nenhum pedido ao entrar no segundo plano ou numa Riot que não passou por ele;
+- login que começa durante a conferência, pedido que falha e falha ao listar processos, só com log;
+- mudança nova substituindo a pendente, e `stop` soltando o observador e cancelando o que estava pendente.
 
-Fora dos testes: o `fs.watch` real do `lockfile` e o tempo real da Riot para sair do segundo plano.
+Fora dos testes: o observador real do `lockfile` e o tempo real da Riot para sair do segundo plano.
 
 ## Pontos de atenção
 

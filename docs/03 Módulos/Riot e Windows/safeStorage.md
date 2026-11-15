@@ -51,4 +51,4 @@ O teste ignorado precisa de uma amostra do Electron: rode `ECLIPSE_SAFE_STORAGE_
 
 ## Pontos de atenção
 
-- O Chromium pode mudar o formato (`v10`). Enquanto os dois apps conviverem, um Electron atualizado precisa continuar gravando `v10`; o teste manual mostra se mudou.
+- O Eclipse grava no mesmo formato `v10` que o Electron usava. Desde a 2.0.0 os dois apps não convivem mais, então o formato só precisa continuar lendo o que o Electron gravou antes da troca; o teste manual confere isso com uma amostra.

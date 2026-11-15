@@ -1,12 +1,29 @@
 ---
 tipo: roadmap
-atualizado: 2026-11-07
+atualizado: 2026-11-15
 tags: [backlog]
 ---
 
 # Backlog
 
 Ordenado por prioridade. Use o template [[Tarefa]] para detalhar um item antes de começar. Todos os itens abaixo foram conferidos no código em 2026-10-26, durante a documentação dos módulos. Eles já existiam antes da reorganização.
+
+## Conferir o Eclipse 2.0.0 (Tauri) no Riot real
+
+Desde 2026-11-15 o Eclipse é só Tauri ([[ADR-034 Troca do Electron pelo Tauri]]). O comportamento é o mesmo do Electron, mas foi reescrito em Rust e conferido só com uma Riot falsa nos testes. O que foi visto na Riot real até agora:
+
+- **Feito em 2026-11-14**, com o app de desenvolvimento e uma pasta de dados de teste: um login de LoL e o jogo aberto ([[signInFlow]]), os cartões sobre a Riot ([[riotOverlay]]) e o certificado da API local ([[riotTransport]]).
+- **Feito em 2026-11-15**, com o app instalado: as contas reais abriram normalmente, segundo o usuário. Foi a primeira leitura, pelo Rust, do `data.json`, das senhas e das sessões gravadas pelo Electron ([[store]], [[safeStorage]]).
+
+Falta:
+
+- arraste rápido da Riot com os cartões colados ([[ADR-036 Arraste da Riot assumido pelo Eclipse]]); se falhar, a linha `riot drag:` do `sign-in.log` diz o desfecho;
+- caixa "Ocultar contas", cobertura da coluna durante o login e cópias de minimizar e fechar ([[overlayToggle]], [[overlayCover]]);
+- login com e sem "Manter login" e troca entre contas com sessão guardada ([[signInService]], [[sessionKeeper]]);
+- elos atualizando, pela API e pelo jogo aberto ([[rankWatcher]], [[gameRanks]]);
+- bandeja, notificações do Windows e "Iniciar com o Windows" ([[main]], [[toasts]], [[startWithWindows]]).
+
+Os itens da seção seguinte foram conferidos, quando foram, no Electron; ao conferir no Tauri, vale olhar os mesmos pontos.
 
 ## Validar no Riot real
 
@@ -74,15 +91,16 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 
 14. **Reavaliar depois da migração:** o [[main]] deixou de criar a janela e os handlers da interface; a validação de contas foi extraída para [[managerService]] e a UI para [[managerHost]]/[[manager-preload]]. O harness de inicialização foi atualizado. Separar a bandeja ou o agendamento só se a complexidade voltar a justificar.
 15. **Saiu com a janela antiga em 2026-11-07.** O `src/renderer/app.js` foi removido.
-16. **Lint e formatação.** ESLint (flat config) e Prettier como `devDependencies`, com `npm run lint` e uma regra que barre comentários novos.
+16. **Lint e formatação.** No Rust, `cargo fmt --check` e `cargo clippy --all-targets` sem avisos (em 2026-11-15 ainda há avisos antigos nos testes: tipos complexos e `clone` desnecessário). Nos cartões, ESLint e Prettier como `devDependencies`, com uma regra que barre comentários novos.
 17. **Resolvido em 2026-11-07:** limpar código morto. O que era do modo antigo saiu ([[ADR-028 Modo antigo removido]]). No mesmo dia saíram os ramos do login escondido do [[signInFlow]], o monitor de ocultação do [[windowController]] e do [[windowGuard.ps1]], a interface aberta escondida do [[riotInterface]] e do [[riotProcess]], o ramo `error:focus` do [[riotClient]], o `dryRun` do [[signInFlow]] (com o `submit` do [[login.ps1]]), o `signIn` do [[signInService]], as mensagens em inglês que citavam "Show Riot Client" e uma tradução sem uso no [[language]].
 18. **Feito em 2026-11-07.** O experimento legado, a cópia privada e a janela antiga saíram ([[ADR-028 Modo antigo removido]]). O código está na tag `modo-antigo-final`.
 19. **Resolvido.** `scripts/dev/mock-api.js` define `onSignInOperation`; desde 2026-11-07 ele só tem o que os cartões usam.
+23. **Juntar o branch da migração.** Todo o trabalho do Tauri está no branch `migracao/tauri`, fora da `main` e ainda não enviado ao GitHub. Juntar e enviar depois da conferência acima, com o ok do usuário.
 
 ## Produto
 
-20. **Instalador e atualização.** Em parte desde 2026-11-08: `npm run dist` gera um Setup por usuário, com atalhos, desinstalador, os `.ps1` fora do `app.asar` e a opção "Iniciar com o Windows" na bandeja ([[ADR-030 Eclipse instalado por um Setup próprio]]). Falta: assinatura de código (certificado pago), atualização automática, versionamento do formato de `data.json` e os fuses do Electron (desligar `RunAsNode` e validar a integridade do `app.asar`).
-21. **Validar o fluxo dos cartões com contas reais**: sessão nova, sessão expirada e 2FA ([[Integração com o Riot Client]]).
+20. **Instalador e atualização.** Desde 2026-11-15, `cargo tauri build` gera o Setup do Tauri, por usuário, com atalhos, desinstalador e só os arquivos de uma lista fechada ([[ADR-034 Troca do Electron pelo Tauri]]); a opção "Iniciar com o Windows" fica na bandeja. Falta: assinatura de código (certificado pago), atualização automática (o plugin `updater` do Tauri exige assinar as atualizações) e versionamento do formato de `data.json`. Os fuses do Electron deixaram de valer com a saída dele.
+21. **Validar o fluxo dos cartões com contas reais**: sessão nova, sessão expirada e 2FA ([[Integração com o Riot Client]]), agora no Tauri.
 
 ## Ferramentas de desenvolvimento
 

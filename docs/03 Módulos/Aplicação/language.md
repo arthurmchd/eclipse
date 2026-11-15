@@ -8,9 +8,6 @@ tags: [módulo]
 
 # language
 
-> [!note] Só Rust desde 2026-11-15
-> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
-
 > Guarda os idiomas aceitos e traduz para português ou inglês as mensagens que o processo principal mostra ao usuário.
 
 ## Responsabilidade
@@ -19,14 +16,14 @@ Define que o Eclipse fala `pt` ou `en`, com `pt` como padrão, e tem o catálogo
 
 ## API pública
 
-| Export | Tipo | Descrição |
+| Item | Tipo | Descrição |
 |---|---|---|
-| `LANGUAGES` | lista | `['pt', 'en']`. |
-| `DEFAULT_LANGUAGE` | texto | `'pt'`. |
-| `MESSAGES` | lista | Pares `[inglês, português]`. Exportado para o teste conferir o catálogo inteiro. |
-| `normalizeLanguage(valor)` | função | Devolve `en` só para `'en'`; qualquer outra coisa vira `pt`. |
-| `localize(texto, idioma)` | função | Acha o texto em qualquer lado de um par (ou num dos padrões com parte variável) e devolve a versão no idioma pedido. Texto desconhecido volta igual. |
-| `mainText(idioma)` | função | Textos da bandeja, dos balões e da caixa de erro do [[main]]. Desde 2026-11-08 inclui `trayStartWithWindows` ("Iniciar com o Windows" / "Start with Windows"). |
+| `LANGUAGES` | constante | `["pt", "en"]` |
+| `DEFAULT_LANGUAGE` | constante | `"pt"` |
+| `MESSAGES` | constante | Pares `(inglês, português)`, públicos para o teste conferir o catálogo inteiro |
+| `normalize_language(valor)` | função | Devolve `en` só para `"en"`; qualquer outra coisa vira `pt` |
+| `localize(texto, idioma)` | função | Acha o texto em qualquer lado de um par (ou num dos padrões com parte variável) e devolve a versão no idioma pedido. Texto desconhecido volta igual |
+| `main_text(idioma)` | função | `MainText` com os textos da bandeja, das notificações e das caixas de aviso do [[main]], inclusive "Iniciar com o Windows" / "Start with Windows" |
 
 ## Dependências
 
@@ -35,7 +32,7 @@ Define que o Eclipse fala `pt` ou `en`, com `pt` como padrão, e tem o catálogo
 
 ## Invariantes e decisões
 
-- **Traduz na saída, não na origem.** As mensagens continuam em inglês em [[signInFlow]], [[signInService]] e no `sign-in.log`. O [[main]] passa `localize` ao [[signInService]] como `translate` e usa nos balões e diálogos. Assim o log de diagnóstico não muda de língua.
+- **Traduz na saída, não na origem.** As mensagens continuam em inglês em [[signInFlow]], [[signInService]] e no `sign-in.log`. O [[main]] passa `localize` ao [[signInService]] como tradutor e o usa nas notificações e nas caixas de aviso. Assim o log de diagnóstico não muda de língua.
 - **Pares nos dois sentidos.** `localize` aceita o texto em inglês ou em português e devolve o do idioma pedido; o [[main]] tem alguns erros que antes eram escritos em português e agora são escritos em inglês, e qualquer texto antigo em português ainda se traduz. Um mesmo texto não pode aparecer em dois pares; o teste confere.
 - **Padrões com parte variável.** Duas mensagens têm um trecho que vem de fora (código de erro da Riot, código do script da janela). O trecho é mantido como veio.
 - **Sem textos do monitor de janelas.** Desde 2026-11-07 saíram "The background window guard has stopped" e o padrão "The background window guard stopped (motivo). Try Play again", que só o monitor persistente produzia ([[windowController]]). Fica "The background window guard is shutting down", que o controlador ainda usa.
@@ -43,11 +40,11 @@ Define que o Eclipse fala `pt` ou `en`, com `pt` como padrão, e tem o catálogo
 - **Par usado pelo lado em português conta como usado.** No mesmo dia saíram por engano mais dois pares cujo texto em inglês não aparecia no código: o [[signInFlow]] escrevia "Preparando o login no Riot Client…" e o [[riotWindowObserver]] "Não foi possível acompanhar a janela do Riot…", e com o app em inglês esses textos ficariam em português. Os pares voltaram, e os dois módulos passaram a escrever em inglês, como o resto. Um teste confere que todo status do [[signInFlow]] e o erro do observador têm par.
 - **Sem par, sem erro.** Uma mensagem nova que não entrou no catálogo aparece no texto original. Ao criar mensagem que chega ao usuário, acrescente o par.
 - **Padrão português.** Qualquer valor diferente de `'en'` vira `pt`, inclusive dados antigos sem o campo.
-- **Versão Rust (fase 1 da [[Migração para Tauri]]).** `src-tauri/src/application/language.rs` tem o mesmo catálogo. Enquanto os dois apps conviverem, um teste Rust lê o `MESSAGES` deste arquivo JS e exige os mesmos pares, na mesma ordem: acrescentar um par aqui sem acrescentá-lo lá quebra o `cargo test`. O teste dos status do [[signInFlow]] entra na fase 2.
+- **Catálogo único.** Desde 2026-11-15 o catálogo só existe em `language.rs`. Até a saída do Electron, um teste exigia os mesmos pares, na mesma ordem, do `language.js`; os dois eram iguais quando ele saiu. Um teste lê o [[signInFlow]] e exige que todo status e erro escrito em inglês tenha tradução.
 
 ## Testes
 
-`test/core/language.test.js` confere o padrão, a normalização, que cada par traduz nos dois sentidos sem repetir texto, os padrões com parte variável, a passagem de textos desconhecidos e que os textos da bandeja existem nas duas línguas com as mesmas chaves.
+`src-tauri/tests/application/language.rs` confere o padrão e a normalização, que cada par traduz nos dois sentidos sem ambiguidade, os padrões com parte variável, a passagem de textos desconhecidos, os textos da bandeja e das caixas nas duas línguas e que todo status e erro do [[signInFlow]] tem tradução.
 
 ## Pontos de atenção
 

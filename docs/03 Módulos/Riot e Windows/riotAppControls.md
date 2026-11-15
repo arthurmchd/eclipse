@@ -8,9 +8,6 @@ tags: [módulo]
 
 # riotAppControls
 
-> [!note] Só Rust desde 2026-11-15
-> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
-
 > Fecha o Riot Client do mesmo jeito que o botão de fechar da própria Riot, para a cópia desse botão nos [[cards]].
 
 ## Responsabilidade
@@ -19,18 +16,18 @@ Repete a decisão do botão de fechar da Riot: mandar o cliente para o segundo p
 
 ## API pública
 
-| Export | Tipo | Descrição |
+| Item | Tipo | Descrição |
 |---|---|---|
-| `createRiotAppControls({ request })` | função | Recebe o `localApi` (método, caminho) e devolve `{ close() }`. |
-| `close()` | método async | Lê as seis informações em paralelo e envia um único POST. Devolve `'background'` ou `'quit'`. Falha se o serviço não responder ou recusar o POST. |
-| `closeMode(valores)` | função | A decisão pura, sem rede. |
-| `CLOSE_READS` | objeto | Os caminhos lidos. |
-| `SWITCH_TO_BACKGROUND`, `QUIT` | texto | `/riot-client-lifecycle/v1/quit/switch-background-mode` e `/riot-client-lifecycle/v1/quit`. |
+| `RiotAppControls::new(api)` | construtor | Recebe a API local (trait `LocalApi` do [[riotTransport]]) |
+| `close()` | método | Faz as seis leituras e envia um único POST. Devolve `CloseMode::Background` ou `Quit`. Falha se o serviço não responder ou recusar o POST |
+| `close_mode(configurações)` | função | A decisão pura, sem rede, sobre um `CloseSettings` |
+| `CLOSE_READS` | constante | Os seis caminhos lidos (`FLAG`, `PLAYER_CHOICE`, `COMMAND_LINE`, `FROM_XBOX`, `XBOX_RUNNING`, `XBOX_NOTICE_DISMISSED`) |
+| `SWITCH_TO_BACKGROUND`, `QUIT` | constantes | `/riot-client-lifecycle/v1/quit/switch-background-mode` e `/riot-client-lifecycle/v1/quit` |
 
 ## Dependências
 
-- Usa: nada além do `request` injetado.
-- Usado por: [[riotClient]] (`closeClient`), que o [[main]] passa ao [[riotOverlay]].
+- Usa: só a API local recebida.
+- Usado por: [[riotClient]] (`close_client`), que o [[main]] passa ao [[riotOverlay]].
 
 ## Invariantes e decisões
 
@@ -43,13 +40,13 @@ Repete a decisão do botão de fechar da Riot: mandar o cliente para o segundo p
 - **Leitura que falha não decide.** Cada leitura com resposta fora de 2xx (por exemplo 404 de uma opção nunca salva) vale como ausente. Se o serviço local não responde, `close` falha antes de qualquer POST.
 - **Um POST só.** Nada é repetido. Uma resposta fora de 2xx vira o erro fixo `The Riot Client did not accept the close request`. O [[riotOverlay]] trata qualquer falha fechando só a janela, como Alt+F4.
 - **Não é o encerramento do Eclipse.** Parar um cliente travado durante o login continua com `/process-control/v1/process/quit` em [[riotClient]], que encerra mesmo com o segundo plano ligado. Este módulo só serve ao clique do usuário no X.
-- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_app_controls.rs`, testes em `src-tauri/tests/riot/riot_app_controls.rs`. Mesma regra do botão de fechar da Riot; as seis leituras são feitas uma depois da outra em vez de juntas.
+- **Leituras em sequência.** As seis leituras são feitas uma depois da outra; o Electron as fazia juntas. São pedidos locais e rápidos, e o fechamento só acontece num clique.
 
 ## Testes
 
-`test/riot/riotAppControls.test.js` confere a tabela de decisão (flag, opção do jogador e valores não booleanos, linha de comando, Xbox e aviso dispensado). Com transporte falso, confere que as seis leituras acontecem, que vai um POST para o segundo plano ou para sair, e que uma recusa gera erro sem segundo POST. Também confere que um serviço inalcançável falha sem POST. Não fala com a Riot real.
+`src-tauri/tests/riot/riot_app_controls.rs` confere a tabela de decisão (flag, opção do jogador e valores não booleanos, linha de comando, Xbox e aviso dispensado). Com transporte falso, confere que as seis leituras acontecem, que vai um POST para o segundo plano ou para sair, e que uma recusa ou um serviço inalcançável gera erro sem segundo POST. Não fala com a Riot real.
 
 ## Pontos de atenção
 
 - Os caminhos e a regra vêm da versão da interface da Riot lida em 2026-11-04. Se uma atualização mudar o `UxService.quit`, a cópia pode divergir; confira ao seguir [[Atualização do Riot Client]].
-- Não foi conferido com a Riot real aberta.
+- O fechamento completo não foi conferido com a Riot real aberta. Em 2026-11-14, só a leitura do sinalizador de segundo plano foi feita na Riot real ([[riotTransport]]).

@@ -8,9 +8,6 @@ tags: [módulo, segurança]
 
 # managerService
 
-> [!note] Só Rust desde 2026-11-15
-> O Electron saiu do projeto ([[ADR-034 Troca do Electron pelo Tauri]]). O que esta nota conta do código JS é histórico; ele está na tag `electron-final`. O que vale hoje está nas partes sobre a versão Rust.
-
 > Serviço de comandos e eventos públicos para os cartões de contas sobre a Riot.
 
 ## Responsabilidade
@@ -19,45 +16,46 @@ Valida métodos, quantidade de argumentos, formatos e campos antes de acessar [[
 
 ## API pública
 
-| Export | Tipo | Descrição |
+| Item | Tipo | Descrição |
 |---|---|---|
-| `createManagerService(options)` | função | Recebe `store`, `launchService`, `riotClient`, `shell`, `events`, `refreshAll`, `scheduleRefresh`, `initContext` e `settingsChanged` por injeção. |
-| `dispatch(method, args)` | método assíncrono | Executa apenas métodos reconhecidos e argumentos válidos. |
-| `createManagerEvents(options)` | função | Cria a fila de eventos com limite de quantidade e bytes. |
-| `events.publish(channel, payload)` | método | Publica somente um canal conhecido, com payload público sanitizado. |
-| `events.read(after)` | método | Retorna eventos posteriores ao cursor, cursor atual e indicação de histórico perdido. |
-| `events.cursor()` | método | Cursor atual, incluído no estado inicial. |
+| `ManagerService::new(store, ports, events)` | construtor | Recebe o [[store]], as portas (`ManagerPorts`) e a fila de eventos |
+| `dispatch(método, args)` | método | Executa apenas métodos reconhecidos e argumentos válidos; erro é um `Failure` com mensagem e código (400, 404, 409) |
+| `ManagerPorts` | trait | O que o serviço pede ao resto do app: login, jogos abertos, link externo, atualização de elos, contexto inicial e aviso de configurações |
+| `ManagerEvents::new(limite, bytes)` | construtor | Fila de eventos com limite de quantidade e bytes |
+| `publish(canal, payload)` | método | Publica somente um canal de `CHANNELS`, com payload público sanitizado |
+| `read(depois)` | método | Eventos posteriores ao cursor, cursor atual e indicação de histórico perdido |
+| `cursor()` | método | Cursor atual, incluído no estado inicial |
+| `public_account`, `copy_public` | funções | Conta pública e cópia sem segredos de um payload |
 
 Comandos de `dispatch`: `init`, `events`, `operation`, `saveAccount`, `deleteAccount`, `refresh`, `runningGames`, `signIn`, `cancelSignIn`, `saveSettings` e `openExternal`.
 
 ## Dependências
 
-- Usa por injeção: [[store]], [[signInService]], [[riotClient]] (só `runningGames`), `shell` (só `openExternal`) e a atualização de elos.
-- Usado por: [[main]], que passa `dispatch` à [[riotOverlay]] e publica o progresso na fila.
-- Consumido por: [[manager-preload]] através de [[managerHost]].
+- Usa: [[store]] e a trait `ManagerPorts`, que no app é o [[appPorts]]: login pelo [[signInService]], jogos abertos pelo [[riotClient]], link externo, atualização de elos pelo [[refresher]], contexto inicial e aviso de configurações.
+- Usado por: [[managerHost]], que recebe os comandos da webview dos [[cards]], e [[main]], que publica o progresso na fila.
+- Consumido por: [[manager-preload]], através de [[managerHost]].
 
 ## Invariantes e decisões
 
 - **`signIn` aceita `riot`.** Desde 2026-11-04, além de `lol`, `tft` e `val`, para entrar na conta sem abrir jogo ([[signInFlow]]). Qualquer outro valor continua recusado com 400.
 - **`saveSettings` aceita `staySignedIn`** só como booleano. Adicionado em 2026-11-04.
 - **API do tamanho dos cartões.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]), `patchAccount`, `forgetSession`, `copy`, `showRiotClient`, `pickClientPath` e `openDataFolder` saíram: só a janela antiga os chamava. `saveSettings` aceita só `refreshMinutes`, `staySignedIn`, `riotClientPath`, `language` e as três chaves de API; `minimizeOnLaunch`, `hideRiotClient`, `closeRiotClient` e `streamerMode` são recusadas. O resultado não tem mais `clientFound`, e `init` não tem mais `embedded`. Menos portas abertas para a view, e nenhum comando lê uma senha guardada.
-- **Não aceita IPC genérico.** Métodos desconhecidos, quantidade incorreta de argumentos e objetos com chaves extras são recusados. Objetos contendo `__proto__`, `constructor` ou `prototype` também são recusados.
+- **Não aceita comando genérico.** Métodos desconhecidos, quantidade incorreta de argumentos e objetos com chaves extras são recusados. Objetos contendo `__proto__`, `constructor` ou `prototype` também são recusados.
 - **Formato de conta fechado.** IDs usam o formato de sessão seguro; regiões precisam existir no contexto inicial; texto, credenciais, notas, temporadas e banimentos têm limites e tipos explícitos.
 - **Conta em login não é reescrita.** Alterar a conta ou excluí-la recusa o `activeAccountId` em uso.
 - **Segredos persistidos não retornam.** `init` e resultados de conta usam uma lista pública de campos; a sanitização de objetos aninhados remove chaves de senha, token, segredo, cookie, autorização e sessão.
 - **Cadastro recebe somente o que foi digitado.** A senha nova atravessa o comando de escrita e vai ao armazenamento criptografado. Não existe comando para devolver a senha salva ao formulário.
-- **Login confirmado pelos cartões.** `signIn` retorna um identificador por `startFromManager`, sem prender a chamada pelo tempo de login. As confirmações de banimento e de jogo aberto ficam nos [[cards]].
+- **Login confirmado pelos cartões.** `signIn` retorna um identificador por `start_from_manager`, sem prender a chamada pelo tempo de login. As confirmações de banimento e de jogo aberto ficam nos [[cards]].
 - **Atualização em segundo plano.** `refresh` e a atualização após salvar conta disparam trabalho sem manter a chamada aberta.
 - **Fila limitada.** Por padrão até 256 eventos e 768 KiB, somente `account-updated`, `refresh-progress`, `next-refresh`, `sign-in-status` e `sign-in-operation`. Eventos e resultados não recebem os objetos internos do store.
 - **Reconexão explícita.** Cursor inválido é recusado; cursor que perdeu histórico informa `reset`, para a visualização reler o estado.
 - **Ações externas limitadas.** Links exigem HTTPS sem usuário ou senha na URL e abrem no navegador padrão.
-- **Idioma só `pt` ou `en`.** `saveSettings` aceita `language` apenas com um valor de `LANGUAGES` do [[language]]; o resto recusa com `Invalid setting`. Depois de salvar, chama `settingsChanged(configurações)`, que o [[main]] usa para refazer a bandeja e avisar a sobreposição. Uma falha nesse aviso não desfaz o salvamento. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
-- **Versão Rust (fase 1 da [[Migração para Tauri]]).** `src-tauri/src/application/manager_service.rs` valida os mesmos comandos, com os mesmos limites e códigos (400, 404, 409), e tem a mesma fila de eventos. O que o serviço pede ao resto do app (login, jogos abertos, link, atualização de elos, contexto inicial e aviso de configurações) vem pela trait `ManagerPorts`, implementada na fase 3. O aviso `settings_changed` que entra em pânico é contido, como o `try/catch` do JS. O tamanho de texto é contado em unidades UTF-16, como o `length` do JS.
-- **Portas reais no Tauri (fase 4 da [[Migração para Tauri]]).** O `ManagerPorts` é o `AppPorts` ([[appPorts]]); a fila de atualização é o [[refresher]].
+- **Idioma só `pt` ou `en`.** `saveSettings` aceita `language` apenas com um valor de `LANGUAGES` do [[language]]; o resto recusa com `Invalid setting`. Depois de salvar, chama o aviso `settings_changed` das portas, que o [[main]] usa para refazer a bandeja e avisar a sobreposição. Uma falha nesse aviso não desfaz o salvamento. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
+- **Portas e limites.** O que o serviço pede ao resto do app vem pela trait `ManagerPorts`; no app é o `AppPorts` ([[appPorts]]), e a fila de atualização é o [[refresher]]. Um pânico no aviso `settings_changed` é contido e não derruba o comando. O tamanho de texto é contado em unidades UTF-16, como os cartões contam no formulário, para os limites baterem.
 
 ## Testes
 
-Testes com dados sintéticos e dependências falsas cobrem validação de métodos e formulários, campos proibidos, proteção da conta em operação, contas públicas, ausência de senhas e chaves em resultados/eventos, recusa dos comandos e opções removidos, limites da fila e execução das ações válidas. Não acessam dados reais do usuário.
+`src-tauri/tests/application/manager_service.rs`, com store em memória e portas falsas. Cobre: estado inicial e operações sem credenciais salvas; criar, editar e apagar contas; recusa de campos desconhecidos, valores inválidos e edição da conta em login; banimento só no formato conhecido; configurações com chaves mascaradas e reagendamento da atualização; `signIn` respondendo na hora, com cancelar e estado dos jogos; atualização de elos respondendo antes do trabalho e validando os IDs; link externo só `https` e sem credenciais na URL; fila de eventos sem segredos, com instantâneos e aviso de histórico perdido; objetos com chaves de protótipo descartados; e idioma salvo só como `pt` ou `en`, avisando a mudança. Não acessam dados reais do usuário.
 
 ## Pontos de atenção
 

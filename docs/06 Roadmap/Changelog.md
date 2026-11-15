@@ -14,6 +14,9 @@ Mudanças relevantes, da mais nova para a mais antiga.
 - Os `.bat` saíram: o Eclipse abre pelo atalho do Setup. Em desenvolvimento, `cargo run` com `ECLIPSE_DATA_DIR`.
 - O `CLAUDE.md`, o README, o [[00 Início]], o [[Como usar]] e as notas dos módulos passaram a apontar para os arquivos em Rust; o texto sobre o JS ficou marcado como histórico.
 - Testes: 388 com `cargo test` e 24 com `npm test`.
+- Depois de instalar, o usuário abriu o Eclipse 2.0.0 e as contas reais abriram normalmente: primeira leitura, pelo Rust, do `data.json`, das senhas e das sessões gravadas pelo Electron.
+- O [[Backlog]] ganhou a lista do que falta conferir no Tauri e perdeu o que só valia para o Electron.
+- As notas de todos os módulos foram reescritas para o Rust: a API pública, as dependências e os testes listam os itens e arquivos em Rust, os parágrafos "Versão Rust" das fases viraram regras comuns, e o aviso "Só Rust" saiu do topo. O que só fazia sentido no Electron saiu, menos o histórico de decisões. A [[Arquitetura]] e o guia de [[Desenvolvimento]] passaram a descrever o app em Tauri, com os comandos, os testes e o Setup de hoje.
 
 ## 2026-11-15 · Migração para Tauri: o Eclipse assume o arraste da Riot
 
