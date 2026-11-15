@@ -19,6 +19,7 @@ Desde 2026-11-15 o Eclipse é só Tauri ([[ADR-034 Troca do Electron pelo Tauri]
 Falta:
 
 - caixa "Ocultar contas", cobertura da coluna durante o login e cópias de minimizar e fechar ([[overlayToggle]], [[overlayCover]]);
+- elo do League vindo do OP.GG para as contas reais, sem chave: todas as contas ganhando elo, o servidor certo e a leitura do jogo mantida quando é mais nova ([[opgg]]);
 - placas verticais e lista compacta sobre a Riot real, com a troca pelos ícones e a escolha mantida ao reabrir ([[cards]]);
 - login com e sem "Manter login" e troca entre contas com sessão guardada ([[signInService]], [[sessionKeeper]]);
 - elos atualizando, pela API e pelo jogo aberto ([[rankWatcher]], [[gameRanks]]);

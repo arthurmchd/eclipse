@@ -31,7 +31,8 @@ O elo do TFT ainda é consultado ([[rankApi]]), mas não aparece nos cartões.
 
 | Jogo | Fonte | Chave |
 |---|---|---|
-| LoL e TFT | Riot API oficial | Chave em developer.riotgames.com; a de desenvolvimento expira em 24 h |
+| LoL | OP.GG, endpoint público (não oficial) | Nenhuma. Desde 2026-11-15, a fonte principal sem chave ([[ADR-037 Elo do League pelo OP.GG]]). Recebe o Riot ID e o servidor de cada conta; o dado chega com o atraso de um ciclo de atualização |
+| LoL e TFT | Riot API oficial | Chave em developer.riotgames.com; a de desenvolvimento expira em 24 h. Com ela, o LoL vem daqui primeiro |
 | TFT (opcional) | Riot API oficial | A Riot aprova chave pessoal por jogo, então o TFT pode ter a sua |
 | VALORANT | HenrikDev (não oficial) | A API oficial de elo do VALORANT só é liberada para apps aprovados |
 | LoL, TFT e VALORANT, sem chave | O jogo aberto no PC ([[gameRanks]]) | Nenhuma. Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]): a conta ganha elo quando joga. Sem RR no VALORANT nem cortes de Mestre+ |

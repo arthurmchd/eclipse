@@ -35,6 +35,8 @@ tags: [módulo]
 
 ## Invariantes e decisões
 
+- **A leitura do jogo apaga a marca do OP.GG.** Desde 2026-11-15 ([[ADR-037 Elo do League pelo OP.GG]]), `merge_reading` remove o `source` do `stats.lol`: o bloco passa a ser do jogo, com a hora da leitura, e um perfil mais antigo do [[opgg]] não o substitui.
+
 - **Criado em 2026-11-08** ([[ADR-031 Elo lido do próprio jogo, sem chave]]).
 - **Só com o jogo aberto, nunca no login.** A lista de processos de uma olhada do [[riotState]] diz se o LoL (`lol`) ou o VALORANT (`val`) está aberto; sem ele, nada é pedido. Com um login em curso, nada é lido, para não somar pedidos ao fluxo de login.
 - **Conta pelo Riot ID único.** Como no [[sessionKeeper]], a leitura só vale para uma conta salva com o mesmo Riot ID (sem diferenciar maiúsculas). Conta que não está no Eclipse, ou salva duas vezes, não é tocada.

@@ -39,6 +39,10 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 ### Segredo não vai em argumento de processo
 - `login.ps1` recebe credenciais por stdin ([[login.ps1]]).
 
+### Serviços externos
+- Desde 2026-11-15 ([[ADR-037 Elo do League pelo OP.GG]]), o Eclipse manda ao OP.GG (`mcp-api.op.gg`) o Riot ID e o servidor de cada conta salva, a cada atualização dos elos, mesmo sem chave. Vão todos do mesmo IP, e o OP.GG consegue ligar as contas à mesma pessoa. Não vão login, senha nem sessão. A resposta é lida como não confiável, com limites de tamanho e de aninhamento e conferência de cada campo ([[opgg]]).
+- Com chave, o Riot ID também vai à API oficial da Riot e, para o VALORANT, à HenrikDev ([[rankApi]]).
+
 ### Rede local fechada
 - O Eclipse não abre porta de rede. A prévia de desenvolvimento (`npm run preview`) escuta só em `127.0.0.1` e serve só os arquivos dos cartões, as fontes e o `mock-api.js` ([[Desenvolvimento]]). Os cartões falam com o main só pelo IPC do [[managerHost]], com lista fechada de métodos e validação dos argumentos no [[managerService]].
 - A fila de eventos tem tamanho limitado e carrega somente dados públicos de contas, configurações mascaradas e progresso. Esconder os cartões não cancela uma operação nem faz o serviço devolver credenciais.

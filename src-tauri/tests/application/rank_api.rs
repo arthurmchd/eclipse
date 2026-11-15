@@ -353,7 +353,7 @@ fn missing_riot_id_or_keys_and_rejected_keys_become_fixed_errors() {
     assert_eq!(refresh.fields["stats"]["errors"], json!({ "all": "Add the Riot ID (Name#TAG) to fetch ranks" }));
     assert!(f.http.calls.lock().unwrap().is_empty());
     let none = f.api.refresh_account(&account(json!({})), &keys("", "", ""));
-    assert_eq!(Value::Object(none.errors), json!({ "lol": "No Riot API key (Settings)", "tft": "No Riot API key (Settings)", "val": "No HenrikDev API key (Settings)" }));
+    assert_eq!(Value::Object(none.errors), json!({ "lol": "POST is not supported", "tft": "No Riot API key (Settings)", "val": "No HenrikDev API key (Settings)" }));
     let denied = fixture(routes(vec![(s("/accounts/by-puuid/p-1"), ok(json!({ "puuid": "p-1", "gameName": "Old Name", "tagLine": "BR1" }))), (s("/summoners/"), ok(json!({ "summonerLevel": 1 }))), (s("/entries/"), ok(json!([]))), (s("/tft/"), status(403, json!({}))), (s("henrikdev"), status(401, json!({})))]));
     let refresh = denied.api.refresh_account(&account(json!({})), &keys("riot-key", "", "henrik-key"));
     assert_eq!(refresh.errors["tft"], "This Riot key has no TFT access. Add a TFT key in Settings");

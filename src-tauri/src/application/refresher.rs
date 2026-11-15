@@ -150,7 +150,7 @@ impl Inner {
         }
         let mut done = 0;
         let mut failed = false;
-        for account in targets.iter().filter(|_| remote) {
+        for account in &targets {
             if self.quitting() {
                 break;
             }

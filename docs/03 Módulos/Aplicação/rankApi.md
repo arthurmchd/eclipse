@@ -8,7 +8,7 @@ tags: [módulo]
 
 # rankApi
 
-> Busca elos de LoL e TFT na API oficial da Riot e de VALORANT na HenrikDev, e devolve os campos a mesclar em cada conta.
+> Busca elos de LoL e TFT na API oficial da Riot, de LoL no OP.GG e de VALORANT na HenrikDev, e devolve os campos a mesclar em cada conta.
 
 ## Responsabilidade
 
@@ -40,7 +40,9 @@ As chaves são `ApiKeys { riot, tft, henrik }` do [[store]]. `fields` pode ter `
 
 ## Invariantes e decisões
 
-- **Chaves opcionais.** Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]), o elo também vem do jogo aberto, sem chave ([[rankWatcher]], [[gameRanks]]). Sem nenhuma chave, o [[refresher]] nem chama este módulo. Com chave, ele continua escrevendo os `stats` inteiros, e uma leitura do jogo depois escreve por cima: vale a mais recente.
+- **Chaves opcionais.** Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]), o elo também vem do jogo aberto, sem chave ([[rankWatcher]], [[gameRanks]]). Com chave, este módulo continua escrevendo os `stats` inteiros, e uma leitura do jogo depois escreve por cima: vale a mais recente.
+- **League pelo OP.GG.** Desde 2026-11-15 ([[ADR-037 Elo do League pelo OP.GG]]), o [[refresher]] chama este módulo também sem chave. Para o League, a ordem é: a API oficial, se houver chave da Riot; o [[opgg]], se não houver chave ou se a API oficial falhar. O bloco do OP.GG só substitui o `stats.lol` salvo se for mais novo (`is_newer`), e um erro da API oficial fica em `errors.lol` só se o OP.GG também falhar. O pedido é um `POST` a `mcp-api.op.gg`, com o servidor pelo rótulo (`BR`, `EUW`…), 1 s entre contas (separado dos 80 ms da Riot) e sem nova tentativa: 429 e erro 5xx viram "OP.GG is busy, try again later", e o prazo estourado vira "OP.GG took too long to answer". O TFT e o VALORANT continuam como antes, com os erros de falta de chave guardados (os cartões não mostram `stats.errors`).
+- **Cliente HTTP.** `RankHttp` ganhou `post`, com uma versão padrão que recusa, para as redes falsas dos testes. O `UreqHttp` usa o mesmo agente e a mesma leitura de resposta no `get` e no `post`, e aceita corpo em `text/event-stream` (junta as linhas `data:`).
 - **Duas fontes.** LoL e TFT usam a API oficial da Riot (chave de developer.riotgames.com). VALORANT usa a HenrikDev (não oficial; chave de api.henrikdev.xyz), porque os endpoints ranqueados oficiais de VALORANT só estão abertos a apps de produção aprovados.
 - **Fila com intervalo.** As requisições saem uma por vez, em sequência, com 80 ms entre duas próximas: a chave de desenvolvimento da Riot permite 20 requisições por segundo e 100 a cada 2 minutos. A fila é a mesma para Riot e HenrikDev.
 - **429 com espera.** Até 3 novas tentativas, esperando dentro da fila o que o `retry-after` pede. Desde 2026-11-07 o cabeçalho vale em segundos ou como data HTTP (a espera é a diferença até a data, nunca negativa). Sem cabeçalho ou com valor ilegível, espera 5 s. Se o pedido passa de 60 s, não espera: vira erro na hora, para não travar a fila de todas as contas. Depois das 3 tentativas também vira erro.
@@ -81,4 +83,4 @@ As chaves são `ApiKeys { riot, tft, henrik }` do [[store]]. `fields` pode ter `
 ## Pontos de atenção
 
 - O intervalo de 80 ms não respeita o limite de 100 a cada 2 minutos. Com muitas contas, o app depende do `429`. Desde 2026-11-05 cada atualização gasta um pedido de conta a mais, e cada região e fila com conta em Mestre+ gasta 3 pedidos a cada 10 min (limite do método: 30 a cada 10 s e 500 a cada 10 min). A lista de Mestre pode ter milhares de entradas.
-- A HenrikDev é não oficial e pode mudar endpoints ou formato. Ver [[Limitações conhecidas]] e [[Backlog]].
+- O OP.GG e a HenrikDev são não oficiais e podem mudar endpoints ou formato ([[opgg]]). Ver [[Limitações conhecidas]] e [[Backlog]].

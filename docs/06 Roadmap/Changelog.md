@@ -7,6 +7,15 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Elo do League pelo OP.GG
+
+- Decisão do usuário, depois de comparar o Eclipse com outros gerenciadores no GitHub: o OP.GG é a fonte principal do elo do League sem chave, e o jogo aberto corrige na hora a conta em que a pessoa joga ([[ADR-037 Elo do League pelo OP.GG]]).
+- Módulo novo [[opgg]]: pedido ao endpoint público `mcp-api.op.gg`, leitura do formato de texto dele e o bloco `stats.lol` com a hora do perfil e `source: "opgg"`.
+- O [[rankApi]] usa a API oficial com chave e o OP.GG sem chave ou quando ela falha, e só troca o elo salvo por um mais novo. O [[refresher]] passa a atualizar todas as contas mesmo sem chave. O [[rankWatcher]] apaga a marca do OP.GG ao ler o jogo.
+- Conferido com um perfil público, nunca com contas do usuário: a chamada real pelo Eclipse, e que cada consulta faz o OP.GG atualizar o perfil mas devolve o dado anterior.
+- Testes: `src-tauri/tests/application/opgg.rs` novo; os testes da passada sem chave e do erro sem chave foram atualizados.
+- Versão 2.3.0, gerada e instalada por cima nesta máquina.
+
 ## 2026-11-15 · Ícones do elo do pacote do usuário
 
 - Pedido do usuário: trocar os ícones do elo do League, que "não são bons", pelos do pacote do emoji.gg que ele baixou. Os nove viraram PNG dentro do app; o de Esmeralda, que falta no pacote, saiu do emblema oficial com o mesmo recorte ([[ranks]]). Sem elo continua o símbolo do CommunityDragon.

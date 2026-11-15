@@ -6,6 +6,8 @@ mod language;
 mod manager_service;
 #[path = "application/notices.rs"]
 mod notices;
+#[path = "application/opgg.rs"]
+mod opgg;
 #[path = "application/rank_api.rs"]
 mod rank_api;
 #[path = "application/rank_watcher.rs"]

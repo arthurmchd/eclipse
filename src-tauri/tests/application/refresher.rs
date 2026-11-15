@@ -154,11 +154,11 @@ fn a_full_update_reports_progress_publishes_each_account_and_marks_the_update_bu
 }
 
 #[test]
-fn without_any_api_key_a_rank_update_only_reads_the_open_game_and_still_marks_the_update() {
+fn without_any_api_key_a_rank_update_reads_the_open_game_first_and_still_updates_every_account() {
     let setup = setup(&["a", "b"], ApiKeys::default());
     setup.refresher.request(None);
     setup.drain();
-    assert!(setup.refreshed().is_empty());
+    assert_eq!(setup.refreshed(), ["a", "b"]);
     assert_eq!(*setup.checks.lock().unwrap(), 1);
     assert_eq!(*setup.store.last.lock().unwrap(), Some(iso(NOW)));
     let henrik = self::setup(&["a"], ApiKeys { henrik: "synthetic-key".into(), ..ApiKeys::default() });

@@ -95,6 +95,7 @@ pub fn merge_reading(stats: Option<&Value>, reading: &Reading, at: &str) -> Valu
         merged.insert("solo".into(), keep_from_key(lol.get("solo"), old.get("solo")));
         merged.insert("flex".into(), keep_from_key(lol.get("flex"), old.get("flex")));
         merged.insert("updatedAt".into(), Value::String(at.into()));
+        merged.remove("source");
         next.insert("lol".into(), Value::Object(merged));
         errors.remove("lol");
     }

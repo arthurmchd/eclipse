@@ -31,7 +31,7 @@ Um modo só desde 2026-11-07 ([[ADR-028 Modo antigo removido]]): os [[cards]] so
 
 | Camada | Notas |
 |---|---|
-| Aplicação | [[main]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] · [[rankWatcher]] · [[timers]] · [[refresher]] · [[appPorts]] · [[notices]] (Tauri) |
+| Aplicação | [[main]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] · [[opgg]] · [[rankWatcher]] · [[timers]] · [[refresher]] · [[appPorts]] · [[notices]] (Tauri) |
 | Riot | [[riotClient]] · [[riotState]] · [[gameRanks]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
 | Windows | [[safeStorage]] (Tauri) · [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[riotWindowObserver]] · [[startWithWindows]] · [[toasts]] · [[electronInstance]] (Tauri) |
 | Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[overlayDrag]] (Tauri) · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] · [[assetProtocol]] (Tauri) |
@@ -69,6 +69,7 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-034 Troca do Electron pelo Tauri]]
 - [[ADR-035 Posição da sobreposição movida pelo helper]]
 - [[ADR-036 Arraste da Riot assumido pelo Eclipse]]
+- [[ADR-037 Elo do League pelo OP.GG]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]

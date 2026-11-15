@@ -7,6 +7,7 @@ use chrono::{DateTime, SecondsFormat, TimeZone, Utc};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
+use super::opgg::{self, OpggError};
 use super::store::ApiKeys;
 
 pub struct Region {
@@ -46,6 +47,9 @@ const APEX_TTL_MS: i64 = 10 * 60_000;
 const RETRY_DEFAULT_MS: u64 = 5000;
 const RETRY_LIMIT_MS: i64 = 60_000;
 const SPACING_MS: u64 = 80;
+const OPGG_SPACING_MS: u64 = 1000;
+pub const OPGG_TOO_SLOW: &str = "OP.GG took too long to answer";
+pub const OPGG_BUSY: &str = "OP.GG is busy, try again later";
 pub const TIMEOUT_MS: u64 = 15_000;
 pub const TOO_SLOW: &str = "The rank service took too long to answer";
 
@@ -72,6 +76,17 @@ pub enum HttpFailure {
 
 pub trait RankHttp: Send + Sync {
     fn get(&self, url: &str, headers: &[(&str, &str)], timeout_ms: u64) -> Result<HttpAnswer, HttpFailure>;
+
+    fn post(&self, _url: &str, _headers: &[(&str, &str)], _body: &str, _timeout_ms: u64) -> Result<HttpAnswer, HttpFailure> {
+        Err(HttpFailure::Failed("POST is not supported".into()))
+    }
+}
+
+pub fn event_stream_data(text: &str) -> String {
+    if !text.lines().any(|line| line.starts_with("data:")) {
+        return text.to_string();
+    }
+    text.lines().filter_map(|line| line.strip_prefix("data:")).map(str::trim).collect::<Vec<_>>().join("\n")
 }
 
 fn timed_out(error: &(dyn std::error::Error + 'static)) -> bool {
@@ -89,25 +104,40 @@ fn timed_out(error: &(dyn std::error::Error + 'static)) -> bool {
 
 pub struct UreqHttp;
 
+fn agent(timeout_ms: u64) -> Result<ureq::Agent, HttpFailure> {
+    let connector = native_tls::TlsConnector::new().map_err(|error| HttpFailure::Failed(error.to_string()))?;
+    Ok(ureq::AgentBuilder::new().tls_connector(Arc::new(connector)).timeout(Duration::from_millis(timeout_ms)).build())
+}
+
+fn read_answer(sent: Result<ureq::Response, ureq::Error>) -> Result<HttpAnswer, HttpFailure> {
+    let response = match sent {
+        Ok(response) => response,
+        Err(ureq::Error::Status(_, response)) => response,
+        Err(ureq::Error::Transport(transport)) => {
+            return Err(if timed_out(&transport) { HttpFailure::TimedOut } else { HttpFailure::Failed(transport.to_string()) });
+        }
+    };
+    let status = response.status();
+    let retry_after = response.header("retry-after").map(str::to_string);
+    let text = response.into_string().map_err(|error| if timed_out(&error) { HttpFailure::TimedOut } else { HttpFailure::Failed(error.to_string()) })?;
+    Ok(HttpAnswer { status, retry_after, body: serde_json::from_str(&event_stream_data(&text)).ok() })
+}
+
 impl RankHttp for UreqHttp {
-    fn get(&self, url: &str, headers: &[(&str, &str)], timeout_ms: u64) -> Result<HttpAnswer, HttpFailure> {
-        let connector = native_tls::TlsConnector::new().map_err(|error| HttpFailure::Failed(error.to_string()))?;
-        let agent = ureq::AgentBuilder::new().tls_connector(Arc::new(connector)).timeout(Duration::from_millis(timeout_ms)).build();
-        let mut request = agent.get(url);
+    fn post(&self, url: &str, headers: &[(&str, &str)], body: &str, timeout_ms: u64) -> Result<HttpAnswer, HttpFailure> {
+        let mut request = agent(timeout_ms)?.post(url);
         for (name, value) in headers {
             request = request.set(name, value);
         }
-        let response = match request.call() {
-            Ok(response) => response,
-            Err(ureq::Error::Status(_, response)) => response,
-            Err(ureq::Error::Transport(transport)) => {
-                return Err(if timed_out(&transport) { HttpFailure::TimedOut } else { HttpFailure::Failed(transport.to_string()) });
-            }
-        };
-        let status = response.status();
-        let retry_after = response.header("retry-after").map(str::to_string);
-        let text = response.into_string().map_err(|error| if timed_out(&error) { HttpFailure::TimedOut } else { HttpFailure::Failed(error.to_string()) })?;
-        Ok(HttpAnswer { status, retry_after, body: serde_json::from_str(&text).ok() })
+        read_answer(request.send_string(body))
+    }
+
+    fn get(&self, url: &str, headers: &[(&str, &str)], timeout_ms: u64) -> Result<HttpAnswer, HttpFailure> {
+        let mut request = agent(timeout_ms)?.get(url);
+        for (name, value) in headers {
+            request = request.set(name, value);
+        }
+        read_answer(request.call())
     }
 }
 
@@ -281,6 +311,7 @@ pub struct RankApi {
     http: Arc<dyn RankHttp>,
     hooks: ApiHooks,
     queue: Mutex<Option<i64>>,
+    opgg_queue: Mutex<Option<i64>>,
     apex: Mutex<HashMap<String, ApexEntry>>,
 }
 
@@ -294,7 +325,7 @@ struct Lookup<'a> {
 
 impl RankApi {
     pub fn new(http: Arc<dyn RankHttp>, hooks: ApiHooks) -> Self {
-        Self { http, hooks, queue: Mutex::new(None), apex: Mutex::new(HashMap::new()) }
+        Self { http, hooks, queue: Mutex::new(None), opgg_queue: Mutex::new(None), apex: Mutex::new(HashMap::new()) }
     }
 
     pub fn live() -> Self {
@@ -444,6 +475,41 @@ impl RankApi {
         }))
     }
 
+    fn fetch_opgg(&self, game_name: &str, tag_line: &str, region: &str) -> Result<Value, ApiError> {
+        let region = find_region(region).ok_or_else(|| ApiError::new(0, format!("Unknown region {region}")))?;
+        let body = opgg::profile_request(game_name, tag_line, region.label).to_string();
+        let headers = [("Content-Type", "application/json"), ("Accept", "application/json, text/event-stream")];
+        let answer = {
+            let mut last = self.opgg_queue.lock().unwrap();
+            if let Some(gap) = last.map(|at| self.now() - at).filter(|gap| *gap < OPGG_SPACING_MS as i64) {
+                (self.hooks.wait)(OPGG_SPACING_MS - gap.max(0) as u64);
+            }
+            let answer = self.http.post(opgg::ENDPOINT, &headers, &body, self.hooks.timeout_ms);
+            *last = Some(self.now());
+            answer
+        };
+        let answer = match answer {
+            Ok(answer) => answer,
+            Err(HttpFailure::TimedOut) => return Err(ApiError::new(0, OPGG_TOO_SLOW)),
+            Err(HttpFailure::Failed(message)) => return Err(ApiError::new(0, message)),
+        };
+        if answer.status == 429 || answer.status >= 500 {
+            return Err(ApiError::new(answer.status, OPGG_BUSY));
+        }
+        if !(200..300).contains(&answer.status) {
+            return Err(ApiError::new(answer.status, format!("OP.GG request failed (HTTP {})", answer.status)));
+        }
+        let body = answer.body.ok_or_else(|| ApiError::new(answer.status, "OP.GG sent an invalid answer"))?;
+        let text = opgg::tool_text(&body).map_err(|error| match error {
+            OpggError::NotFound => ApiError::new(404, format!("Riot ID {} not found on OP.GG ({})", riot_id_text(game_name, tag_line), region.label)),
+            OpggError::Failed(message) => ApiError::new(0, message),
+        })?;
+        let unreadable = || ApiError::new(0, "OP.GG sent an answer Eclipse cannot read");
+        let parsed = opgg::parse_text(&text).ok_or_else(unreadable)?;
+        let fetched_at = self.updated_at();
+        opgg::lol_from_profile(&parsed, fetched_at.as_str().unwrap_or_default()).ok_or_else(unreadable)
+    }
+
     fn fetch_tft(&self, lookup: &mut Lookup, key: &str) -> Result<Value, ApiError> {
         let platform = lookup.region.to_string();
         find_region(&platform).ok_or_else(|| ApiError::new(0, format!("Unknown region {platform}")))?;
@@ -518,6 +584,7 @@ impl RankApi {
         let region = text(account.get("region"));
         let mut lookup = Lookup { cache, checked: false, game_name: game_name.clone(), tag_line: tag_line.clone(), region: &region };
         let mut lol_failed = false;
+        let mut lol_error = None;
         if !keys.riot.is_empty() {
             match self.fetch_lol(&mut lookup, &keys.riot) {
                 Ok(lol) => {
@@ -525,12 +592,27 @@ impl RankApi {
                 }
                 Err(error) => {
                     lol_failed = true;
-                    errors.insert("lol".into(), Value::String(riot_key_error(&error)));
+                    lol_error = Some(riot_key_error(&error));
                 }
             }
         } else {
             lol_failed = true;
-            errors.insert("lol".into(), Value::String("No Riot API key (Settings)".into()));
+        }
+        if lol_failed {
+            match self.fetch_opgg(&lookup.game_name, &lookup.tag_line, &region) {
+                Ok(lol) => {
+                    if opgg::is_newer(&lol, stats.get("lol")) {
+                        stats.insert("lol".into(), lol);
+                    }
+                    lol_error = None;
+                }
+                Err(error) => {
+                    lol_error.get_or_insert(error.message);
+                }
+            }
+        }
+        if let Some(message) = lol_error {
+            errors.insert("lol".into(), Value::String(message));
         }
         let tft_key = if keys.tft.is_empty() { &keys.riot } else { &keys.tft };
         if !tft_key.is_empty() {
