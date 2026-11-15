@@ -14,6 +14,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 - A escolha fica salva na configuração `cardLayout` (`plates` ou `list`), validada pelo [[managerService]] e guardada pelo [[store]] só depois do primeiro clique.
 - Saíram o banner do League e a arte larga do VALORANT; o retrato do VALORANT usa a arte quadrada ([[ranks]]).
 - Testes: `test/renderer/cardView.test.js` novo, o do banner saiu; testes Rust do `cardLayout` no store e no serviço.
+- Versão 2.1.0: Setup gerado e instalado por cima nesta máquina, a pedido do usuário. 390 testes com `cargo test` e 27 com `npm test`. A pasta da Cinzel da instalação anterior continua em `%LOCALAPPDATA%\Eclipse`, porque o Setup não apaga arquivos de versões antigas; o app não a serve mais.
 
 ## 2026-11-15 · Cartões respeitam a ordem das janelas e a caixa não some no arraste
 
