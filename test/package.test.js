@@ -19,7 +19,7 @@ test('npm no longer builds or runs an Electron Eclipse', () => {
 });
 
 test('npm keeps only the fonts the Tauri Setup packs', () => {
-  assert.deepEqual(Object.keys(pkg.dependencies).sort(), ['@fontsource/cinzel', '@fontsource/inter', '@fontsource/teko']);
+  assert.deepEqual(Object.keys(pkg.dependencies).sort(), ['@fontsource/inter', '@fontsource/teko']);
   for (const family of Object.keys(pkg.dependencies)) assert.ok(Object.keys(tauri.bundle.resources).some((source) => source.includes(`node_modules/${family}/`)));
 });
 

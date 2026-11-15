@@ -135,6 +135,21 @@ fn language_is_portuguese_by_default_and_only_switches_when_saved() {
 }
 
 #[test]
+fn the_card_layout_is_plates_by_default_and_only_list_when_saved() {
+    let (_dir, mut store) = temporary_store();
+    assert!(store.data.settings.get("cardLayout").is_none());
+    assert_eq!(store.public_settings()["cardLayout"], "plates");
+    let settings = store.update_settings(SettingsInput { card_layout: Some("list".into()), ..SettingsInput::default() }).unwrap();
+    assert_eq!(settings["cardLayout"], "list");
+    let settings = store.update_settings(SettingsInput { refresh_minutes: Some(10.0), ..SettingsInput::default() }).unwrap();
+    assert_eq!(settings["cardLayout"], "list");
+    store.data.settings.insert("cardLayout".into(), json!("grid"));
+    assert_eq!(store.public_settings()["cardLayout"], "plates");
+    store.data.settings.remove("cardLayout");
+    assert_eq!(store.public_settings()["cardLayout"], "plates");
+}
+
+#[test]
 fn an_unreadable_api_key_is_skipped_while_the_others_still_work() {
     let (dir, mut store) = temporary_store();
     store

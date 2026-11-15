@@ -7,6 +7,14 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Placas verticais e lista compacta
+
+- Pedido do usuário: reformular o cartão das contas. Num quadro com sete opções inspiradas em sites de estatísticas, escolheu as placas verticais como padrão e a lista compacta para quem tem muitas contas, trocadas por dois ícones no rodapé ([[cards]]).
+- Os dados do cartão saíram do visual: `cardView.js` monta os campos de cada conta e `cards.js` só os desenha, em placa ou em linha.
+- A escolha fica salva na configuração `cardLayout` (`plates` ou `list`), validada pelo [[managerService]] e guardada pelo [[store]] só depois do primeiro clique.
+- Saíram o banner do League e a arte larga do VALORANT; o retrato do VALORANT usa a arte quadrada ([[ranks]]).
+- Testes: `test/renderer/cardView.test.js` novo, o do banner saiu; testes Rust do `cardLayout` no store e no serviço.
+
 ## 2026-11-15 · Cartões respeitam a ordem das janelas e a caixa não some no arraste
 
 - Relato do usuário depois da 2.0.0: com a Riot em segundo plano, os cartões ficavam por cima dos outros programas. A janela deles estava "sempre por cima" e a da Riot não; a janela de abertura da Riot é "sempre por cima" e passa o estilo para os cartões presos a ela. O [[riotWindowObserver]] passa a tirar o estilo dos cartões quando a Riot escolhida não o tem, e a pô-los logo acima dela.

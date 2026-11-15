@@ -295,6 +295,18 @@ fn objects_with_prototype_keys_are_dropped_from_events() {
 }
 
 #[test]
+fn the_card_layout_is_saved_only_as_plates_or_list() {
+    let f = fixture();
+    for layout in [json!("grid"), json!("LIST"), json!(""), json!(1), Value::Null, json!(true)] {
+        let failure = f.service.dispatch("saveSettings", &[json!({ "cardLayout": layout })]).unwrap_err();
+        assert_eq!(failure.message, "Invalid setting");
+    }
+    assert!(f.ports.calls().is_empty());
+    assert_eq!(f.service.dispatch("saveSettings", &[json!({ "cardLayout": "list" })]).unwrap()["cardLayout"], "list");
+    assert_eq!(f.service.dispatch("saveSettings", &[json!({ "cardLayout": "plates" })]).unwrap()["cardLayout"], "plates");
+}
+
+#[test]
 fn language_is_saved_only_as_pt_or_en_and_announces_the_settings_change() {
     let f = fixture();
     for language in [json!("fr"), json!("EN"), json!(""), json!(1), Value::Null, json!(true)] {

@@ -46,20 +46,12 @@ export const valGroupIcon = (group) => valIcon(group.id === 'UNRATED' ? 0 : grou
 export const profileIcon = (id) =>
   `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${id}.jpg`;
 
-const BANNERS = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/regalia/bannerskins';
 const PLAYER_CARDS = 'https://media.valorant-api.com/playercards';
 const DEFAULT_CARD = '9fb348bc-41a0-91ad-8a3e-818035c4e561';
 
-export function lolBanner(lol) {
-  const name = String(lol?.banner || '').toLowerCase();
-  if (/^[a-z0-9_]{1,80}$/.test(name)) return `${BANNERS}/${name}.png`;
-  const best = LOL_TIERS.find((t) => t.id !== 'UNRANKED' && [lol?.solo?.tier, lol?.flex?.tier].includes(t.id));
-  return `${BANNERS}/${best ? best.id.toLowerCase() : 'default'}.png`;
-}
-
 export function valCardArt(card) {
   const id = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(String(card || ''))?.[0] || DEFAULT_CARD;
-  return `${PLAYER_CARDS}/${id.toLowerCase()}/wideart.png`;
+  return `${PLAYER_CARDS}/${id.toLowerCase()}/smallart.png`;
 }
 
 const title = (s) => s.charAt(0) + s.slice(1).toLowerCase();

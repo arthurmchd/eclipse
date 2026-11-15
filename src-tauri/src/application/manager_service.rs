@@ -5,6 +5,8 @@ use regex::Regex;
 use serde_json::{json, Map, Value};
 
 use super::language::LANGUAGES;
+
+pub const CARD_LAYOUTS: [&str; 2] = ["plates", "list"];
 use super::store::{AccountInput, SettingsInput, Store};
 
 pub const CHANNELS: [&str; 5] = ["account-updated", "refresh-progress", "next-refresh", "sign-in-status", "sign-in-operation"];
@@ -356,7 +358,7 @@ impl ManagerService {
     }
 
     fn save_settings(&self, input: &Value) -> Result<Value, Failure> {
-        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
+        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "cardLayout", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
         let mut clean = SettingsInput::default();
         for (key, value) in input.as_object().unwrap() {
             match key.as_str() {
@@ -368,6 +370,10 @@ impl ManagerService {
                 "language" => {
                     let language = value.as_str().filter(|language| LANGUAGES.contains(language)).ok_or_else(|| Failure::new("Invalid setting", 400))?;
                     clean.language = Some(language.to_string());
+                }
+                "cardLayout" => {
+                    let layout = value.as_str().filter(|layout| CARD_LAYOUTS.contains(layout)).ok_or_else(|| Failure::new("Invalid setting", 400))?;
+                    clean.card_layout = Some(layout.to_string());
                 }
                 "riotClientPath" => clean.riot_client_path = Some(text(Some(value), 2048, false)?),
                 "riotApiKey" => clean.riot_api_key = Some(text(Some(value), 4096, false)?),

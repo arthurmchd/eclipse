@@ -47,6 +47,7 @@ pub struct SettingsInput {
     pub stay_signed_in: Option<bool>,
     pub riot_client_path: Option<String>,
     pub language: Option<String>,
+    pub card_layout: Option<String>,
     pub riot_api_key: Option<String>,
     pub riot_tft_api_key: Option<String>,
     pub henrik_api_key: Option<String>,
@@ -474,6 +475,8 @@ impl Store {
         public.insert("riotClientPath".into(), settings.get("riotClientPath").cloned().unwrap_or(Value::Null));
         let language = if settings.get("language").and_then(Value::as_str) == Some("en") { "en" } else { "pt" };
         public.insert("language".into(), Value::String(language.into()));
+        let layout = if settings.get("cardLayout").and_then(Value::as_str) == Some("list") { "list" } else { "plates" };
+        public.insert("cardLayout".into(), Value::String(layout.into()));
         public.insert("riotApiKeyMasked".into(), Value::String(mask(settings.get("riotApiKey"))));
         public.insert("riotTftApiKeyMasked".into(), Value::String(mask(settings.get("riotTftApiKey"))));
         public.insert("henrikApiKeyMasked".into(), Value::String(mask(settings.get("henrikApiKey"))));
@@ -492,6 +495,9 @@ impl Store {
         }
         if let Some(language) = input.language {
             self.data.settings.insert("language".into(), Value::String(language));
+        }
+        if let Some(layout) = input.card_layout {
+            self.data.settings.insert("cardLayout".into(), Value::String(layout));
         }
         for (name, value) in [("riotApiKey", input.riot_api_key), ("riotTftApiKey", input.riot_tft_api_key), ("henrikApiKey", input.henrik_api_key)] {
             if let Some(value) = value {

@@ -26,23 +26,12 @@ test('no climb without a usable cutoff or below Master', async () => {
   assert.equal(rankOf(account, 'lol', 'flex').climb, null);
 });
 
-test('the LoL banner uses the chosen banner name or falls back to the ranked banner of the best tier', async () => {
-  const { lolBanner } = await load('ranks.js');
-  const base = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/regalia/bannerskins';
-  assert.equal(lolBanner({ banner: 'Hextech_Banner' }), `${base}/hextech_banner.png`);
-  assert.equal(lolBanner({ banner: '../x', solo: { tier: 'GOLD' } }), `${base}/gold.png`);
-  assert.equal(lolBanner({ solo: { tier: 'EMERALD' }, flex: { tier: 'MASTER' } }), `${base}/master.png`);
-  assert.equal(lolBanner({ solo: null, flex: { tier: 'IRON' } }), `${base}/iron.png`);
-  assert.equal(lolBanner({ solo: { tier: 'UNRANKED' } }), `${base}/default.png`);
-  assert.equal(lolBanner(undefined), `${base}/default.png`);
-});
-
-test('the VALORANT card art is the wide art of the saved card, or the default card', async () => {
+test('the VALORANT card art is the small square art of the saved card, or the default card', async () => {
   const { valCardArt } = await load('ranks.js');
   const base = 'https://media.valorant-api.com/playercards';
-  assert.equal(valCardArt(`${base}/CEC2424B-483E-DA2E-4369-F0A8822F96B5/smallart.png`), `${base}/cec2424b-483e-da2e-4369-f0a8822f96b5/wideart.png`);
-  assert.equal(valCardArt('70cecca0-4b4b-9ad4-1652-bebe785ef8e8'), `${base}/70cecca0-4b4b-9ad4-1652-bebe785ef8e8/wideart.png`);
-  for (const card of [null, undefined, '', 'https://example.com/card.png', { small: 'x' }]) assert.equal(valCardArt(card), `${base}/9fb348bc-41a0-91ad-8a3e-818035c4e561/wideart.png`);
+  assert.equal(valCardArt(`${base}/CEC2424B-483E-DA2E-4369-F0A8822F96B5/smallart.png`), `${base}/cec2424b-483e-da2e-4369-f0a8822f96b5/smallart.png`);
+  assert.equal(valCardArt('70cecca0-4b4b-9ad4-1652-bebe785ef8e8'), `${base}/70cecca0-4b4b-9ad4-1652-bebe785ef8e8/smallart.png`);
+  for (const card of [null, undefined, '', 'https://example.com/card.png', { small: 'x' }]) assert.equal(valCardArt(card), `${base}/9fb348bc-41a0-91ad-8a3e-818035c4e561/smallart.png`);
 });
 
 test('a VALORANT rank read from the game has no RR, and the card shows the tier without one', async () => {

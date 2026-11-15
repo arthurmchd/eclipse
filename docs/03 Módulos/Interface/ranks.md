@@ -28,24 +28,23 @@ Até 2026-11-07 era documentado na nota da janela antiga ([[renderer]]), que tam
 | `climbOf(entry)` | função | Desde 2026-11-05: para uma entrada de Mestre+ com `cutoffs`, `{ tier, cutoff, gap, holding }`. Mestre mira Grão-Mestre; Grão-Mestre e Desafiante miram Desafiante (`holding` no Desafiante); `gap` é corte menos PdL. Sem corte, `null` |
 | `distributionGroups(game)` | função | Grupos de tiers com ícone, por jogo |
 | `lolEmblem`, `lolCrest`, `valIcon`, `valGroupIcon`, `profileIcon` | funções | URLs no CommunityDragon e no valorant-api |
-| `lolBanner(lol)` | função | Desde 2026-11-05: URL do banner do League. `lol.banner` (só `[a-z0-9_]`, em minúsculas) ou o banner ranqueado do melhor elo entre `solo` e `flex`; sem elo, `default` |
-| `valCardArt(card)` | função | Desde 2026-11-05: URL da arte larga (`wideart.png`) do cartão de jogador. Tira o UUID de `card` (URL ou UUID puro); sem UUID, o cartão padrão do VALORANT |
+| `valCardArt(card)` | função | Desde 2026-11-15: URL da arte quadrada (`smallart.png`) do cartão de jogador, o retrato das placas e da lista; de 2026-11-05 até lá, a arte larga (`wideart.png`). Tira o UUID de `card` (URL ou UUID puro); sem UUID, o cartão padrão do VALORANT |
 
 ## Dependências
 
 - Usa: nada além de constantes próprias.
-- Usado por: [[cards]] (`rankOf`, `lolCrest`, `profileIcon`, `lolBanner`, `valCardArt`).
+- Usado por: [[cards]], pelo `cardView.js` (`rankOf`, `lolCrest`, `profileIcon`, `valCardArt`).
 
 ## Invariantes e decisões
 
-- **Banner e cartão só por ID.** `lolBanner` aceita só letras minúsculas, números e `_` no nome do banner, e `valCardArt` só aproveita um UUID. O host e o caminho são sempre montados aqui, então um valor salvo estranho não vira outra URL.
+- **Cartão só por ID.** `valCardArt` só aproveita um UUID. O `lolBanner`, que montava a URL do banner do League a partir do nome salvo, saiu em 2026-11-15 com o visual de placas, que não mostra banner. O host e o caminho são sempre montados aqui, então um valor salvo estranho não vira outra URL.
 - **VALORANT sem RR.** Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]), um elo lido do jogo pode vir com `rr: null`. O `rankOf` mostra o elo sem a linha de RR, com a barra vazia, e pontua só pelo tier. Antes aparecia "null RR".
 - **Pontuação.** LoL/TFT: índice do tier × 1000 + divisão × 100 + LP; Master+ sem divisão, barra até 1500 LP. VALORANT: tier × 1000 + RR, ranqueado a partir do tier 3, Radiant (27) com barra até 1000 RR. Sem elo na fila (ou VALORANT abaixo do tier 3): `score = -1`.
 - **Emblemas de LoL.** Os arquivos têm 1280×720 com o emblema no meio; quem desenha precisa ampliar a imagem para passar do preenchimento.
 
 ## Testes
 
-`test/renderer/ranks.test.js` cobre `climbOf` (Mestre para Grão-Mestre, Grão-Mestre e Desafiante contra o corte do Desafiante, sem corte ou abaixo de Mestre), `lolBanner` (nome salvo ou banner do melhor elo) e `valCardArt` (UUID salvo ou cartão padrão). `rankOf` é exercitado pelo teste com Electron real dos [[cards]].
+`test/renderer/ranks.test.js` cobre `climbOf` (Mestre para Grão-Mestre, Grão-Mestre e Desafiante contra o corte do Desafiante, sem corte ou abaixo de Mestre), `valCardArt` (UUID salvo ou cartão padrão) e o VALORANT sem RR. `rankOf` também é exercitado pelo `test/renderer/cardView.test.js` dos [[cards]].
 
 ## Pontos de atenção
 

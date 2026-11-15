@@ -34,7 +34,8 @@ tags: [módulo, tauri, segurança]
 
 ## Invariantes e decisões
 
-- **Lista fechada, por regra.** Entram os arquivos de `src/renderer/` e de `src/renderer/assets/` (só `html`, `css`, `js`, `png` e `svg`), seis arquivos da caixa e da cobertura, e as fontes Inter 400, Cinzel 700 e Teko 500 e 600 de `node_modules/@fontsource`, com o CSS e os `woff`/`woff2` de cada subconjunto. Os `preload`, o resto de `node_modules`, os `.ps1`, o `main` e qualquer outro arquivo ficam de fora, conferidos por teste.
+- **Lista fechada, por regra.** Entram os arquivos de `src/renderer/` e de `src/renderer/assets/` (só `html`, `css`, `js`, `png` e `svg`), seis arquivos da caixa e da cobertura, e as fontes Inter 400 e Teko 500 e 600 de `node_modules/@fontsource`, com o CSS e os `woff`/`woff2` de cada subconjunto. Os `preload`, o resto de `node_modules`, os `.ps1`, o `main` e qualquer outro arquivo ficam de fora, conferidos por teste.
+- **Cinzel saiu.** Desde 2026-11-15 a Cinzel 700, que só servia ao cartão antigo do League, saiu da lista, do Setup e das dependências; as placas e a lista dos [[cards]] usam Segoe UI e Teko.
 - **Nenhum escape.** Cada pedaço do caminho é conferido por uma expressão sem `%`, sem barra invertida e sem começar por ponto; `..`, pedaços vazios e caminhos de mais de 512 caracteres são recusados. Assim, nenhum caminho codificado chega ao disco.
 - **Só o próprio endereço.** `resolve` aceita `eclipse://localhost` e `http://eclipse.localhost`; `https`, outros hosts e outros esquemas não respondem.
 - **Os caminhos relativos das páginas continuam valendo.** Os endereços espelham as pastas do projeto, então o `../../node_modules/...` do `cards.html` e o `../../../node_modules/...` do `toggle.html` chegam às fontes sem mudar o HTML do Electron.
