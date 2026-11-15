@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use eclipse::application::refresher::{iso, RefreshHooks, RefreshStore, Refresher, FAILED, MIN_DELAY_MS};
+use eclipse::application::refresher::{iso, RefreshHooks, RefreshStore, Refresher, FAILED, FOLLOW_UP_MS, MIN_DELAY_MS};
 use eclipse::application::store::ApiKeys;
 use serde_json::{json, Map, Value};
 
@@ -81,6 +81,29 @@ fn setup(ids: &[&str], keys: ApiKeys) -> Setup {
             true
         }),
         publish: Box::new(move |channel, payload| published.lock().unwrap().push((channel.to_string(), payload.clone()))),
+        now: Box::new(|| NOW),
+    };
+    let refresher = Refresher::new(store.clone(), timers.clone(), hooks);
+    Setup { refresher, store, timers, refreshed, checks, events }
+}
+
+fn opgg_setup(ids: &[&str], from_opgg: &'static [&'static str]) -> Setup {
+    let accounts = ids.iter().map(|id| json!({ "id": id }).as_object().unwrap().clone()).collect();
+    let store = Arc::new(Store { accounts, keys: ApiKeys::default(), minutes: Mutex::new(0.0), last: Mutex::new(None), failing: Mutex::default(), logs: Mutex::default() });
+    let timers = ManualTimers::new();
+    let refreshed: Arc<Mutex<Vec<String>>> = Arc::default();
+    let checks: Arc<Mutex<usize>> = Arc::default();
+    let events: Arc<Mutex<Vec<(String, Value)>>> = Arc::default();
+    let seen = refreshed.clone();
+    let hooks = RefreshHooks {
+        refresh_account: Box::new(move |account, _keys| {
+            let id = account["id"].as_str().unwrap().to_string();
+            seen.lock().unwrap().push(id.clone());
+            let lol = if from_opgg.contains(&id.as_str()) { json!({ "source": "opgg" }) } else { json!({ "level": 30 }) };
+            json!({ "stats": { "lol": lol } }).as_object().unwrap().clone()
+        }),
+        check_game: Box::new(|| true),
+        publish: Box::new(|_, _| {}),
         now: Box::new(|| NOW),
     };
     let refresher = Refresher::new(store.clone(), timers.clone(), hooks);
@@ -225,4 +248,46 @@ fn an_update_running_when_eclipse_quits_stops_before_the_next_account_and_leaves
     assert!(setup.refreshed().is_empty());
     assert_eq!(*setup.store.last.lock().unwrap(), None);
     assert_eq!(setup.channel("refresh-progress").last().unwrap(), &json!({ "done": 2, "total": 2 }));
+}
+
+#[test]
+fn an_update_asked_for_by_the_user_reads_the_opgg_accounts_again_after_a_pause_and_only_once() {
+    let setup = opgg_setup(&["a", "b", "c"], &["a", "c"]);
+    setup.refresher.request(None);
+    setup.drain();
+    assert_eq!(setup.refreshed(), ["a", "b", "c"]);
+    assert_eq!(setup.timers.delays(), [FOLLOW_UP_MS]);
+    setup.timers.run_all(FOLLOW_UP_MS, 5);
+    setup.drain();
+    assert_eq!(setup.refreshed(), ["a", "c"]);
+    assert_eq!(setup.timers.pending(), 0);
+    setup.refresher.request(Some(vec!["b".to_string()]));
+    setup.drain();
+    assert_eq!(setup.refreshed(), ["b"]);
+    assert_eq!(setup.timers.pending(), 0);
+}
+
+#[test]
+fn automatic_updates_never_read_the_opgg_accounts_a_second_time() {
+    let setup = opgg_setup(&["a"], &["a"]);
+    *setup.store.minutes.lock().unwrap() = 30.0;
+    setup.refresher.start();
+    setup.drain();
+    assert_eq!(setup.refreshed(), ["a"]);
+    assert!(!setup.timers.pending_with(FOLLOW_UP_MS));
+}
+
+#[test]
+fn a_user_request_during_an_automatic_update_still_gets_the_second_reading() {
+    let setup = opgg_setup(&["a"], &["a"]);
+    *setup.store.minutes.lock().unwrap() = 30.0;
+    setup.refresher.start();
+    setup.refresher.request(None);
+    setup.drain();
+    assert_eq!(setup.refreshed(), ["a"]);
+    assert!(setup.timers.pending_with(FOLLOW_UP_MS));
+    setup.refresher.stop();
+    setup.timers.run_all(FOLLOW_UP_MS, 5);
+    setup.drain();
+    assert!(setup.refreshed().is_empty());
 }

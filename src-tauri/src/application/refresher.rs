@@ -3,11 +3,13 @@ use std::sync::{Arc, Mutex, Weak};
 use chrono::{DateTime, SecondsFormat, TimeZone, Utc};
 use serde_json::{json, Map, Value};
 
+use super::opgg;
 use super::store::{ApiKeys, Store};
 use super::timers::Timers;
 
 pub const MIN_DELAY_MS: i64 = 5000;
 pub const STARTUP_GRACE_MS: i64 = 1000;
+pub const FOLLOW_UP_MS: u64 = 8000;
 pub const FAILED: &str = "Rank update could not finish";
 
 pub trait RefreshStore: Send + Sync {
@@ -97,6 +99,8 @@ struct State {
     running: bool,
     running_all: bool,
     queued: Option<Selection>,
+    queued_manual: bool,
+    follow_up: bool,
     timer: Option<u64>,
     quitting: bool,
 }
@@ -134,7 +138,7 @@ impl Inner {
         self.state.lock().unwrap().quitting
     }
 
-    fn run(&self, ids: Option<&[String]>) {
+    fn run(&self, ids: Option<&[String]>) -> Vec<String> {
         let targets: Vec<Map<String, Value>> = self
             .store
             .accounts()
@@ -150,14 +154,21 @@ impl Inner {
         }
         let mut done = 0;
         let mut failed = false;
+        let mut from_opgg = Vec::new();
         for account in &targets {
             if self.quitting() {
                 break;
             }
             let fields = (self.hooks.refresh_account)(account, &keys);
             let id = account.get("id").and_then(Value::as_str).unwrap_or_default();
+            let opgg = fields.get("stats").and_then(|stats| stats.pointer("/lol/source")).and_then(Value::as_str) == Some(opgg::SOURCE);
             match self.store.update(id, fields) {
-                Ok(Some(updated)) => (self.hooks.publish)("account-updated", &Value::Object(updated)),
+                Ok(Some(updated)) => {
+                    if opgg {
+                        from_opgg.push(id.to_string());
+                    }
+                    (self.hooks.publish)("account-updated", &Value::Object(updated));
+                }
                 Ok(None) => {}
                 Err(_) => {
                     failed = true;
@@ -174,9 +185,10 @@ impl Inner {
             self.store.log(FAILED);
         }
         self.progress(total, total);
+        from_opgg
     }
 
-    fn request(self: &Arc<Self>, ids: Option<Vec<String>>) {
+    fn request(self: &Arc<Self>, ids: Option<Vec<String>>, manual: bool) {
         let mut state = self.state.lock().unwrap();
         if state.quitting {
             return;
@@ -184,6 +196,7 @@ impl Inner {
         if !state.running {
             state.running = true;
             state.running_all = ids.is_none();
+            state.follow_up = manual;
             drop(state);
             let weak = Arc::downgrade(self);
             self.timers.later(0, Box::new(move || {
@@ -194,8 +207,10 @@ impl Inner {
             return;
         }
         if ids.is_none() && state.running_all {
+            state.follow_up |= manual;
             return;
         }
+        state.queued_manual |= manual;
         let incoming = Selection::of(ids);
         state.queued = Some(match (state.queued.take(), incoming) {
             (None, incoming) => incoming,
@@ -212,16 +227,24 @@ impl Inner {
     }
 
     fn work(self: &Arc<Self>, ids: Option<Vec<String>>) {
-        self.run(ids.as_deref());
-        let queued = {
+        let from_opgg = self.run(ids.as_deref());
+        let (queued, queued_manual, follow_up) = {
             let mut state = self.state.lock().unwrap();
             state.running = false;
             state.running_all = false;
-            state.queued.take()
+            (state.queued.take(), std::mem::take(&mut state.queued_manual), std::mem::take(&mut state.follow_up))
         };
         self.schedule();
+        if follow_up && !from_opgg.is_empty() {
+            let weak = Arc::downgrade(self);
+            self.timers.later(FOLLOW_UP_MS, Box::new(move || {
+                if let Some(inner) = weak.upgrade() {
+                    inner.request(Some(from_opgg), false);
+                }
+            }));
+        }
         if let Some(selection) = queued {
-            self.request(selection.ids());
+            self.request(selection.ids(), queued_manual);
         }
     }
 
@@ -240,7 +263,7 @@ impl Inner {
             let weak: Weak<Inner> = Arc::downgrade(self);
             state.timer = Some(self.timers.later(delay, Box::new(move || {
                 if let Some(inner) = weak.upgrade() {
-                    inner.request(None);
+                    inner.request(None, false);
                 }
             })));
         }
@@ -259,14 +282,14 @@ impl Refresher {
     pub fn start(&self) {
         let due = self.inner.next_refresh_ms().is_some_and(|next| next <= (self.inner.hooks.now)() + STARTUP_GRACE_MS);
         if due && !self.inner.store.accounts().is_empty() {
-            self.inner.request(None);
+            self.inner.request(None, false);
         } else {
             self.inner.schedule();
         }
     }
 
     pub fn request(&self, ids: Option<Vec<String>>) {
-        self.inner.request(ids);
+        self.inner.request(ids, true);
     }
 
     pub fn schedule(&self) {

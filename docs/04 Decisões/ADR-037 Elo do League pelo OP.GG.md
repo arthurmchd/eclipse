@@ -49,6 +49,8 @@ Pelo cliente HTTP do próprio Eclipse, com o perfil público:
 
 Na prática, o elo do OP.GG chega com o atraso de um ciclo de atualização (30 min por padrão no ⚙). A regra do dado mais novo impede que esse atraso apague um elo exato vindo do jogo.
 
+**Segunda leitura a pedido do usuário.** Também no mesmo dia, o usuário aceitou que uma atualização pedida por ele (↻, salvar as configurações ou salvar uma conta) leia de novo, 8 s depois, as contas que vieram do OP.GG. Medido com o perfil público: depois de uma consulta que pediu a atualização, a consulta seguinte, poucos segundos depois, já trouxe o dado novo. Assim, o clique manual traz o dado fresco. O preço é o dobro de consultas nesses cliques. As atualizações automáticas continuam com uma leitura só ([[refresher]]).
+
 ## Não conferido
 
 - O limite de pedidos do endpoint. Não há documentação; 1 s entre contas foi uma escolha conservadora.

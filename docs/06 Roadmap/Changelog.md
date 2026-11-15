@@ -7,6 +7,13 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Segunda leitura do OP.GG no ↻
+
+- Pedido do usuário: quando ele pede a atualização (↻, salvar as configurações ou salvar uma conta), as contas que vieram do OP.GG são lidas de novo 8 s depois, já com o perfil que a primeira consulta mandou o OP.GG atualizar ([[refresher]], [[ADR-037 Elo do League pelo OP.GG]]). As atualizações automáticas continuam com uma leitura só.
+- Medido com um perfil público: a atualização do OP.GG ficou pronta antes da consulta seguinte, poucos segundos depois.
+- Três testes novos no `refresher.rs`.
+- Versão 2.4.0, gerada e instalada por cima nesta máquina.
+
 ## 2026-11-15 · Elo do League pelo OP.GG
 
 - Decisão do usuário, depois de comparar o Eclipse com outros gerenciadores no GitHub: o OP.GG é a fonte principal do elo do League sem chave, e o jogo aberto corrige na hora a conta em que a pessoa joga ([[ADR-037 Elo do League pelo OP.GG]]).

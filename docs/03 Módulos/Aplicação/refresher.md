@@ -39,9 +39,11 @@ tags: [módulo, tauri]
 - **A próxima atualização nunca vem antes de 5 segundos** e é `max(agora, última + intervalo)`. Intervalo 0 desliga o agendamento e publica `next-refresh` vazio. Ao iniciar, se a próxima já venceu (com 1 segundo de folga) e há contas, a passada começa na hora.
 - **Parar é definitivo.** `stop` cancela o agendamento, corta a passada antes da próxima conta e faz pedidos novos serem ignorados.
 
+- **Segunda leitura do OP.GG quando o usuário pede.** Desde 2026-11-15, pedido do usuário ([[ADR-037 Elo do League pelo OP.GG]]). Uma atualização pedida pelo usuário (`request`, usado pelo ↻, por salvar as configurações e por salvar uma conta) guarda as contas cujo `stats.lol` veio com `source: "opgg"` e, `FOLLOW_UP_MS` (8 s) depois, atualiza só essas de novo. Motivo: cada consulta faz o OP.GG atualizar o perfil, mas devolve o dado anterior; medido no mesmo dia, a atualização ficou pronta antes da consulta seguinte, poucos segundos depois. A segunda leitura não pede outra. As atualizações do relógio e da abertura do app não fazem segunda leitura, mas um pedido do usuário durante uma delas faz. Ela passa pela mesma fila e publica progresso, então o rodapé mostra "atualizando" de novo por um instante. Parar o Eclipse antes dos 8 s cancela a leitura.
+
 ## Testes
 
-`src-tauri/tests/application/refresher.rs` cobre a fila (o cenário do JS, inclusive a conta que falha), o progresso e os eventos, a passada sem chave lendo o jogo e atualizando todas as contas, o agendamento a partir da última atualização, o início com atualização vencida e a parada no meio.
+`src-tauri/tests/application/refresher.rs` cobre a fila (o cenário do JS, inclusive a conta que falha), o progresso e os eventos, a passada sem chave lendo o jogo e atualizando todas as contas, a segunda leitura do OP.GG (só a pedido do usuário, uma vez, também quando o pedido chega durante uma atualização automática, e cancelada ao parar), o agendamento a partir da última atualização, o início com atualização vencida e a parada no meio.
 
 ## Pontos de atenção
 
