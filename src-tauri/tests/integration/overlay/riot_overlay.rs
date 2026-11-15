@@ -14,9 +14,10 @@ use super::ManualTimers;
 #[derive(Default)]
 struct Window {
     events: Mutex<Vec<String>>,
-    bounds: Mutex<Option<Rect>>,
+    size: Mutex<Option<Size>>,
     region: Mutex<Vec<Rect>>,
     regions: Mutex<usize>,
+    placed: Mutex<usize>,
     visible: Mutex<bool>,
     shows: Mutex<usize>,
     hides: Mutex<usize>,
@@ -31,13 +32,8 @@ impl Window {
         *self.visible.lock().unwrap()
     }
 
-    fn bounds(&self) -> Rect {
-        self.bounds.lock().unwrap().unwrap()
-    }
-
     fn size(&self) -> Size {
-        let bounds = self.bounds();
-        Size { width: bounds.width, height: bounds.height }
+        self.size.lock().unwrap().unwrap()
     }
 
     fn region(&self) -> Vec<Rect> {
@@ -46,6 +42,10 @@ impl Window {
 
     fn regions(&self) -> usize {
         *self.regions.lock().unwrap()
+    }
+
+    fn placed(&self) -> usize {
+        *self.placed.lock().unwrap()
     }
 
     fn events(&self) -> Vec<String> {
@@ -58,9 +58,10 @@ impl Window {
 }
 
 impl OverlayWindow for Window {
-    fn set_bounds(&self, bounds: Rect) {
-        *self.bounds.lock().unwrap() = Some(bounds);
-        self.push("bounds".into());
+    fn set_size(&self, size: Size) {
+        *self.size.lock().unwrap() = Some(size);
+        *self.placed.lock().unwrap() += 1;
+        self.push("size".into());
     }
 
     fn set_region(&self, parts: &[Rect]) {
@@ -236,12 +237,12 @@ fn cards_follow_the_riot_window_in_physical_pixels_keep_the_login_column_free_an
     assert!(!setup.window.visible());
     setup.checks();
     assert!(setup.window.visible());
-    assert_eq!(setup.window.bounds(), Rect::new(-1920, 0, 1600, 1000));
+    assert_eq!(setup.window.size(), Size { width: 1600, height: 1000 });
     assert_eq!(cards_rect(setup.window.size()), Rect::new(cards_left(1600), 0, 1600 - cards_left(1600), 1000));
     assert_eq!(setup.window.region(), plain(setup.window.size()));
     let regions = setup.window.regions();
     setup.sample(Some(target("1", -1700, 120, 1600, 1000)));
-    assert_eq!(setup.window.bounds(), Rect::new(-1700, 120, 1600, 1000));
+    assert_eq!(setup.window.size(), Size { width: 1600, height: 1000 });
     assert_eq!(setup.window.regions(), regions);
     setup.sample(Some(Target { corner: Some(16), ..target("1", -1700, 120, 1600, 1000) }));
     assert_eq!(setup.window.region(), shape(setup.window.size(), |options| {
@@ -279,6 +280,26 @@ fn cards_follow_the_riot_window_in_physical_pixels_keep_the_login_column_free_an
     assert!(*setup.observer.stopped.lock().unwrap());
     assert_eq!(setup.window.events().last().unwrap(), "close");
     assert!(setup.timers.all_cancelled());
+}
+
+#[test]
+fn dragging_riot_asks_nothing_of_the_window_because_the_helper_moves_it_and_only_a_new_size_does() {
+    let setup = Setup::started();
+    setup.sample(Some(target("1", 100, 100, 1600, 1000)));
+    setup.checks();
+    assert!(setup.window.visible());
+    assert_eq!(setup.window.placed(), 1);
+    setup.window.clear();
+    for step in 1..=50 {
+        setup.sample(Some(target("1", 100 + step * 7, 100 - step * 3, 1600, 1000)));
+    }
+    assert!(setup.window.events().is_empty());
+    setup.sample(Some(target("1", 450, -50, 1280, 720)));
+    assert_eq!(setup.window.events(), ["size", "shape"]);
+    assert_eq!(setup.window.size(), Size { width: 1280, height: 720 });
+    assert_eq!(setup.window.placed(), 2);
+    setup.sample(Some(target("1", 451, -50, 1280, 720)));
+    assert_eq!(setup.window.placed(), 2);
 }
 
 #[test]
@@ -348,7 +369,7 @@ fn a_minimized_riot_hides_the_cards_keeps_the_session_and_shows_them_on_the_firs
     setup.sample(Some(first.clone()));
     setup.checks();
     assert!(setup.window.visible());
-    let placed = setup.window.bounds();
+    let placed = setup.window.size();
     let checked = setup.riot.calls();
     *setup.window.shows.lock().unwrap() = 0;
     setup.sample(Some(Target { x: -32000, y: -32000, minimized: true, ..first.clone() }));
@@ -361,7 +382,7 @@ fn a_minimized_riot_hides_the_cards_keeps_the_session_and_shows_them_on_the_firs
     }
     assert!(setup.riot.calls() > checked);
     assert_eq!(*setup.window.shows.lock().unwrap(), 0);
-    assert_eq!(setup.window.bounds(), placed);
+    assert_eq!(setup.window.size(), placed);
     let restored = setup.riot.calls();
     setup.sample(Some(first.clone()));
     assert_eq!(setup.riot.calls(), restored);

@@ -146,7 +146,9 @@ fn the_helper_gets_only_a_numeric_overlay_handle() {
     let requests: Vec<Value> = [Some("4660"), Some("12; rm"), Some(""), Some("123456789012345678901"), None].into_iter().map(|handle| serde_json::from_str(request_line(77, "C:/Riot/RiotClientServices.exe", handle).trim_end()).unwrap()).collect();
     let handles: Vec<&Value> = requests.iter().map(|request| &request["overlayWindow"]).collect();
     assert_eq!(handles, [&json!("4660"), &Value::Null, &Value::Null, &Value::Null, &Value::Null]);
-    assert_eq!(requests[0], json!({ "ownerPid": 77, "clientPath": "C:/Riot/RiotClientServices.exe", "overlayWindow": "4660" }));
+    assert_eq!(requests[0], json!({ "ownerPid": 77, "clientPath": "C:/Riot/RiotClientServices.exe", "overlayWindow": "4660", "follow": true }));
+    let follows: Vec<&Value> = requests.iter().map(|request| &request["follow"]).collect();
+    assert_eq!(follows, [&json!(true), &json!(false), &json!(false), &json!(false), &json!(false)]);
     let setup = setup(Spawner::default());
     setup.observer.start("C:/Riot/RiotClientServices.exe", Some("4660"));
     assert_eq!(setup.spawner.written(), request_line(77, "C:/Riot/RiotClientServices.exe", Some("4660")));

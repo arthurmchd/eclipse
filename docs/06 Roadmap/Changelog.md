@@ -7,6 +7,23 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Migração para Tauri: o Eclipse assume o arraste da Riot
+
+- O usuário conferiu a [[ADR-035 Posição da sobreposição movida pelo helper]] na Riot real e disse que, arrastando rápido, os cartões continuavam para trás. Pela [[ADR-036 Arraste da Riot assumido pelo Eclipse]], no Tauri, o arraste pela barra de cima com os cartões à vista passa a ser do Eclipse: o [[overlayDrag]] (novo) toma a captura do mouse e move a Riot e a sobreposição juntas num único `DeferWindowPos` por movimento.
+- O helper do [[riotWindowObserver]] avisa o começo do arraste (`EVENT_SYSTEM_MOVESIZESTART`, só com `follow`) e não move a sobreposição enquanto ela tem a captura.
+- Se a captura ficar com a Riot, o Eclipse desiste e os cartões seguem como na ADR-035. Cada desfecho ganha uma linha no `sign-in.log`, uma vez por execução.
+- Testes: 388 com `cargo test` (18 novos) e os 383 do `npm test`, que rodam o autoteste do helper. O laço de arraste do Windows não pode ser testado sem mouse: na Riot real, quem confere é o usuário. No Electron nada muda.
+
+## 2026-11-14 · Migração para Tauri: certificado da Riot conferido no Rust
+
+- Com a Riot aberta pelo usuário e com a permissão dele, o [[riotTransport]] em Rust fez um único `GET` na Riot real (o sinalizador de segundo plano do [[riotAppControls]]) e o TLS do Windows aceitou o certificado dela em `127.0.0.1`, com a validação ligada: resposta 200. Nada foi gravado, nenhum login foi tocado e o Eclipse em Tauri não foi aberto.
+- O teste manual ficou em `src-tauri/tests/riot/riot_transport.rs`, marcado com `#[ignore]`: só roda a pedido e só imprime o status.
+- **Primeiro uso do Eclipse em Tauri na Riot real, pelo usuário, com uma pasta de dados de teste.** Dois defeitos achados e corrigidos:
+  - Os cartões seguiam o arraste da Riot com muito atraso. Cada movimento reposicionava as três webviews sem precisar; agora elas só são reposicionadas quando o tamanho muda, e a thread principal aplica só a posição mais nova ([[riotOverlay]]).
+  - Depois dessa correção o atraso ficou "bem menor", mas arrastando rápido o usuário ainda sentia os cartões soltos e pediu "uma espécie de fita". Agora, no Tauri, o helper do [[riotWindowObserver]] move a sobreposição no instante em que mede a Riot, e o Rust cuida só do tamanho ([[ADR-035 Posição da sobreposição movida pelo helper]]). No Electron nada muda.
+  - Ao reabrir, as contas só apareciam depois de atualizar. Os cartões pediam as contas antes de o estado do app entrar no Tauri; agora ele entra antes de a janela ser criada ([[main]]).
+- O [[00 Início]] ganhou os links da [[ADR-033 Sobreposição no Tauri]] e da [[ADR-034 Troca do Electron pelo Tauri]].
+
 ## 2026-11-13 · Migração para Tauri, fase 5: bandeja completa e Setup do Tauri
 
 - **Fase 5 da [[Migração para Tauri]], primeira parte ([[ADR-034 Troca do Electron pelo Tauri]]):** a bandeja do Tauri ganhou "Iniciar com o Windows" ([[startWithWindows]]), a segunda cópia passou a abrir as contas da primeira (`tauri-plugin-single-instance`) e os balões viraram notificações do Windows ([[notices]], [[toasts]], com o `tauri-winrt-notification`).

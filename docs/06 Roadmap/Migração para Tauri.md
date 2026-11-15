@@ -1,6 +1,6 @@
 ---
 tipo: roadmap
-atualizado: 2026-11-13
+atualizado: 2026-11-14
 tags: [roadmap, tauri]
 ---
 
@@ -13,7 +13,7 @@ Acompanha a [[ADR-032 Migração para Tauri e Rust]]. O app Electron em `src/` c
 | Fase | Conteúdo | Situação |
 |---|---|---|
 | 1. Base | Projeto Tauri, `paths`, [[safeStorage]], [[store]], [[language]], [[managerService]] | Feita em 2026-11-13 |
-| 2. Riot | [[asar]], [[backend]], [[riotTransport]], [[riotState]], [[riotAuthentication]], [[riotInterface]], [[riotAppControls]], [[riotProcess]], [[gameRanks]], [[riotClient]], [[signInFlow]], [[windowController]], [[windowsEnvironment]] | Feita em 2026-11-13, sem conferir na Riot real |
+| 2. Riot | [[asar]], [[backend]], [[riotTransport]], [[riotState]], [[riotAuthentication]], [[riotInterface]], [[riotAppControls]], [[riotProcess]], [[gameRanks]], [[riotClient]], [[signInFlow]], [[windowController]], [[windowsEnvironment]] | Feita em 2026-11-13; do que fala com a Riot real, só o certificado do [[riotTransport]] foi conferido (2026-11-14) |
 | 3. Serviços | [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[rankApi]], [[startWithWindows]] e o novo [[timers]] | Feita em 2026-11-13, sem ligar ao app nem conferir na Riot real |
 | 4. Sobreposição | [[riotOverlay]], [[overlayToggle]], [[overlayCover]], [[riotWindowObserver]], [[managerHost]], [[manager-preload]], a ponte `window.api` dos [[cards]], o [[main]] que liga os serviços, mais os novos [[assetProtocol]], [[refresher]] e [[appPorts]] | Feita em 2026-11-13, sem rodar o app nem conferir na Riot real |
 | 5. Troca | Bandeja completa, Setup do Tauri, tag no git e remoção do Electron, mais [[notices]], [[toasts]] e [[electronInstance]] ([[ADR-034 Troca do Electron pelo Tauri]]) | Bandeja e Setup feitos em 2026-11-13; a tag e a remoção do Electron esperam o usuário conferir o app na Riot real |
@@ -77,6 +77,9 @@ A camada `src/core` virou `application` no Rust, porque `core` é o nome de uma 
 - O Setup: `cargo tauri build` em `src-tauri/` gera `src-tauri/target/release/bundle/nsis/Eclipse_1.0.0_x64-setup.exe`, com 2,3 MB (o do Electron tem perto de 100 MB) e um `eclipse.exe` de 5,3 MB. Instala por usuário em `%LOCALAPPDATA%\Eclipse`, leva só os arquivos da lista fechada e, se achar o Eclipse em Electron instalado, o desinstala mantendo os dados e o início com o Windows ([[ADR-034 Troca do Electron pelo Tauri]]).
 - `cargo test` em `src-tauri/`: 369 testes, mais o manual da fase 1 e um ignorado do observador. Os 383 do `npm test` continuam passando. Duas mutações de propósito (uma fonte fora do Setup e a trava do Electron invertida) foram pegas e desfeitas.
 - Nada foi instalado nem rodado: o Setup só foi compilado. O app em Tauri ainda não abriu nesta máquina.
+- Em 2026-11-14, com a Riot aberta pelo usuário, o [[riotTransport]] em Rust leu a Riot real uma vez (`GET`, resposta 200): o TLS do Windows aceita o certificado dela. O `cargo test` passou a ter dois testes manuais (o da fase 1 e este) e o ignorado do observador.
+
+- Em 2026-11-14 o usuário abriu o app de desenvolvimento na Riot real, com uma pasta de dados de teste. Dois defeitos apareceram e foram corrigidos: o arraste com atraso ([[riotOverlay]]) e as contas que só apareciam depois de atualizar ao reabrir ([[main]]). Como o arraste rápido ainda deixava os cartões para trás, o helper passou a mover a sobreposição ([[ADR-035 Posição da sobreposição movida pelo helper]]). O `cargo test` passou a 370 testes. Em 2026-11-15, como o usuário ainda via o atraso, o Eclipse passou a assumir o arraste da Riot ([[ADR-036 Arraste da Riot assumido pelo Eclipse]], [[overlayDrag]]), e o `cargo test` foi a 388. As correções ainda esperam o usuário conferir de novo.
 
 ## Para terminar a fase 5
 
@@ -90,4 +93,3 @@ A camada `src/core` virou `application` no Rust, porque `core` é o nome de uma 
 - Conferir a sobreposição na Riot real, com permissão do usuário: posição, cantos, a caixa, a cobertura, o idioma e o ritmo da janela quando coberta.
 - Conferir as notificações no app instalado: nome, ícone e o clique abrindo as contas ([[toasts]]).
 - O Tauri está com a feature `unstable` (webviews filhas). Fixar a versão do `tauri` no `Cargo.lock` e rever a cada atualização.
-- Conferir, com permissão do usuário e só com `GET`, se o [[riotTransport]] em Rust aceita o certificado da Riot real em `127.0.0.1`. O Node aceita (conferido em 2026-11-08); o Rust usa o TLS do Windows, que confere o endereço do certificado do seu jeito.

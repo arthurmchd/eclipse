@@ -6,6 +6,8 @@ mod asset_protocol;
 mod backend;
 #[path = "integration/manager/manager_host.rs"]
 mod manager_host;
+#[path = "integration/overlay/overlay_drag.rs"]
+mod overlay_drag;
 #[path = "integration/overlay/overlay_toggle.rs"]
 mod overlay_toggle;
 #[path = "integration/overlay/riot_overlay.rs"]

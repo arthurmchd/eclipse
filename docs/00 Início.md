@@ -27,14 +27,14 @@ Este vault é o cérebro do projeto. O código não tem comentários: o **porqu�
 
 ## Módulos
 
-Um modo só desde 2026-11-07 ([[ADR-028 Modo antigo removido]]): os [[cards]] sobre a Riot oficial, por [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[riotWindowObserver]].
+Um modo só desde 2026-11-07 ([[ADR-028 Modo antigo removido]]): os [[cards]] sobre a Riot oficial, por [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[riotWindowObserver]] · [[overlayDrag]] (Tauri).
 
 | Camada | Notas |
 |---|---|
 | Aplicação | [[main]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] · [[rankWatcher]] · [[timers]] · [[refresher]] · [[appPorts]] · [[notices]] (Tauri) |
 | Riot | [[riotClient]] · [[riotState]] · [[gameRanks]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
 | Windows | [[safeStorage]] (Tauri) · [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[riotWindowObserver]] · [[startWithWindows]] · [[toasts]] · [[electronInstance]] (Tauri) |
-| Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] · [[assetProtocol]] (Tauri) |
+| Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[overlayDrag]] (Tauri) · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] · [[assetProtocol]] (Tauri) |
 | Interface | [[cards]] |
 
 Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como histórico.
@@ -65,6 +65,10 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-030 Eclipse instalado por um Setup próprio]]
 - [[ADR-031 Elo lido do próprio jogo, sem chave]]
 - [[ADR-032 Migração para Tauri e Rust]]
+- [[ADR-033 Sobreposição no Tauri]]
+- [[ADR-034 Troca do Electron pelo Tauri]]
+- [[ADR-035 Posição da sobreposição movida pelo helper]]
+- [[ADR-036 Arraste da Riot assumido pelo Eclipse]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]

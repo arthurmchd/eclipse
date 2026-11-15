@@ -57,7 +57,7 @@ Opções de `createRiotTransport`:
 - **Só loopback.** O host é fixo. Caminhos absolutos (`https://...`) e quebras de linha são recusados, o que impede trocar o destino ou injetar cabeçalhos.
 - **Status não é erro.** 404, 429 ou 500 chegam como `{ status, json }`. A decisão fica com [[riotAuthentication]] e [[riotClient]].
 - **Limite de tamanho.** Uma resposta grande demais nunca é entregue pela metade.
-- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_transport.rs`, testes em `src-tauri/tests/riot/riot_transport.rs`. HTTPS por `ureq` com `native-tls`, confiando só no certificado raiz da Riot tirado do `app.asar` (as raízes do Windows ficam desligadas), sem redirecionamento e com o mesmo limite de bytes. Com cancelamento, o pedido roda numa thread e o chamador confere o cancelamento a cada 25 ms; a thread termina sozinha no prazo do pedido. Ainda não conferido com a Riot real se o Windows aceita o certificado dela para `127.0.0.1` como o Node aceita ([[Migração para Tauri]]).
+- **Versão Rust (fase 2 da [[Migração para Tauri]]).** `src-tauri/src/riot/riot_transport.rs`, testes em `src-tauri/tests/riot/riot_transport.rs`. HTTPS por `ureq` com `native-tls`, confiando só no certificado raiz da Riot tirado do `app.asar` (as raízes do Windows ficam desligadas), sem redirecionamento e com o mesmo limite de bytes. Com cancelamento, o pedido roda numa thread e o chamador confere o cancelamento a cada 25 ms; a thread termina sozinha no prazo do pedido. Conferido na Riot real em 2026-11-14, com permissão do usuário: um único `GET` do sinalizador de segundo plano ([[riotAppControls]]) voltou 200, com o TLS do Windows aceitando o certificado da Riot em `127.0.0.1` e a validação ligada. O teste é o `the_real_riot_client_certificate_is_accepted_on_a_single_read`, marcado com `#[ignore]`: roda só a pedido, com a Riot aberta pelo usuário (`cargo test --test riot the_real_riot_client_certificate -- --ignored --nocapture`), e imprime só o status.
 
 ## Testes
 
@@ -68,7 +68,7 @@ Opções de `createRiotTransport`:
 - Limite de bytes sem resposta parcial.
 - Lockfile ausente e caminhos inválidos sem requisição.
 
-Fora: TLS real contra o Riot Client.
+Fora do `npm test`: TLS real contra o Riot Client. No Rust há um teste manual para isso, que só roda a pedido (ver Invariantes e decisões).
 
 ## Pontos de atenção
 

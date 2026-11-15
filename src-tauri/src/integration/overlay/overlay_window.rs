@@ -6,8 +6,9 @@ use tauri::{AppHandle, PhysicalPosition, PhysicalSize, Runtime, Webview, Webview
 use url::Url;
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
 use windows_sys::Win32::Graphics::Gdi::{CombineRgn, CreateRectRgn, DeleteObject, SetWindowRgn, RGN_OR};
-use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowPos, ShowWindow, SWP_NOACTIVATE, SWP_NOOWNERZORDER, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE};
+use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowPos, ShowWindow, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE};
 
+use super::overlay_drag::{install, UNAVAILABLE};
 use super::overlay_toggle::{language_script, toggle_rect, INIT_SCRIPT};
 use super::riot_overlay::{cards_rect, cover_rect, OverlayWindow, Rect, Size};
 use crate::integration::asset_protocol::{is_page, page_url, CARDS_PAGE, COVER_PAGE, TOGGLE_PAGE};
@@ -45,7 +46,7 @@ fn sealed<R: Runtime>(builder: WebviewBuilder<R>, page: &'static str) -> Webview
         .on_download(|_, _| false)
 }
 
-pub fn create<R: Runtime>(app: &AppHandle<R>, host: Arc<ManagerHost>) -> tauri::Result<TauriOverlayWindow<R>> {
+pub fn create<R: Runtime>(app: &AppHandle<R>, host: Arc<ManagerHost>, log: Arc<dyn Fn(&str) + Send + Sync>) -> tauri::Result<TauriOverlayWindow<R>> {
     let window = WindowBuilder::new(app, WINDOW_LABEL)
         .title("Eclipse")
         .decorations(false)
@@ -70,6 +71,11 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, host: Arc<ManagerHost>) -> tauri::
     unsafe {
         DwmSetWindowAttribute(hwnd as _, DWMWA_TRANSITIONS_FORCEDISABLED as u32, &disabled as *const i32 as _, std::mem::size_of::<i32>() as u32);
     }
+    let _ = window.run_on_main_thread(move || {
+        if !install(hwnd, log.clone()) {
+            log(UNAVAILABLE);
+        }
+    });
     let cards_area = cards_rect(START);
     let cards = window.add_child(
         sealed(WebviewBuilder::new(CARDS_LABEL, WebviewUrl::CustomProtocol(url(CARDS_PAGE))), CARDS_PAGE)
@@ -129,11 +135,10 @@ impl<R: Runtime> TauriOverlayWindow<R> {
 }
 
 impl<R: Runtime> OverlayWindow for TauriOverlayWindow<R> {
-    fn set_bounds(&self, bounds: Rect) {
+    fn set_size(&self, size: Size) {
         self.on_main(move |hwnd| unsafe {
-            SetWindowPos(hwnd as _, std::ptr::null_mut(), bounds.x, bounds.y, bounds.width, bounds.height, SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+            SetWindowPos(hwnd as _, std::ptr::null_mut(), 0, 0, size.width, size.height, SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
         });
-        let size = Size { width: bounds.width, height: bounds.height };
         place(&self.cards, cards_rect(size));
         place(&self.cover, cover_rect(size));
         place(&self.toggle, toggle_rect(size));

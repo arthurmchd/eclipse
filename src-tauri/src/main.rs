@@ -353,7 +353,14 @@ fn start(app: &AppHandle) -> Result<(), String> {
     ));
     let _ = watcher_slot.set(watcher.clone());
     watcher.start();
-    let window = Arc::new(create(app, host.clone()).map_err(|error| error.to_string())?);
+    let startup = StartWithWindows::new(Arc::new(UserRegistry), std::env::current_exe().unwrap_or_default(), APP_NAME, !cfg!(debug_assertions), {
+        let store = store.clone();
+        Box::new(move |line| store.lock().unwrap().log(line))
+    });
+    let ready = Arc::new(AtomicBool::new(false));
+    let eclipse = Arc::new(Eclipse { store, riot: riot.clone(), sign_in, refresher: refresher.clone(), keeper, wakeup, watcher, host: host.clone(), overlay: overlay.clone(), opening: Mutex::new(()), startup, ready: ready.clone() });
+    app.manage(eclipse.clone());
+    let window = Arc::new(create(app, host, Arc::new(sign_in_log.clone())).map_err(|error| error.to_string())?);
     let handle = window.handle();
     let (reader, closer) = (riot.clone(), riot.clone());
     let riot_overlay = RiotOverlay::new(
@@ -387,13 +394,6 @@ fn start(app: &AppHandle) -> Result<(), String> {
             now: Box::new(|| chrono::Utc::now().timestamp_millis() as f64),
         },
     ));
-    let startup = StartWithWindows::new(Arc::new(UserRegistry), std::env::current_exe().unwrap_or_default(), APP_NAME, !cfg!(debug_assertions), {
-        let store = store.clone();
-        Box::new(move |line| store.lock().unwrap().log(line))
-    });
-    let ready = Arc::new(AtomicBool::new(false));
-    let eclipse = Arc::new(Eclipse { store, riot, sign_in, refresher: refresher.clone(), keeper, wakeup, watcher, host, overlay, opening: Mutex::new(()), startup, ready: ready.clone() });
-    app.manage(eclipse.clone());
     let startup_state = eclipse.startup.available().then(|| eclipse.startup.enabled());
     let menu = build_menu(app, eclipse.language(), startup_state).map_err(|error| error.to_string())?;
     let mut tray = TrayIconBuilder::with_id("eclipse")

@@ -4,7 +4,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use eclipse::integration::backend::Backend;
-use eclipse::riot::riot_transport::{HttpsClient, HttpsRequest, RiotTransport, FAILED};
+use eclipse::riot::riot_app_controls::FLAG;
+use eclipse::riot::riot_client::detect_client_path;
+use eclipse::riot::riot_transport::{HttpsClient, HttpsRequest, RiotTransport, DEFAULT_MAX_BYTES, FAILED};
 use eclipse::riot::{Cancel, LocalApi, Response};
 use serde_json::json;
 
@@ -105,4 +107,14 @@ fn a_missing_backend_and_invalid_request_paths_fail_without_exposing_a_lockfile(
         assert_eq!(api.get(path).unwrap_err().message, "Invalid local Riot request");
     }
     assert!(client.sent.lock().unwrap().is_empty());
+}
+
+#[test]
+#[ignore]
+fn the_real_riot_client_certificate_is_accepted_on_a_single_read() {
+    let client = detect_client_path("").expect("the Riot Client is not installed");
+    let api = RiotTransport::for_riot_client(Arc::new(move || Some(PathBuf::from(&client))), None, DEFAULT_MAX_BYTES);
+    let response = api.get(FLAG).expect("the open Riot Client did not answer over verified TLS");
+    println!("status {}", response.status);
+    assert!((200..500).contains(&response.status));
 }

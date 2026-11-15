@@ -81,7 +81,7 @@ pub fn read_line(line: &[u8]) -> Result<Option<Target>, BadLine> {
 
 pub fn request_line(owner_pid: u32, client_path: &str, overlay_window: Option<&str>) -> String {
     let overlay = overlay_window.filter(|handle| numeric_id(handle));
-    format!("{}\n", json!({ "ownerPid": owner_pid, "clientPath": client_path, "overlayWindow": overlay }))
+    format!("{}\n", json!({ "ownerPid": owner_pid, "clientPath": client_path, "overlayWindow": overlay, "follow": overlay.is_some() }))
 }
 
 pub type Output = Arc<dyn Fn(Option<&[u8]>) + Send + Sync>;

@@ -173,7 +173,7 @@ pub fn login_visible(state: &Result<Option<AuthState>, ()>) -> bool {
 }
 
 pub trait OverlayWindow: Send + Sync {
-    fn set_bounds(&self, bounds: Rect);
+    fn set_size(&self, size: Size);
     fn set_region(&self, parts: &[Rect]);
     fn show_inactive(&self);
     fn hide(&self);
@@ -221,7 +221,7 @@ struct State {
     language: &'static str,
     corner: f64,
     edge: i32,
-    bounds: Option<Rect>,
+    size: Option<Size>,
     visible: bool,
     timer: Option<u64>,
     observer: Option<Arc<dyn OverlayObserver>>,
@@ -239,10 +239,6 @@ impl Inner {
         ShapeOptions { hidden: state.hidden, corner: state.corner, top: state.edge, covered: state.covered, toggle: !state.form_hidden }
     }
 
-    fn size(state: &State) -> Option<Size> {
-        state.bounds.map(|bounds| Size { width: bounds.width, height: bounds.height })
-    }
-
     fn hide(&self, state: &mut State) {
         if state.visible {
             state.visible = false;
@@ -254,7 +250,7 @@ impl Inner {
         if state.disposed {
             return;
         }
-        let Some(size) = Self::size(state) else {
+        let Some(size) = state.size else {
             return;
         };
         let parts = overlay_shape(size, Self::options(state));
@@ -322,10 +318,10 @@ impl Inner {
             self.hide(state);
             return;
         }
-        let resized = Self::size(state) != Some(size);
-        if state.bounds != Some(bounds) {
-            state.bounds = Some(bounds);
-            self.window.set_bounds(bounds);
+        let resized = state.size != Some(size);
+        if resized {
+            state.size = Some(size);
+            self.window.set_size(size);
         }
         if resized || radius != state.corner || border != state.edge {
             state.corner = radius;
@@ -419,7 +415,7 @@ impl RiotOverlay {
             language: "pt",
             corner: 0.0,
             edge: 0,
-            bounds: None,
+            size: None,
             visible: false,
             timer: None,
             observer: None,
