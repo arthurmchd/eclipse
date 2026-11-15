@@ -16,7 +16,7 @@ Os cartões aparecem automaticamente sobre a arte à direita do cliente oficial.
   2. **Instalar.** Dê dois cliques nesse arquivo. Ele fecha o Eclipse aberto sozinho e instala por cima, sem perguntar nada.
   3. **Abrir.** Pelo atalho "Eclipse" do menu Iniciar.
 
-  Dentro do Claude Code, dá para rodar o passo 1 sem abrir outro terminal: digite `! cd C:\Users\turia\Desktop\riot-account-manager\src-tauri; cargo tauri build`.
+  Dentro do Claude Code, dá para rodar o passo 1 sem abrir outro terminal: digite `! cd C:/Users/turia/Desktop/riot-account-manager/src-tauri && cargo tauri build`. Ali o `!` roda no bash, que apaga as barras `\`: o caminho precisa ser com `/`.
 
   Na pasta `nsis` ficam os Setups de versões anteriores; use o de número maior. Se a versão não mudou, o Setup novo substitui o antigo com o mesmo nome. Subir o número da versão é opcional: o Setup instala por cima de qualquer jeito. Quem sobe a versão muda os três arquivos juntos ([[Desenvolvimento]]).
 
