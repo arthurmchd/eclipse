@@ -23,10 +23,12 @@ test('npm keeps only the fonts the Tauri Setup packs', () => {
   for (const family of Object.keys(pkg.dependencies)) assert.ok(Object.keys(tauri.bundle.resources).some((source) => source.includes(`node_modules/${family}/`)));
 });
 
-test('npm, Tauri and Cargo agree on version 2.0.0, the first Tauri release', () => {
-  assert.equal(pkg.version, '2.0.0');
-  assert.equal(tauri.version, '2.0.0');
-  assert.match(cargo, /^version = "2\.0\.0"$/m);
+test('npm, Tauri and Cargo agree on one version, 2.0.0 or later', () => {
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
+  const [major] = pkg.version.split('.').map(Number);
+  assert.ok(major >= 2);
+  assert.equal(tauri.version, pkg.version);
+  assert.equal(cargo.match(/^version = "([^"]+)"$/m)[1], pkg.version);
 });
 
 test('the package keeps the data folder name and names Eclipse as its maker', () => {

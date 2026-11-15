@@ -11,7 +11,8 @@ Mudanças relevantes, da mais nova para a mais antiga.
 
 - Relato do usuário depois da 2.0.0: com a Riot em segundo plano, os cartões ficavam por cima dos outros programas. A janela deles estava "sempre por cima" e a da Riot não; a janela de abertura da Riot é "sempre por cima" e passa o estilo para os cartões presos a ela. O [[riotWindowObserver]] passa a tirar o estilo dos cartões quando a Riot escolhida não o tem, e a pô-los logo acima dela.
 - Relato do usuário: arrastando a Riot, a caixa "Ocultar contas" sumia até soltar. A leitura de cor que detecta o formulário da Riot pegava a tela um quadro atrasada; agora só lê com a janela parada desde a leitura anterior.
-- Testes: autoteste do helper com os casos novos.
+- Testes: autoteste do helper com os casos novos. O `test/package.test.js` deixa de travar o número 2.0.0 e passa a conferir que npm, Tauri e Cargo têm a mesma versão, 2.0.0 ou mais nova.
+- Versão 2.0.1: Setup gerado e instalado por cima nesta máquina, a pedido do usuário. 388 testes com `cargo test` e 24 com `npm test`.
 
 ## 2026-11-15 · Eclipse 2.0.0: só Tauri
 
