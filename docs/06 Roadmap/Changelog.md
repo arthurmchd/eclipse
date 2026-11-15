@@ -7,6 +7,12 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Cartões respeitam a ordem das janelas e a caixa não some no arraste
+
+- Relato do usuário depois da 2.0.0: com a Riot em segundo plano, os cartões ficavam por cima dos outros programas. A janela deles estava "sempre por cima" e a da Riot não; a janela de abertura da Riot é "sempre por cima" e passa o estilo para os cartões presos a ela. O [[riotWindowObserver]] passa a tirar o estilo dos cartões quando a Riot escolhida não o tem, e a pô-los logo acima dela.
+- Relato do usuário: arrastando a Riot, a caixa "Ocultar contas" sumia até soltar. A leitura de cor que detecta o formulário da Riot pegava a tela um quadro atrasada; agora só lê com a janela parada desde a leitura anterior.
+- Testes: autoteste do helper com os casos novos.
+
 ## 2026-11-15 · Eclipse 2.0.0: só Tauri
 
 - A pedido do usuário, o Electron saiu do projeto antes da conferência na Riot real ([[ADR-034 Troca do Electron pelo Tauri]], revisão). O último commit com ele tem a tag `electron-final`. Detalhes do que saiu e do que ficou em [[Migração para Tauri]].

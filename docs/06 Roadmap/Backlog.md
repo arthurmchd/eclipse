@@ -17,7 +17,8 @@ Desde 2026-11-15 o Eclipse é só Tauri ([[ADR-034 Troca do Electron pelo Tauri]
 
 Falta:
 
-- arraste rápido da Riot com os cartões colados ([[ADR-036 Arraste da Riot assumido pelo Eclipse]]); se falhar, a linha `riot drag:` do `sign-in.log` diz o desfecho;
+- arraste rápido da Riot com os cartões colados ([[ADR-036 Arraste da Riot assumido pelo Eclipse]]). Em 2026-11-15 o `sign-in.log` mostrou `riot drag: Eclipse moved the Riot window and the cards together`, e o usuário viu a caixa "Ocultar contas" sumir durante o arraste; corrigido no [[riotWindowObserver]], falta conferir que ela fica;
+- com a Riot em segundo plano (Alt+Tab, clique em outro programa), os cartões vão para trás junto com ela, também depois de a Riot reabrir a janela ([[riotWindowObserver]]);
 - caixa "Ocultar contas", cobertura da coluna durante o login e cópias de minimizar e fechar ([[overlayToggle]], [[overlayCover]]);
 - login com e sem "Manter login" e troca entre contas com sessão guardada ([[signInService]], [[sessionKeeper]]);
 - elos atualizando, pela API e pelo jogo aberto ([[rankWatcher]], [[gameRanks]]);

@@ -34,6 +34,7 @@ public static class RiotWindowObserver {
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint command);
   [DllImport("user32.dll", EntryPoint="SetWindowLongPtrW")] static extern IntPtr SetWindowLongPtr(IntPtr h, int index, IntPtr value);
+  [DllImport("user32.dll", EntryPoint="GetWindowLongPtrW")] static extern IntPtr GetWindowLongPtr(IntPtr h, int index);
   [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr CreateWindowEx(uint ex, string className, string name, uint style, int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
   [DllImport("user32.dll")] static extern bool DestroyWindow(IntPtr h);
@@ -76,13 +77,15 @@ public static class RiotWindowObserver {
   const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B, EVENT_SYSTEM_MOVESIZESTART = 0x000A, WM_TIMER = 0x0113, GW_OWNER = 4, GW_HWNDNEXT = 2, GW_HWNDPREV = 3;
   const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_NOOWNERZORDER = 0x200, SWP_ASYNCWINDOWPOS = 0x4000;
   const uint WM_CLOSE = 0x0010, WM_RIOT_COMMAND = 0x8001;
-  const int GWLP_HWNDPARENT = -8, SW_MINIMIZE = 6, SW_SHOWNOACTIVATE = 4, RELEASE = 3;
+  const int GWLP_HWNDPARENT = -8, GWL_EXSTYLE = -20, WS_EX_TOPMOST = 0x8, SW_MINIMIZE = 6, SW_SHOWNOACTIVATE = 4, RELEASE = 3;
   const int DWMWA_TRANSITIONS_FORCEDISABLED = 3, DWMWA_WINDOW_CORNER_PREFERENCE = 33;
   const uint GA_ROOT = 2, SRCCOPY = 0x00CC0020, CLR_INVALID = 0xFFFFFFFF;
   const double PANEL_X = 0.026, PANEL_Y = 0.5;
   const double BOX_X = 0.0417, BOX_Y = 0.5023;
   static uint mainThread = 0;
-  static bool dimmed = false, boxSeen = false, formHidden = false, follow = false, lost = false;
+  static bool dimmed = false, boxSeen = false, formHidden = false, follow = false, lost = false, settledSeen = false;
+  static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+  static RECT settled;
   static IntPtr stilled = IntPtr.Zero, sensed = IntPtr.Zero;
   static int lastCorner = 0;
   static WinEventProc onEvent = OnEvent;
@@ -186,12 +189,18 @@ public static class RiotWindowObserver {
     }
   }
   static void Sense(IntPtr h) {
-    if (h != sensed) { sensed = h; dimmed = false; boxSeen = false; formHidden = false; }
+    if (h != sensed) { sensed = h; dimmed = false; boxSeen = false; formHidden = false; settledSeen = false; }
     RECT r;
-    if (h == IntPtr.Zero || !Measure(h, out r)) return;
+    if (h == IntPtr.Zero || !Measure(h, out r) || !Settled(r)) return;
     int shade = Shade(Sample(h, r, PANEL_X, PANEL_Y));
     if (shade != 0) dimmed = shade > 0;
     if (!dimmed) Notice(Box(Sample(h, r, BOX_X, BOX_Y)));
+  }
+  static bool Settled(RECT r) {
+    bool same = settledSeen && r.Left == settled.Left && r.Top == settled.Top && r.Right == settled.Right && r.Bottom == settled.Bottom;
+    settled = r;
+    settledSeen = true;
+    return same;
   }
   static void Notice(int box) {
     if (box > 0) { boxSeen = true; formHidden = false; }
@@ -233,9 +242,17 @@ public static class RiotWindowObserver {
       if (next == overlay) return true;
     return false;
   }
+  static bool Topmost(IntPtr h) {
+    return (GetWindowLongPtr(h, GWL_EXSTYLE).ToInt64() & WS_EX_TOPMOST) != 0;
+  }
   static void Raise(IntPtr h) {
-    if (overlay == IntPtr.Zero || h == IntPtr.Zero || !IsWindowVisible(overlay) || IsIconic(h) || !Beneath(h)) return;
-    SetWindowPos(overlay, GetWindow(h, GW_HWNDPREV), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+    if (overlay == IntPtr.Zero || h == IntPtr.Zero || !IsWindowVisible(overlay) || IsIconic(h)) return;
+    bool pinned = Topmost(overlay) && !Topmost(h);
+    if (!pinned && !Beneath(h)) return;
+    if (pinned) SetWindowPos(overlay, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+    IntPtr above = GetWindow(h, GW_HWNDPREV);
+    if (above == overlay) return;
+    SetWindowPos(overlay, above, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
   }
   static int Transitions(IntPtr h, bool disabled) {
     int value = disabled ? 1 : 0;
@@ -326,6 +343,23 @@ public static class RiotWindowObserver {
       if (Beneath(riot) || GetWindow(riot, GW_HWNDPREV) != cards) throw new InvalidOperationException("self-test-raise");
       Raise(riot);
       if (GetWindow(riot, GW_HWNDPREV) != cards) throw new InvalidOperationException("self-test-stable");
+      SetWindowPos(riot, new IntPtr(-1), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      SetWindowPos(riot, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      Below(cards, riot);
+      SetWindowLongPtr(cards, GWLP_HWNDPARENT, riot);
+      if (!Beneath(riot) || !Topmost(GetWindow(riot, GW_HWNDPREV))) throw new InvalidOperationException("self-test-top-setup");
+      Raise(riot);
+      if (Topmost(cards) || GetWindow(riot, GW_HWNDPREV) != cards) throw new InvalidOperationException("self-test-top");
+      SetWindowPos(cards, new IntPtr(-1), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      if (!Topmost(cards)) throw new InvalidOperationException("self-test-pin-setup");
+      Raise(riot);
+      if (Topmost(cards) || Topmost(riot) || GetWindow(riot, GW_HWNDPREV) != cards) throw new InvalidOperationException("self-test-unpin");
+      SetWindowPos(riot, new IntPtr(-1), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      if (!Topmost(cards)) throw new InvalidOperationException("self-test-owner-pin-setup");
+      Raise(riot);
+      if (!Topmost(riot) || !Topmost(cards)) throw new InvalidOperationException("self-test-owner-pinned");
+      SetWindowPos(riot, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      SetWindowLongPtr(cards, GWLP_HWNDPARENT, IntPtr.Zero);
       if (Code("minimize") != 1 || Code("close") != 2 || Code("quit") != 0 || Code("") != 0) throw new InvalidOperationException("self-test-commands");
       Apply(riot, 1);
       Pump();
@@ -368,6 +402,10 @@ public static class RiotWindowObserver {
       RECT away = new RECT();
       away.Left = -20000; away.Top = -20000; away.Right = -19500; away.Bottom = -19600;
       if (Sample(riot, away, PANEL_X, PANEL_Y) != null || Sample(riot, away, BOX_X, BOX_Y) != null) throw new InvalidOperationException("self-test-unseen");
+      RECT moved = away;
+      moved.Left += 40; moved.Right += 40;
+      settledSeen = false;
+      if (Settled(away) || !Settled(away) || Settled(moved) || !Settled(moved) || Settled(away)) throw new InvalidOperationException("self-test-settle");
       Notice(-1);
       if (formHidden) throw new InvalidOperationException("self-test-form-unseen");
       Notice(1);
@@ -381,8 +419,9 @@ public static class RiotWindowObserver {
       dimmed = true;
       if (!Format(riot, away, false, 0).Contains(",\"dimmed\":true}")) throw new InvalidOperationException("self-test-format");
       formHidden = true;
+      settledSeen = true;
       Sense(riot);
-      if (dimmed || boxSeen || formHidden || sensed != riot) throw new InvalidOperationException("self-test-sense");
+      if (dimmed || boxSeen || formHidden || settledSeen || sensed != riot) throw new InvalidOperationException("self-test-sense");
       dimmed = true; boxSeen = true; formHidden = true;
       Sense(riot);
       if (!dimmed || !boxSeen || !formHidden) throw new InvalidOperationException("self-test-keep");
@@ -446,6 +485,7 @@ public static class RiotWindowObserver {
       dimmed = false;
       boxSeen = false;
       formHidden = false;
+      settledSeen = false;
       sensed = IntPtr.Zero;
       overlay = IntPtr.Zero;
       if (cards != IntPtr.Zero) DestroyWindow(cards);
