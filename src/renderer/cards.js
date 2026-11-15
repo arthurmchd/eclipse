@@ -107,7 +107,7 @@ function row(view, text) {
   if (state.stats === 'val') return `<span class="row">${head}${queues}<span class="progress-cell">${rr(view.main) || '—'}</span></span>`;
   const { main } = view;
   const tone = main.winrate === null ? '' : main.winrate >= 55 ? 'high' : main.winrate < 50 ? 'low' : '';
-  const wins = main.games ? `<span><strong class="wr ${tone}">${main.winrate}%</strong> · ${esc(main.record)}</span><progress max="${main.games}" value="${main.wins}" aria-hidden="true"></progress>` : '<span>—</span><progress class="empty" max="1" value="0" aria-hidden="true"></progress>';
+  const wins = main.games ? `<span><strong class="wr ${tone}">${main.winrate}%</strong> · ${esc(main.record)}</span><progress max="${main.games}" value="${main.wins}" aria-hidden="true"></progress>` : '<span>—</span>';
   return `<span class="row">${head}${queues}<span class="win-cell">${wins}</span></span>`;
 }
 

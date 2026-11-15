@@ -7,6 +7,10 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Lista compacta sem o retângulo cinza
+
+- Relato do usuário na 2.1.0: na lista compacta, uma conta sem partidas no Solo/Duo mostrava um retângulo cinza na coluna de vitórias. Era a barra vazia; agora a coluna mostra só "—" ([[cards]]).
+
 ## 2026-11-15 · Placas verticais e lista compacta
 
 - Pedido do usuário: reformular o cartão das contas. Num quadro com sete opções inspiradas em sites de estatísticas, escolheu as placas verticais como padrão e a lista compacta para quem tem muitas contas, trocadas por dois ícones no rodapé ([[cards]]).
