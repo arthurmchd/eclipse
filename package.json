@@ -1,6 +1,6 @@
 {
   "name": "riot-account-manager",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Account switcher for League of Legends, TFT and VALORANT. The app is the Tauri project in src-tauri; npm only serves the card preview, the fonts and the JS tests.",
   "author": "Eclipse",
   "private": true,
