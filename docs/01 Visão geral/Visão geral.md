@@ -18,8 +18,7 @@ O Eclipse roda na bandeja e desenha os cartões de contas sobre a arte à direit
 ## Recursos
 
 - Ícones de jogo no rodapé: Riot (só entrar), League e VALORANT, cada um com as cores e o botão Jogar do seu cliente
-- Cartão do League com banner, ícone de perfil e Solo/Duo e Flex lado a lado; em Mestre ou acima, quanto falta para o corte de Grão-Mestre ou Desafiante
-- Cartão do VALORANT com a arte do cartão de jogador e o elo Competitivo
+- Dois visuais, trocados por ícones no rodapé: placas verticais (padrão) e lista compacta ([[cards]]). No League, Solo/Duo e Flex com os emblemas de elo que vêm com o app; em Mestre ou acima, quanto falta para o corte de Grão-Mestre ou Desafiante. No VALORANT, a arte do cartão de jogador, o Competitivo e a barra de RR
 - Adicionar conta pelo **+** do rodapé; editar e remover pelo menu ⋯ do cartão
 - ⚙ Configurações: idioma (português ou inglês), **Manter login**, chaves de API e intervalo de atualização dos elos
 - ↻ atualiza os elos; o rodapé mostra quantas contas existem e quando foram atualizadas
