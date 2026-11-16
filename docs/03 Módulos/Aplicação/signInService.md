@@ -40,6 +40,7 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 
 ## Invariantes e decisões
 
+- **`signInCount` conta as entradas (2026-11-15).** Cada login que termina em sucesso (jogo aberto, ou só a Riot no `riot`) soma 1. `lastPlayed` e `lastGame` continuam só para jogo aberto.
 - **Sucesso sem jogo só para `riot`.** Desde 2026-11-04, `riot` é aceito junto de `lol`, `tft` e `val`. A operação só termina `succeeded` com `gameStarted`, ou, para `riot`, com `clientOpened` (texto "Riot Client opened"). `clientOpened` num jogo não conta como sucesso. Sem jogo aberto, `lastPlayed` e `lastGame` não mudam; sessão, conta atual e Riot ID são gravados normalmente. Ver [[signInFlow]].
 - **`remember` vem de `staySignedIn`** (ausente conta como ligado). A operação pública ganhou `signedIn`, que começa `false` e vira `true` no primeiro status com `signedIn` do [[signInFlow]]; nunca volta a `false` na mesma operação. Adicionado em 2026-11-04.
 - **Login sempre visível.** Publica o estado da operação para o carregamento sobre a coluna de login.

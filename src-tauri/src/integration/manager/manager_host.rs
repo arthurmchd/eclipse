@@ -4,7 +4,7 @@ use crate::integration::asset_protocol::{served_url, CARDS_PAGE};
 
 pub const COMMAND: &str = "manager";
 pub const CARDS_LABEL: &str = "cards";
-pub const METHODS: [&str; 11] = ["init", "saveAccount", "deleteAccount", "refresh", "runningGames", "signIn", "cancelSignIn", "saveSettings", "events", "operation", "openExternal"];
+pub const METHODS: [&str; 14] = ["init", "saveAccount", "addAccounts", "pinAccount", "reorderAccounts", "deleteAccount", "refresh", "runningGames", "signIn", "cancelSignIn", "saveSettings", "events", "operation", "openExternal"];
 pub const WINDOW_ACTIONS: [&str; 2] = ["minimize", "close"];
 pub const MAX_ARGS: usize = 4;
 pub const MAX_BYTES: usize = 32768;

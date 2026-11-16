@@ -38,6 +38,7 @@ fn ports(changed: Arc<Mutex<Vec<Value>>>, opened: Arc<Mutex<Vec<String>>>) -> (A
             }
         }),
         settings_changed: Box::new(move |settings| changed.lock().unwrap().push(Value::Object(settings.clone()))),
+        seen_account: Box::new(|| Some(RiotId::new("Seen", "BR1"))),
         version: "1.0.0".into(),
     };
     (ports, timers, dir)
@@ -47,7 +48,8 @@ fn ports(changed: Arc<Mutex<Vec<Value>>>, opened: Arc<Mutex<Vec<String>>>) -> (A
 fn the_cards_get_regions_version_and_refresh_times_from_the_app() {
     let (ports, _timers, _dir) = ports(Arc::default(), Arc::default());
     let context = ports.init_context();
-    assert_eq!(context.keys().collect::<Vec<_>>(), ["regions", "valRegions", "version", "lastRefresh", "nextRefresh"]);
+    assert_eq!(context.keys().collect::<Vec<_>>(), ["regions", "valRegions", "version", "lastRefresh", "nextRefresh", "seenAccount"]);
+    assert_eq!(context["seenAccount"], json!({ "gameName": "Seen", "tagLine": "BR1" }));
     assert_eq!(context["regions"], regions_json());
     assert_eq!(context["valRegions"], json!(VAL_REGIONS));
     assert_eq!(context["version"], json!("1.0.0"));

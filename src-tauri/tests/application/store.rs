@@ -348,3 +348,69 @@ fn sign_in_lines_go_to_their_own_log_which_rolls_over_past_its_limit() {
     assert_eq!(fs::metadata(dir.path().join("sign-in.log.old")).unwrap().len(), 200 * 1024 + 1);
     assert!(fs::read_to_string(dir.path().join("sign-in.log")).unwrap().contains("after the limit"));
 }
+
+#[test]
+fn tags_color_and_games_are_saved_and_a_missing_game_list_means_both_games() {
+    let (_dir, mut store) = temporary_store();
+    let saved = store
+        .upsert_account(AccountInput {
+            game_name: "Tagged".into(),
+            tag_line: "BR1".into(),
+            username: "fictional-tagged".into(),
+            password: Some("fictional-password".into()),
+            tags: vec!["Main".into(), "Duo".into()],
+            color: Some("#33cc80".into()),
+            games: vec!["val".into()],
+            ..AccountInput::default()
+        })
+        .unwrap();
+    assert_eq!(saved["tags"], json!(["Main", "Duo"]));
+    assert_eq!(saved["color"], "#33cc80");
+    assert_eq!(saved["games"], json!(["val"]));
+    assert_eq!(saved["pinned"], false);
+    assert_eq!(saved["signInCount"], 0);
+    let id = saved["id"].as_str().unwrap().to_string();
+    let edited = store.upsert_account(AccountInput { id: Some(id), game_name: "Tagged".into(), tag_line: "BR1".into(), username: "fictional-tagged".into(), ..AccountInput::default() }).unwrap();
+    assert_eq!(edited["tags"], json!([]));
+    assert_eq!(edited["color"], Value::Null);
+    assert_eq!(edited["games"], json!(["lol", "val"]));
+}
+
+#[test]
+fn several_accounts_are_added_with_one_save_and_each_password_encrypted() {
+    let (_dir, mut store) = temporary_store();
+    let input = |name: &str| AccountInput { game_name: name.into(), tag_line: "BR1".into(), username: format!("fictional-{name}"), password: Some(format!("fictional-{name}-password")), ..AccountInput::default() };
+    let added = store.add_accounts(vec![input("one"), input("two")]).unwrap();
+    assert_eq!(added.len(), 2);
+    assert!(added.iter().all(|account| account.get("password").is_none() && account["hasPassword"] == true));
+    let ids: Vec<String> = added.iter().map(|account| account["id"].as_str().unwrap().to_string()).collect();
+    assert_eq!(store.get_password(&ids[1]).unwrap(), "fictional-two-password");
+    let reopened = Store::open(&store.dir, Arc::new(FakeCipher));
+    assert_eq!(reopened.list_accounts().len(), 2);
+}
+
+#[test]
+fn the_account_order_only_changes_to_a_full_permutation_of_the_saved_ids() {
+    let (_dir, mut store) = temporary_store();
+    let first = add_account(&mut store);
+    let second = add_account(&mut store);
+    let third = add_account(&mut store);
+    store.reorder_accounts(&[third.clone(), first.clone(), second.clone()]).unwrap();
+    let order: Vec<String> = store.list_accounts().iter().map(|account| account["id"].as_str().unwrap().to_string()).collect();
+    assert_eq!(order, [third.clone(), first.clone(), second.clone()]);
+    for wrong in [vec![first.clone(), second.clone()], vec![first.clone(), first.clone(), second.clone()], vec![first.clone(), second.clone(), "unknown".into()]] {
+        assert_eq!(store.reorder_accounts(&wrong).unwrap_err(), "The account list changed");
+    }
+    let reopened = Store::open(&store.dir, Arc::new(FakeCipher));
+    assert_eq!(reopened.list_accounts()[0]["id"], json!(third));
+}
+
+#[test]
+fn the_card_sort_is_manual_by_default_and_only_known_values_are_shown() {
+    let (_dir, mut store) = temporary_store();
+    assert_eq!(store.public_settings()["cardSort"], "manual");
+    store.update_settings(SettingsInput { card_sort: Some("rank".into()), ..SettingsInput::default() }).unwrap();
+    assert_eq!(store.public_settings()["cardSort"], "rank");
+    store.data.settings.insert("cardSort".into(), json!("strange"));
+    assert_eq!(store.public_settings()["cardSort"], "manual");
+}

@@ -181,12 +181,13 @@ pub struct RankHooks {
     pub busy: Box<dyn Fn() -> bool + Send + Sync>,
     pub log: Box<dyn Fn(&str) + Send + Sync>,
     pub on_updated: AccountObserver,
+    pub on_unsaved: Box<dyn Fn(&RiotId) + Send + Sync>,
     pub now: Box<dyn Fn() -> i64 + Send + Sync>,
 }
 
 impl Default for RankHooks {
     fn default() -> Self {
-        Self { busy: Box::new(|| false), log: Box::new(|_| {}), on_updated: Box::new(|_| {}), now: Box::new(|| Utc::now().timestamp_millis()) }
+        Self { busy: Box::new(|| false), log: Box::new(|_| {}), on_updated: Box::new(|_| {}), on_unsaved: Box::new(|_| {}), now: Box::new(|| Utc::now().timestamp_millis()) }
     }
 }
 
@@ -290,6 +291,7 @@ impl Inner {
             return false;
         };
         let Some(account) = self.owner(&reading.riot_id) else {
+            (self.hooks.on_unsaved)(&reading.riot_id);
             self.note(&format!("game ranks: the {} is signed in to an account that is not saved in Eclipse", source.name()));
             return false;
         };

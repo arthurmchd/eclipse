@@ -495,6 +495,7 @@ fn a_launch_that_did_not_open_the_game_is_not_reported_as_success() {
     let fields = f.update_fields();
     assert!(fields.get("lastPlayed").is_none());
     assert!(fields.get("lastGame").is_none());
+    assert!(fields.get("signInCount").is_none());
 }
 
 #[test]
@@ -514,6 +515,7 @@ fn riot_client_only_succeeds_when_the_client_is_signed_in_without_recording_a_pl
     let fields = f.update_fields();
     assert!(fields.get("lastPlayed").is_none());
     assert!(fields.get("lastGame").is_none());
+    assert_eq!(fields["signInCount"], 1);
     assert_eq!(*f.launched.lock().unwrap(), 1);
 
     let unfinished = fixture();
@@ -534,8 +536,10 @@ fn riot_client_only_succeeds_when_the_client_is_signed_in_without_recording_a_pl
 fn a_played_game_records_when_and_what_was_played_and_the_riot_id_riot_returned() {
     let f = fixture();
     f.runner.result.lock().unwrap().riot_id = Some(RiotId::new("Renamed", "NEW"));
+    f.store.edit("test-account", "signInCount", json!(16));
     f.play("val");
     let fields = f.update_fields();
+    assert_eq!(fields["signInCount"], 17);
     assert_eq!(fields["lastGame"], "val");
     assert!(fields["lastPlayed"].as_str().unwrap().ends_with('Z'));
     assert_eq!(fields["gameName"], "Renamed");

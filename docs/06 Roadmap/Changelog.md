@@ -7,6 +7,20 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Organizar muitas contas (bloco 1)
+
+- Pedido do usuário: implementar, bloco por bloco, uma lista de recursos tirada de outros gerenciadores. O bloco 1 organiza muitas contas ([[cards]]):
+  - busca, filtros de servidor, elo e etiqueta, e ordenação por minha ordem, maior elo, nome ou jogada por último;
+  - arrastar para reordenar (ou Alt+setas), estrela para fixar no topo, cor do cartão, etiquetas e notas;
+  - "Jogada há 2 dias · 17 entradas" em cada conta, com o novo `signInCount` ([[signInService]]);
+  - adicionar várias contas de uma vez, e preencher o Riot ID com a conta aberta na Riot que ainda não está salva ([[rankWatcher]], [[appPorts]]);
+  - no cadastro, escolher se a conta aparece em todos os jogos, só no League ou só no VALORANT.
+- Backend: `addAccounts`, `pinAccount` e `reorderAccounts` no [[managerService]], com `tags`, `color`, `games` e `cardSort` validados; `add_accounts` e `reorder_accounts` no [[store]].
+- Decisões do usuário no mesmo dia: copiar usuário ou senha saiu da lista; copiar as configurações do jogo para as alts no League pode escrever na pasta `Config` da Riot, com um ADR antes do código (bloco 4); RP, Essência Azul, VP, loja, skins e banimento podem aparecer como "visto em <data>" da última vez que a conta entrou (bloco 2).
+- Testes: `test/renderer/cardList.test.js` novo; testes novos no `store.rs`, `manager_service.rs`, `sign_in_service.rs`, `rank_watcher.rs`, `app_ports.rs` e no preload. Conferido na prévia: arraste, busca, lista, caixa de várias contas e filtro por jogo.
+- Antes do bloco, o branch `migracao/tauri` foi enviado ao GitHub a pedido do usuário.
+- Versão 2.5.0, gerada e instalada por cima nesta máquina.
+
 ## 2026-11-15 · Segunda leitura do OP.GG no ↻
 
 - Pedido do usuário: quando ele pede a atualização (↻, salvar as configurações ou salvar uma conta), as contas que vieram do OP.GG são lidas de novo 8 s depois, já com o perfil que a primeira consulta mandou o OP.GG atualizar ([[refresher]], [[ADR-037 Elo do League pelo OP.GG]]). As atualizações automáticas continuam com uma leitura só.

@@ -32,6 +32,7 @@ tags: [módulo, tauri]
 
 ## Invariantes e decisões
 
+- **`seenAccount`.** Desde 2026-11-15, `init_context` inclui o último Riot ID não salvo visto pelo [[rankWatcher]], quando há; o [[managerService]] tira se ele já estiver salvo.
 - **Um login recusado volta como conflito (409)**, com a mensagem do [[signInService]], que já não leva dados da conta.
 - **Erro ao abrir um link é genérico.** O texto do sistema, que pode ter caminhos do usuário, não chega aos cartões.
 - **A sessão que a Riot deixou vai para quem é dona dela, e só.** Primeiro o [[sessionKeeper]] tenta achar a dona; senão, ela vai para a conta atual, e só se o Riot ID da sessão for o da conta. Sem login lembrado, sem conta atual ou com Riot ID diferente, nada é gravado. As linhas do log são as mesmas do Electron.

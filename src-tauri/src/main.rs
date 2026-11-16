@@ -38,7 +38,7 @@ use eclipse::platform::windows::start_with_windows::{StartWithWindows, UserRegis
 use eclipse::platform::windows::toasts::{app_id, WindowsToasts};
 use eclipse::platform::windows::window_controller::CREATE_NO_WINDOW;
 use eclipse::riot::riot_client::{detect_client_path, running_games, RiotClient};
-use eclipse::riot::Cancel;
+use eclipse::riot::{Cancel, RiotId};
 
 const OPENING_BLOCKED: &str = "The game is opening. Wait or cancel from the tray.";
 const NO_CLIENT: &str = "Riot Client not found. Install the official client before starting Eclipse.";
@@ -200,6 +200,7 @@ fn start(app: &AppHandle) -> Result<(), String> {
     let overlay: Arc<OnceLock<RiotOverlay>> = Arc::new(OnceLock::new());
     let keeper_slot: Arc<OnceLock<Arc<SessionKeeper>>> = Arc::new(OnceLock::new());
     let watcher_slot: Arc<OnceLock<Arc<RankWatcher>>> = Arc::new(OnceLock::new());
+    let seen_account: Arc<Mutex<Option<RiotId>>> = Arc::new(Mutex::new(None));
     let sign_in_slot: Arc<OnceLock<Arc<SignInService>>> = Arc::new(OnceLock::new());
     let publish = {
         let events = events.clone();
@@ -300,6 +301,10 @@ fn start(app: &AppHandle) -> Result<(), String> {
                 }
             }
         }),
+        seen_account: Box::new({
+            let seen = seen_account.clone();
+            move || seen.lock().unwrap().clone()
+        }),
         version: app.package_info().version.to_string(),
     };
     let service = Arc::new(ManagerService::new(store.clone(), Arc::new(ports), events.clone()));
@@ -345,6 +350,10 @@ fn start(app: &AppHandle) -> Result<(), String> {
             on_updated: Box::new({
                 let publish = publish.clone();
                 move |account| publish("account-updated", &Value::Object(account.clone()))
+            }),
+            on_unsaved: Box::new({
+                let seen = seen_account.clone();
+                move |riot_id| *seen.lock().unwrap() = Some(riot_id.clone())
             }),
             now: Box::new(|| chrono::Utc::now().timestamp_millis()),
         },

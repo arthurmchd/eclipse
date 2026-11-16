@@ -51,6 +51,10 @@ tags: [módulo]
 
 ## Invariantes e decisões
 
+- **Etiquetas, cor e jogos (2026-11-15).** `upsert_account` grava `tags`, `color` (ou `null`) e `games` vindos do [[managerService]]; `games` vazio vira `["lol","val"]`. Conta nova começa com `pinned: false` e `signInCount: 0`. `tags`, `color` e `games` entram no instantâneo dos backups; `signInCount` não, como `lastPlayed`.
+- **Várias contas num salvamento só.** `add_accounts` cria todas e grava uma vez; se a gravação falhar, nenhuma fica na memória.
+- **Ordem manual.** `reorder_accounts` só aceita uma permutação exata dos ids salvos (sem faltar, sobrar nem repetir) e recusa com "The account list changed"; em falha de gravação, a ordem anterior volta. A ordem é a do próprio vetor `accounts` do `data.json`.
+- **`cardSort`** fica em `manual`, `rank`, `name` ou `recent`; qualquer outro valor salvo aparece como `manual`.
 - **Mesmo formato do Electron.** Lê e grava o mesmo `data.json`, os mesmos backups e as mesmas sessões que o Eclipse em Electron gravava, sem conversão ([[ADR-032 Migração para Tauri e Rust]]). Conferido em 2026-11-15: o usuário abriu o Eclipse 2.0.0 instalado e as contas reais abriram normalmente.
 - **Campos desconhecidos são preservados.** As contas ficam como objetos JSON com a ordem das chaves preservada, para um campo que o Rust não conhece (como `puuidCache`) não sumir ao salvar.
 - **`staySignedIn`** (padrão `true`) guarda a opção "Manter login". `public_settings` devolve `true` quando o campo não existe, para dados antigos. Adicionado em 2026-11-04.

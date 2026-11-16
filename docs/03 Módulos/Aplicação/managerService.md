@@ -37,6 +37,10 @@ Comandos de `dispatch`: `init`, `events`, `operation`, `saveAccount`, `deleteAcc
 
 ## Invariantes e decisões
 
+- **Comandos novos de 2026-11-15:** `addAccounts(lista)` (1 a 50 contas novas, sem `id`, todas validadas como no `saveAccount` antes de gravar qualquer uma; erro com "Line N: …"), `pinAccount(id, booleano)` e `reorderAccounts(ids)` (409 quando a lista não bate com as contas salvas). Os três estão em `METHODS` do [[managerHost]] e no [[manager-preload]].
+- **Campos novos da conta:** `tags` (até 8, até 24 caracteres, sem repetir ignorando maiúsculas), `color` (`#rrggbb` minúsculo ou `null`) e `games` (lista não vazia de `lol` e `val`, normalizada nessa ordem; ausente vale os dois). `signInCount` só sai, nunca entra.
+- **`seenAccount` no `init`.** Vem do [[appPorts]] e só é devolvido se nenhuma conta salva tiver o mesmo Riot ID.
+- **`saveSettings` aceita `cardSort`** em `manual`, `rank`, `name` ou `recent`.
 - **`signIn` aceita `riot`.** Desde 2026-11-04, além de `lol`, `tft` e `val`, para entrar na conta sem abrir jogo ([[signInFlow]]). Qualquer outro valor continua recusado com 400.
 - **`saveSettings` aceita `staySignedIn`** só como booleano. Adicionado em 2026-11-04.
 - **API do tamanho dos cartões.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]), `patchAccount`, `forgetSession`, `copy`, `showRiotClient`, `pickClientPath` e `openDataFolder` saíram: só a janela antiga os chamava. `saveSettings` aceita só `refreshMinutes`, `staySignedIn`, `riotClientPath`, `language` e as três chaves de API; `minimizeOnLaunch`, `hideRiotClient`, `closeRiotClient` e `streamerMode` são recusadas. O resultado não tem mais `clientFound`, e `init` não tem mais `embedded`. Menos portas abertas para a view, e nenhum comando lê uma senha guardada.

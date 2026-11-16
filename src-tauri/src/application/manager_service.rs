@@ -7,10 +7,14 @@ use serde_json::{json, Map, Value};
 use super::language::LANGUAGES;
 
 pub const CARD_LAYOUTS: [&str; 2] = ["plates", "list"];
-use super::store::{AccountInput, SettingsInput, Store};
+pub const CARD_SORTS: [&str; 4] = ["manual", "rank", "name", "recent"];
+pub const MAX_TAGS: usize = 8;
+pub const MAX_BATCH: usize = 50;
+use super::store::{account_riot_id, clean_name, AccountInput, SettingsInput, Store, ACCOUNT_GAMES};
+use crate::riot::{same_riot_id, RiotId};
 
 pub const CHANNELS: [&str; 5] = ["account-updated", "refresh-progress", "next-refresh", "sign-in-status", "sign-in-operation"];
-const ACCOUNT_FIELDS: [&str; 16] = ["id", "createdAt", "gameName", "tagLine", "region", "valRegion", "username", "note", "lastSeason", "ban", "pinned", "stats", "lastPlayed", "lastGame", "hasPassword", "hasSession"];
+const ACCOUNT_FIELDS: [&str; 20] = ["id", "createdAt", "gameName", "tagLine", "region", "valRegion", "username", "note", "lastSeason", "ban", "pinned", "tags", "color", "games", "signInCount", "stats", "lastPlayed", "lastGame", "hasPassword", "hasSession"];
 const GAMES: [&str; 4] = ["lol", "tft", "val", "riot"];
 const RESERVED_KEYS: [&str; 3] = ["__proto__", "constructor", "prototype"];
 const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
@@ -211,12 +215,49 @@ fn seasons(value: Option<&Value>) -> Result<Map<String, Value>, Failure> {
     Ok(result)
 }
 
+fn tags(value: Option<&Value>) -> Result<Vec<String>, Failure> {
+    let list = match value {
+        None | Some(Value::Null) => return Ok(Vec::new()),
+        Some(Value::Array(list)) if list.len() <= MAX_TAGS => list,
+        _ => return Err(Failure::invalid()),
+    };
+    let mut result: Vec<String> = Vec::new();
+    for item in list {
+        let tag = clean_name(&text(Some(item), 24, true)?);
+        if !result.iter().any(|kept| kept.to_lowercase() == tag.to_lowercase()) {
+            result.push(tag);
+        }
+    }
+    Ok(result)
+}
+
+fn color(value: Option<&Value>) -> Result<Option<String>, Failure> {
+    static COLOR: OnceLock<Regex> = OnceLock::new();
+    match value {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(color)) if COLOR.get_or_init(|| Regex::new(r"^#[0-9a-f]{6}$").unwrap()).is_match(color) => Ok(Some(color.clone())),
+        _ => Err(Failure::invalid()),
+    }
+}
+
+fn games(value: Option<&Value>) -> Result<Vec<String>, Failure> {
+    let list = match value {
+        None | Some(Value::Null) => return Ok(ACCOUNT_GAMES.iter().map(|game| game.to_string()).collect()),
+        Some(Value::Array(list)) if !list.is_empty() && list.len() <= ACCOUNT_GAMES.len() => list,
+        _ => return Err(Failure::new("Choose at least one game", 400)),
+    };
+    if list.iter().any(|game| !game.as_str().is_some_and(|game| ACCOUNT_GAMES.contains(&game))) {
+        return Err(Failure::new("Choose at least one game", 400));
+    }
+    Ok(ACCOUNT_GAMES.iter().filter(|game| list.iter().any(|chosen| chosen.as_str() == Some(**game))).map(|game| game.to_string()).collect())
+}
+
 fn arity(method: &str) -> Option<(usize, usize)> {
     Some(match method {
         "init" | "operation" | "runningGames" | "cancelSignIn" => (0, 0),
         "events" | "refresh" => (0, 1),
-        "saveAccount" | "deleteAccount" | "saveSettings" | "openExternal" => (1, 1),
-        "signIn" => (2, 2),
+        "saveAccount" | "addAccounts" | "reorderAccounts" | "deleteAccount" | "saveSettings" | "openExternal" => (1, 1),
+        "signIn" | "pinAccount" => (2, 2),
         _ => return None,
     })
 }
@@ -260,6 +301,16 @@ impl ManagerService {
             "events" => self.events.read(first.unwrap_or(&json!(0))),
             "operation" => Ok(copy_public(&self.ports.operation())),
             "saveAccount" => self.save_account(first.unwrap()),
+            "addAccounts" => self.add_accounts(first.unwrap()),
+            "reorderAccounts" => self.reorder_accounts(first.unwrap()),
+            "pinAccount" => {
+                let id = self.account(first, false)?;
+                let pinned = args[1].as_bool().ok_or_else(Failure::invalid)?;
+                let mut fields = Map::new();
+                fields.insert("pinned".into(), Value::Bool(pinned));
+                let saved = self.store.lock().unwrap().update_account_fields(&id, fields).map_err(Failure::internal)?;
+                Ok(saved.map(|account| public_account(&Value::Object(account))).unwrap_or(Value::Null))
+            }
             "deleteAccount" => {
                 let id = self.account(first, true)?;
                 self.store.lock().unwrap().delete_account(&id).map_err(Failure::internal)?;
@@ -283,6 +334,12 @@ impl ManagerService {
         let mut result = self.ports.init_context();
         let store = self.store.lock().unwrap();
         let accounts: Vec<Value> = store.list_accounts().into_iter().map(|account| public_account(&Value::Object(account))).collect();
+        let seen = result.remove("seenAccount").and_then(|seen| {
+            let riot_id = RiotId::new(seen.get("gameName")?.as_str()?, seen.get("tagLine")?.as_str()?);
+            let saved = store.data.accounts.iter().any(|account| same_riot_id(Some(&riot_id), Some(&account_riot_id(account))));
+            (!saved && !riot_id.game_name.is_empty()).then(|| json!({ "gameName": riot_id.game_name, "tagLine": riot_id.tag_line }))
+        });
+        result.insert("seenAccount".into(), seen.unwrap_or(Value::Null));
         result.insert("accounts".into(), Value::Array(accounts));
         result.insert("settings".into(), Value::Object(store.public_settings()));
         drop(store);
@@ -291,14 +348,7 @@ impl ManagerService {
         Ok(Value::Object(result))
     }
 
-    fn save_account(&self, input: &Value) -> Result<Value, Failure> {
-        keys(input, &["id", "gameName", "tagLine", "region", "valRegion", "username", "password", "note", "lastSeason", "ban"])?;
-        let id = match input.get("id") {
-            None | Some(Value::Null) => None,
-            Some(Value::String(id)) if id.is_empty() => None,
-            Some(id) => Some(self.account(Some(id), true)?),
-        };
-        let context = self.ports.init_context();
+    fn clean_account(&self, input: &Value, context: &Map<String, Value>, id: Option<String>) -> Result<AccountInput, Failure> {
         let unsupported = || Failure::new("Select a supported region", 400);
         let region = input
             .get("region")
@@ -325,6 +375,9 @@ impl ManagerService {
             note,
             last_season: seasons(input.get("lastSeason"))?,
             ban: ban(input.get("ban"))?,
+            tags: tags(input.get("tags"))?,
+            color: color(input.get("color"))?,
+            games: games(input.get("games"))?,
             password: match input.get("password") {
                 None => None,
                 password => Some(text(password, 256, false)?),
@@ -333,12 +386,54 @@ impl ManagerService {
         if id.is_none() && clean.password.as_deref().unwrap_or_default().is_empty() {
             return Err(Failure::new("Add a password for the new account", 400));
         }
+        Ok(clean)
+    }
+
+    fn save_account(&self, input: &Value) -> Result<Value, Failure> {
+        keys(input, &["id", "gameName", "tagLine", "region", "valRegion", "username", "password", "note", "lastSeason", "ban", "tags", "color", "games"])?;
+        let id = match input.get("id") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(id)) if id.is_empty() => None,
+            Some(id) => Some(self.account(Some(id), true)?),
+        };
+        let clean = self.clean_account(input, &self.ports.init_context(), id)?;
         let saved = self.store.lock().unwrap().upsert_account(clean).map_err(Failure::internal)?;
         let saved = public_account(&Value::Object(saved));
         if let Some(saved_id) = saved.get("id").and_then(Value::as_str) {
             self.ports.refresh_all(Some(vec![saved_id.to_string()]));
         }
         Ok(saved)
+    }
+
+    fn add_accounts(&self, list: &Value) -> Result<Value, Failure> {
+        let Value::Array(items) = list else {
+            return Err(Failure::invalid());
+        };
+        if items.is_empty() || items.len() > MAX_BATCH {
+            return Err(Failure::new("Add between 1 and 50 accounts at a time", 400));
+        }
+        let context = self.ports.init_context();
+        let mut clean = Vec::with_capacity(items.len());
+        for (index, item) in items.iter().enumerate() {
+            let line = |failure: Failure| Failure::new(&format!("Line {}: {}", index + 1, failure.message), failure.status);
+            keys(item, &["gameName", "tagLine", "region", "valRegion", "username", "password", "note", "tags", "color", "games"]).map_err(line)?;
+            clean.push(self.clean_account(item, &context, None).map_err(line)?);
+        }
+        let saved = self.store.lock().unwrap().add_accounts(clean).map_err(Failure::internal)?;
+        let saved: Vec<Value> = saved.into_iter().map(|account| public_account(&Value::Object(account))).collect();
+        let ids: Vec<String> = saved.iter().filter_map(|account| account.get("id").and_then(Value::as_str).map(str::to_string)).collect();
+        self.ports.refresh_all(Some(ids));
+        Ok(Value::Array(saved))
+    }
+
+    fn reorder_accounts(&self, list: &Value) -> Result<Value, Failure> {
+        let Value::Array(items) = list else {
+            return Err(Failure::invalid());
+        };
+        let ids: Option<Vec<String>> = items.iter().map(|item| item.as_str().map(str::to_string)).collect();
+        let ids = ids.filter(|ids| ids.len() <= 1000).ok_or_else(Failure::invalid)?;
+        self.store.lock().unwrap().reorder_accounts(&ids).map_err(|message| Failure::new(&message, 409))?;
+        Ok(Value::Bool(true))
     }
 
     fn refresh(&self, ids: Option<&Value>) -> Result<Value, Failure> {
@@ -358,7 +453,7 @@ impl ManagerService {
     }
 
     fn save_settings(&self, input: &Value) -> Result<Value, Failure> {
-        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "cardLayout", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
+        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "cardLayout", "cardSort", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
         let mut clean = SettingsInput::default();
         for (key, value) in input.as_object().unwrap() {
             match key.as_str() {
@@ -374,6 +469,10 @@ impl ManagerService {
                 "cardLayout" => {
                     let layout = value.as_str().filter(|layout| CARD_LAYOUTS.contains(layout)).ok_or_else(|| Failure::new("Invalid setting", 400))?;
                     clean.card_layout = Some(layout.to_string());
+                }
+                "cardSort" => {
+                    let sort = value.as_str().filter(|sort| CARD_SORTS.contains(sort)).ok_or_else(|| Failure::new("Invalid setting", 400))?;
+                    clean.card_sort = Some(sort.to_string());
                 }
                 "riotClientPath" => clean.riot_client_path = Some(text(Some(value), 2048, false)?),
                 "riotApiKey" => clean.riot_api_key = Some(text(Some(value), 4096, false)?),

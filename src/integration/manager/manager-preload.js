@@ -76,6 +76,9 @@ function createManagerApi({ ipcRenderer, setInterval: repeat = setInterval, clea
       return data;
     },
     saveAccount: (input) => invoke('saveAccount', [input]),
+    addAccounts: (list) => invoke('addAccounts', [list]),
+    pinAccount: (id, pinned) => invoke('pinAccount', [id, pinned]),
+    reorderAccounts: (ids) => invoke('reorderAccounts', [ids]),
     deleteAccount: (id) => invoke('deleteAccount', [id]),
     refresh: (ids) => invoke('refresh', ids === undefined ? [] : [ids]),
     runningGames: () => invoke('runningGames'),
