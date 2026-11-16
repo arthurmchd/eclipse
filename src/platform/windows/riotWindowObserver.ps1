@@ -10,6 +10,7 @@ try {
     if ([string]$req.overlayWindow -notmatch '^\d{1,20}$') { throw 'invalid-request' }
     $overlay = [long][string]$req.overlayWindow
   }
+  $follow = (-not $selfTest) -and ($req.follow -eq $true) -and ($overlay -ne 0)
   Add-Type -TypeDefinition @'
 using System;
 using System.Diagnostics;
@@ -20,17 +21,20 @@ public static class RiotWindowObserver {
   [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
   [StructLayout(LayoutKind.Sequential)] struct POINT { public int X, Y; }
   [StructLayout(LayoutKind.Sequential)] struct MSG { public IntPtr hwnd; public uint message; public IntPtr wParam, lParam; public uint time; public POINT pt; }
+  [StructLayout(LayoutKind.Sequential)] struct GUITHREADINFO { public int cbSize; public uint flags; public IntPtr hwndActive, hwndFocus, hwndCapture, hwndMenuOwner, hwndMoveSize, hwndCaret; public RECT rcCaret; }
   delegate bool EnumProc(IntPtr h, IntPtr l);
   delegate void WinEventProc(IntPtr hook, uint eventType, IntPtr h, int idObject, int idChild, uint thread, uint time);
   [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc callback, IntPtr l);
   [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
   [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr h, ref POINT p);
   [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint command);
   [DllImport("user32.dll", EntryPoint="SetWindowLongPtrW")] static extern IntPtr SetWindowLongPtr(IntPtr h, int index, IntPtr value);
+  [DllImport("user32.dll", EntryPoint="GetWindowLongPtrW")] static extern IntPtr GetWindowLongPtr(IntPtr h, int index);
   [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr CreateWindowEx(uint ex, string className, string name, uint style, int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
   [DllImport("user32.dll")] static extern bool DestroyWindow(IntPtr h);
@@ -40,6 +44,10 @@ public static class RiotWindowObserver {
   [DllImport("user32.dll")] static extern bool PostThreadMessage(uint thread, uint message, IntPtr wParam, IntPtr lParam);
   [DllImport("user32.dll")] static extern bool PeekMessage(out MSG m, IntPtr h, uint min, uint max, uint remove);
   [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern uint RegisterWindowMessage(string name);
+  [DllImport("user32.dll")] static extern bool GetGUIThreadInfo(uint thread, ref GUITHREADINFO info);
+  [DllImport("user32.dll")] static extern IntPtr SetCapture(IntPtr h);
+  [DllImport("user32.dll")] static extern bool ReleaseCapture();
   [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
   [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr module, WinEventProc callback, uint pid, uint thread, uint flags);
   [DllImport("user32.dll")] static extern bool UnhookWinEvent(IntPtr hook);
@@ -66,20 +74,23 @@ public static class RiotWindowObserver {
   [DllImport("kernel32.dll", CharSet=CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, uint flags, StringBuilder name, ref int length);
   [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
   [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
-  const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B, WM_TIMER = 0x0113, GW_OWNER = 4, GW_HWNDNEXT = 2, GW_HWNDPREV = 3;
-  const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOACTIVATE = 0x10, SWP_ASYNCWINDOWPOS = 0x4000;
+  const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B, EVENT_SYSTEM_MOVESIZESTART = 0x000A, WM_TIMER = 0x0113, GW_OWNER = 4, GW_HWNDNEXT = 2, GW_HWNDPREV = 3;
+  const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_NOOWNERZORDER = 0x200, SWP_ASYNCWINDOWPOS = 0x4000;
   const uint WM_CLOSE = 0x0010, WM_RIOT_COMMAND = 0x8001;
-  const int GWLP_HWNDPARENT = -8, SW_MINIMIZE = 6, SW_SHOWNOACTIVATE = 4, RELEASE = 3;
+  const int GWLP_HWNDPARENT = -8, GWL_EXSTYLE = -20, WS_EX_TOPMOST = 0x8, SW_MINIMIZE = 6, SW_SHOWNOACTIVATE = 4, RELEASE = 3;
   const int DWMWA_TRANSITIONS_FORCEDISABLED = 3, DWMWA_WINDOW_CORNER_PREFERENCE = 33;
   const uint GA_ROOT = 2, SRCCOPY = 0x00CC0020, CLR_INVALID = 0xFFFFFFFF;
   const double PANEL_X = 0.026, PANEL_Y = 0.5;
   const double BOX_X = 0.0417, BOX_Y = 0.5023;
   static uint mainThread = 0;
-  static bool dimmed = false, boxSeen = false, formHidden = false;
+  static bool dimmed = false, boxSeen = false, formHidden = false, follow = false, lost = false, settledSeen = false;
+  static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+  static RECT settled;
   static IntPtr stilled = IntPtr.Zero, sensed = IntPtr.Zero;
   static int lastCorner = 0;
   static WinEventProc onEvent = OnEvent;
-  static IntPtr chosen = IntPtr.Zero, hook = IntPtr.Zero, overlay = IntPtr.Zero, measured = IntPtr.Zero;
+  static IntPtr chosen = IntPtr.Zero, hook = IntPtr.Zero, startHook = IntPtr.Zero, overlay = IntPtr.Zero, measured = IntPtr.Zero;
+  static uint dragStart = 0;
   static RECT last;
   static uint hookedPid = 0;
   static string modern = "", legacy = "", lastLine = null;
@@ -178,20 +189,41 @@ public static class RiotWindowObserver {
     }
   }
   static void Sense(IntPtr h) {
-    if (h != sensed) { sensed = h; dimmed = false; boxSeen = false; formHidden = false; }
+    if (h != sensed) { sensed = h; dimmed = false; boxSeen = false; formHidden = false; settledSeen = false; }
     RECT r;
-    if (h == IntPtr.Zero || !Measure(h, out r)) return;
+    if (h == IntPtr.Zero || !Measure(h, out r) || !Settled(r)) return;
     int shade = Shade(Sample(h, r, PANEL_X, PANEL_Y));
     if (shade != 0) dimmed = shade > 0;
     if (!dimmed) Notice(Box(Sample(h, r, BOX_X, BOX_Y)));
+  }
+  static bool Settled(RECT r) {
+    bool same = settledSeen && r.Left == settled.Left && r.Top == settled.Top && r.Right == settled.Right && r.Bottom == settled.Bottom;
+    settled = r;
+    settledSeen = true;
+    return same;
   }
   static void Notice(int box) {
     if (box > 0) { boxSeen = true; formHidden = false; }
     else if (box < 0 && boxSeen) formHidden = true;
   }
+  static bool Held() {
+    uint pid, thread = GetWindowThreadProcessId(overlay, out pid);
+    if (thread == 0) return false;
+    var info = new GUITHREADINFO();
+    info.cbSize = Marshal.SizeOf(typeof(GUITHREADINFO));
+    return GetGUIThreadInfo(thread, ref info) && info.hwndCapture == overlay;
+  }
+  static void Announce(IntPtr h) {
+    if (!follow || overlay == IntPtr.Zero || dragStart == 0 || h == IntPtr.Zero || h != chosen) return;
+    PostMessage(overlay, dragStart, h, IntPtr.Zero);
+  }
+  static void Follow(RECT r) {
+    if (!follow || overlay == IntPtr.Zero || Held()) return;
+    if (!SetWindowPos(overlay, IntPtr.Zero, r.Left, r.Top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE)) lost = true;
+  }
   static string Describe(IntPtr h) {
     RECT r;
-    if (h != IntPtr.Zero && Measure(h, out r)) { last = r; measured = h; lastCorner = Corner(h); return Format(h, r, false, lastCorner); }
+    if (h != IntPtr.Zero && Measure(h, out r)) { Follow(r); last = r; measured = h; lastCorner = Corner(h); return Format(h, r, false, lastCorner); }
     if (Minimized(h)) return Format(h, last, true, lastCorner);
     return "{\"target\":null}";
   }
@@ -210,9 +242,17 @@ public static class RiotWindowObserver {
       if (next == overlay) return true;
     return false;
   }
+  static bool Topmost(IntPtr h) {
+    return (GetWindowLongPtr(h, GWL_EXSTYLE).ToInt64() & WS_EX_TOPMOST) != 0;
+  }
   static void Raise(IntPtr h) {
-    if (overlay == IntPtr.Zero || h == IntPtr.Zero || !IsWindowVisible(overlay) || IsIconic(h) || !Beneath(h)) return;
-    SetWindowPos(overlay, GetWindow(h, GW_HWNDPREV), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+    if (overlay == IntPtr.Zero || h == IntPtr.Zero || !IsWindowVisible(overlay) || IsIconic(h)) return;
+    bool pinned = Topmost(overlay) && !Topmost(h);
+    if (!pinned && !Beneath(h)) return;
+    if (pinned) SetWindowPos(overlay, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+    IntPtr above = GetWindow(h, GW_HWNDPREV);
+    if (above == overlay) return;
+    SetWindowPos(overlay, above, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
   }
   static int Transitions(IntPtr h, bool disabled) {
     int value = disabled ? 1 : 0;
@@ -229,12 +269,17 @@ public static class RiotWindowObserver {
     if (h != IntPtr.Zero) GetWindowThreadProcessId(h, out pid);
     if (pid == hookedPid) return;
     if (hook != IntPtr.Zero) UnhookWinEvent(hook);
+    if (startHook != IntPtr.Zero) UnhookWinEvent(startHook);
     hook = IntPtr.Zero;
+    startHook = IntPtr.Zero;
     hookedPid = pid;
-    if (pid != 0) hook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, IntPtr.Zero, onEvent, pid, 0, 0);
+    if (pid == 0) return;
+    hook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, IntPtr.Zero, onEvent, pid, 0, 0);
+    if (follow) startHook = SetWinEventHook(EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZESTART, IntPtr.Zero, onEvent, pid, 0, 0);
   }
   static void OnEvent(IntPtr eventHook, uint eventType, IntPtr h, int idObject, int idChild, uint thread, uint time) {
     if (h != chosen || idObject != 0 || idChild != 0) return;
+    if (eventType == EVENT_SYSTEM_MOVESIZESTART) { Announce(h); return; }
     string line = Describe(h);
     if (line != lastLine) Write(line);
   }
@@ -298,6 +343,23 @@ public static class RiotWindowObserver {
       if (Beneath(riot) || GetWindow(riot, GW_HWNDPREV) != cards) throw new InvalidOperationException("self-test-raise");
       Raise(riot);
       if (GetWindow(riot, GW_HWNDPREV) != cards) throw new InvalidOperationException("self-test-stable");
+      SetWindowPos(riot, new IntPtr(-1), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      SetWindowPos(riot, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      Below(cards, riot);
+      SetWindowLongPtr(cards, GWLP_HWNDPARENT, riot);
+      if (!Beneath(riot) || !Topmost(GetWindow(riot, GW_HWNDPREV))) throw new InvalidOperationException("self-test-top-setup");
+      Raise(riot);
+      if (Topmost(cards) || GetWindow(riot, GW_HWNDPREV) != cards) throw new InvalidOperationException("self-test-top");
+      SetWindowPos(cards, new IntPtr(-1), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      if (!Topmost(cards)) throw new InvalidOperationException("self-test-pin-setup");
+      Raise(riot);
+      if (Topmost(cards) || Topmost(riot) || GetWindow(riot, GW_HWNDPREV) != cards) throw new InvalidOperationException("self-test-unpin");
+      SetWindowPos(riot, new IntPtr(-1), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      if (!Topmost(cards)) throw new InvalidOperationException("self-test-owner-pin-setup");
+      Raise(riot);
+      if (!Topmost(riot) || !Topmost(cards)) throw new InvalidOperationException("self-test-owner-pinned");
+      SetWindowPos(riot, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+      SetWindowLongPtr(cards, GWLP_HWNDPARENT, IntPtr.Zero);
       if (Code("minimize") != 1 || Code("close") != 2 || Code("quit") != 0 || Code("") != 0) throw new InvalidOperationException("self-test-commands");
       Apply(riot, 1);
       Pump();
@@ -340,6 +402,10 @@ public static class RiotWindowObserver {
       RECT away = new RECT();
       away.Left = -20000; away.Top = -20000; away.Right = -19500; away.Bottom = -19600;
       if (Sample(riot, away, PANEL_X, PANEL_Y) != null || Sample(riot, away, BOX_X, BOX_Y) != null) throw new InvalidOperationException("self-test-unseen");
+      RECT moved = away;
+      moved.Left += 40; moved.Right += 40;
+      settledSeen = false;
+      if (Settled(away) || !Settled(away) || Settled(moved) || !Settled(moved) || Settled(away)) throw new InvalidOperationException("self-test-settle");
       Notice(-1);
       if (formHidden) throw new InvalidOperationException("self-test-form-unseen");
       Notice(1);
@@ -353,29 +419,80 @@ public static class RiotWindowObserver {
       dimmed = true;
       if (!Format(riot, away, false, 0).Contains(",\"dimmed\":true}")) throw new InvalidOperationException("self-test-format");
       formHidden = true;
+      settledSeen = true;
       Sense(riot);
-      if (dimmed || boxSeen || formHidden || sensed != riot) throw new InvalidOperationException("self-test-sense");
+      if (dimmed || boxSeen || formHidden || settledSeen || sensed != riot) throw new InvalidOperationException("self-test-sense");
       dimmed = true; boxSeen = true; formHidden = true;
       Sense(riot);
       if (!dimmed || !boxSeen || !formHidden) throw new InvalidOperationException("self-test-keep");
       dimmed = false; boxSeen = false; formHidden = false;
       if (Format(riot, away, false, 0).Contains("dimmed")) throw new InvalidOperationException("self-test-plain");
+      RECT spot = new RECT(), at;
+      spot.Left = -20300; spot.Top = -20200; spot.Right = -19800; spot.Bottom = -19900;
+      Follow(spot);
+      if (lost || !GetWindowRect(cards, out at) || at.Left != -20000 || at.Top != -20000) throw new InvalidOperationException("self-test-follow-off");
+      follow = true;
+      Follow(spot);
+      if (lost || !GetWindowRect(cards, out at) || at.Left != -20300 || at.Top != -20200 || at.Right - at.Left != 16 || at.Bottom - at.Top != 16) throw new InvalidOperationException("self-test-follow");
+      if (!GetWindowRect(riot, out at) || at.Left != -20000 || at.Top != -20000) throw new InvalidOperationException("self-test-follow-riot");
+      SetCapture(cards);
+      if (Held()) {
+        spot.Left = -20100; spot.Top = -20100;
+        Follow(spot);
+        if (lost || !GetWindowRect(cards, out at) || at.Left != -20300 || at.Top != -20200) throw new InvalidOperationException("self-test-follow-held");
+      }
+      ReleaseCapture();
+      if (Held()) throw new InvalidOperationException("self-test-follow-released");
+      spot.Left = -20100; spot.Top = -20100;
+      Follow(spot);
+      if (lost || !GetWindowRect(cards, out at) || at.Left != -20100 || at.Top != -20100) throw new InvalidOperationException("self-test-follow-after");
+      dragStart = RegisterWindowMessage("Eclipse.RiotDragStart");
+      MSG drag;
+      chosen = IntPtr.Zero;
+      Announce(riot);
+      if (PeekMessage(out drag, cards, dragStart, dragStart, 1)) throw new InvalidOperationException("self-test-drag-other");
+      chosen = riot;
+      Announce(riot);
+      if (!PeekMessage(out drag, cards, dragStart, dragStart, 1) || drag.wParam != riot) throw new InvalidOperationException("self-test-drag");
+      follow = false;
+      Announce(riot);
+      if (PeekMessage(out drag, cards, dragStart, dragStart, 1)) throw new InvalidOperationException("self-test-drag-off");
+      follow = true;
+      Hook(riot);
+      if (hook == IntPtr.Zero || startHook == IntPtr.Zero) throw new InvalidOperationException("self-test-hooks");
+      Hook(IntPtr.Zero);
+      if (hook != IntPtr.Zero || startHook != IntPtr.Zero || hookedPid != 0) throw new InvalidOperationException("self-test-unhook");
+      follow = false;
+      Hook(riot);
+      if (hook == IntPtr.Zero || startHook != IntPtr.Zero) throw new InvalidOperationException("self-test-hooks-off");
+      Hook(IntPtr.Zero);
+      chosen = IntPtr.Zero;
       Apply(cards, 2);
       Pump();
       if (IsWindow(cards)) throw new InvalidOperationException("self-test-close");
+      follow = true;
+      Follow(spot);
+      if (!lost) throw new InvalidOperationException("self-test-follow-lost");
       cards = IntPtr.Zero;
     } finally {
       Still(IntPtr.Zero);
+      Hook(IntPtr.Zero);
+      ReleaseCapture();
+      chosen = IntPtr.Zero;
+      dragStart = 0;
+      follow = false;
+      lost = false;
       dimmed = false;
       boxSeen = false;
       formHidden = false;
+      settledSeen = false;
       sensed = IntPtr.Zero;
       overlay = IntPtr.Zero;
       if (cards != IntPtr.Zero) DestroyWindow(cards);
       if (riot != IntPtr.Zero) DestroyWindow(riot);
     }
   }
-  public static void Run(string clientPath, int ownerPid, long overlayWindow) {
+  public static void Run(string clientPath, int ownerPid, long overlayWindow, bool followOverlay) {
     SetThreadDpiAwarenessContext(new IntPtr(-4));
     string root = Path.GetDirectoryName(Path.GetFullPath(clientPath));
     modern = Path.Combine(root, "RiotClientElectron", "Riot Client.exe");
@@ -385,6 +502,8 @@ public static class RiotWindowObserver {
       overlay = new IntPtr(overlayWindow);
       uint overlayPid; GetWindowThreadProcessId(overlay, out overlayPid);
       if (overlayPid != (uint)ownerPid) throw new InvalidOperationException("invalid-overlay");
+      follow = followOverlay;
+      if (follow) dragStart = RegisterWindowMessage("Eclipse.RiotDragStart");
     }
     SetTimer(IntPtr.Zero, UIntPtr.Zero, 180, IntPtr.Zero);
     mainThread = GetCurrentThreadId();
@@ -394,7 +513,7 @@ public static class RiotWindowObserver {
     try {
       Poll();
       MSG m;
-      while (GetMessage(out m, IntPtr.Zero, 0, 0) > 0) {
+      while (!lost && GetMessage(out m, IntPtr.Zero, 0, 0) > 0) {
         if (m.message == WM_RIOT_COMMAND && m.hwnd == IntPtr.Zero) {
           if ((int)m.wParam == RELEASE) return;
           Act((int)m.wParam);
@@ -409,6 +528,7 @@ public static class RiotWindowObserver {
         TranslateMessage(ref m);
         DispatchMessage(ref m);
       }
+      if (lost) throw new InvalidOperationException("follow-unavailable");
     } finally {
       Still(IntPtr.Zero);
     }
@@ -420,7 +540,7 @@ public static class RiotWindowObserver {
     [Console]::Out.WriteLine('ok')
     exit 0
   }
-  [RiotWindowObserver]::Run([string]$req.clientPath, [int]$req.ownerPid, $overlay)
+  [RiotWindowObserver]::Run([string]$req.clientPath, [int]$req.ownerPid, $overlay, [bool]$follow)
 } catch {
   [Console]::Out.WriteLine('{"error":"observer-unavailable"}')
   exit 1

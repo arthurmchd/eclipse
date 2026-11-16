@@ -1,6 +1,6 @@
 ---
 tipo: roadmap
-atualizado: 2026-11-07
+atualizado: 2026-11-15
 tags: [backlog]
 ---
 
@@ -8,8 +8,28 @@ tags: [backlog]
 
 Ordenado por prioridade. Use o template [[Tarefa]] para detalhar um item antes de começar. Todos os itens abaixo foram conferidos no código em 2026-10-26, durante a documentação dos módulos. Eles já existiam antes da reorganização.
 
+## Conferir o Eclipse 2.0.0 (Tauri) no Riot real
+
+Desde 2026-11-15 o Eclipse é só Tauri ([[ADR-034 Troca do Electron pelo Tauri]]). O comportamento é o mesmo do Electron, mas foi reescrito em Rust e conferido só com uma Riot falsa nos testes. O que foi visto na Riot real até agora:
+
+- **Feito em 2026-11-14**, com o app de desenvolvimento e uma pasta de dados de teste: um login de LoL e o jogo aberto ([[signInFlow]]), os cartões sobre a Riot ([[riotOverlay]]) e o certificado da API local ([[riotTransport]]).
+- **Feito em 2026-11-15**, com o app instalado: as contas reais abriram normalmente, segundo o usuário. Foi a primeira leitura, pelo Rust, do `data.json`, das senhas e das sessões gravadas pelo Electron ([[store]], [[safeStorage]]).
+- **Feito em 2026-11-15**, com a 2.0.1 instalada, segundo o usuário: o arraste rápido da Riot com os cartões colados e a caixa "Ocultar contas" à vista durante o arraste ([[ADR-036 Arraste da Riot assumido pelo Eclipse]]), e os cartões indo para trás junto com a Riot no Alt+Tab e no clique em outro programa ([[riotWindowObserver]]).
+
+Falta:
+
+- caixa "Ocultar contas", cobertura da coluna durante o login e cópias de minimizar e fechar ([[overlayToggle]], [[overlayCover]]);
+- elo do League vindo do OP.GG para as contas reais, sem chave: todas as contas ganhando elo, o servidor certo e a leitura do jogo mantida quando é mais nova ([[opgg]]);
+- placas verticais e lista compacta sobre a Riot real, com a troca pelos ícones e a escolha mantida ao reabrir ([[cards]]);
+- login com e sem "Manter login" e troca entre contas com sessão guardada ([[signInService]], [[sessionKeeper]]);
+- elos atualizando, pela API e pelo jogo aberto ([[rankWatcher]], [[gameRanks]]);
+- bandeja, notificações do Windows e "Iniciar com o Windows" ([[main]], [[toasts]], [[startWithWindows]]).
+
+Os itens da seção seguinte foram conferidos, quando foram, no Electron; ao conferir no Tauri, vale olhar os mesmos pontos.
+
 ## Validar no Riot real
 
+- **Elo pelo VALORANT aberto.** Desde 2026-11-08 ([[gameRanks]], [[rankWatcher]], [[ADR-031 Elo lido do próprio jogo, sem chave]]). O LoL foi conferido no mesmo dia; o VALORANT não, porque estava fechado. Com o VALORANT aberto numa conta salva, ver em até 1 min o cartão com o elo e no `data.log` "updated a saved account from the Riot Client". Se aparecer "could not read the ranks from the Riot Client", conferir, só lendo, a presença da própria conta em `/chat/v4/presences`: se o elo vem em `private` (base64 com `competitiveTier`) ou em `privateJwt` ou `packedData`.
 - **Caixa "Stay signed in" na v142.** Até 2026-11-06 o [[login.ps1]] usava as cores da v141 e lia a grade fora da área cliente, 7 px à esquerda do centro da caixa: a caixa marcada nunca era reconhecida e os logins visíveis registravam `remember:unknown`. Corrigido em 2026-11-06 e conferido numa réplica do formulário. Falta, num login visível real: (1) ver `remember:on` ou `remember:off` no `sign-in.log`; (2) com "Manter login" desligado, ver a caixa da Riot desmarcada antes de entrar, já que o clique para desmarcar nunca foi exercitado.
 - **Jogo desatualizado: confirmar no Riot real.** O 424 `launch_failed_product_not_up_to_date` visto em 2026-11-04 12:36 agora faz o [[signInFlow]] esperar a atualização e repetir o pedido a cada 15 s (até 20 min). Coberto por testes; falta ver no `sign-in.log` um login real em que o jogo estava desatualizado e abriu depois da atualização.
 - **Sobreposição presa à Riot.** Desde 2026-11-04 a janela da Riot é dona dos cartões, e os movimentos chegam por evento ([[ADR-012 Sobreposição presa à janela do Riot]]). No Riot real, o usuário confirmou em 2026-11-04 que os cartões somem e voltam com a Riot ao minimizar, mas voltavam com atraso; corrigido no mesmo dia mantendo a sessão com a Riot minimizada. A primeira correção deixava o Windows trazer os cartões de volta e fez a Riot voltar vazia logo depois de minimizar (cartões sozinhos na tela); trocada por `hide` explícito com a sessão mantida. Com a versão corrigida, o registro de janelas de 2026-11-04 mostrou o gerenciador aberto com a Riot minimizada ficando escondido e os cartões voltando menos de 0,1 s depois de restaurar; o usuário considerou o comportamento aceitável. Minimizar com a versão nova aberta não ficou registrado; se a Riot voltar vazia logo após minimizar, revisar [[riotOverlay]]. Cartões invisíveis ao restaurar a Riot depois de abrir o gerenciador: corrigido em 2026-11-04 desligando a detecção de oclusão do Chromium ([[main]]); o usuário confirmou no Riot real no mesmo dia. Falta confirmar: a volta sem atraso, cartões visíveis com outro programa em foco e cobertos por ele, arraste sem atraso visível, e o Riot respondendo normalmente com os cartões presos.
@@ -53,39 +73,40 @@ Itens 1 e 2 (segundo envio de senha e `loginState` desconhecido liberando o jogo
 ## Correções
 
 3. **Tratado na migração da interface:** o [[main]] agora trata a rejeição da atualização agendada e reagenda em `finally`, inclusive após falhas. Ver [[Changelog]].
-4. **Chave ilegível derruba todo refresh.** `getKeys()` em [[store]] não protege o `decrypt`, ao contrário de `publicSettings`. Enquanto a tela mostra a chave como ilegível, todo refresh falha.
-5. **Timeout nas consultas de elo.** `getJson` em [[rankApi]] usa `fetch` sem prazo numa fila compartilhada; uma conexão presa trava todas as atualizações e o `refreshing` do main. Um `retry-after` em formato de data vira `NaN` e a nova tentativa sai sem espera.
+4. **Resolvido em 2026-11-07:** chave ilegível derrubava todo refresh. O `getKeys()` do [[store]] agora devolve vazia a chave que não abre e registra só o nome do campo; o refresh segue com as outras.
+5. **Resolvido em 2026-11-07:** timeout nas consultas de elo. Cada consulta do [[rankApi]] tem prazo de 15 s, do pedido ao corpo, e é abortada ao estourar. O `retry-after` vale em segundos ou como data HTTP, e um pedido de espera acima de 60 s vira erro em vez de travar a fila.
 6. **Tratado na migração da interface:** o [[main]] só publica `account-updated` quando a atualização devolve uma conta. Conta removida durante o refresh não gera evento nulo.
-7. **`refreshAll(ids)` ignora `ids` se já houver refresh.** Conta recém-salva só ganha elo no ciclo seguinte ([[main]]).
-8. **`onClosed` sem proteção.** Em [[signInService]], `onClosed` é repassado direto, sem o `notify` que protege os outros callbacks. Uma exceção em `saveLeavingSession` aborta o login com o Riot já fechado.
+7. **Resolvido em 2026-11-07:** `refreshAll(ids)` ignorava `ids` se já houvesse refresh. O [[main]] agora junta os pedidos feitos no meio numa passada extra logo depois.
+8. **Resolvido em 2026-11-07:** `onClosed` sem proteção. O [[signInService]] agora embrulha o `onClosed`: uma falha em `saveLeavingSession` registra uma linha fixa e para o login com um erro fixo traduzível, sem o texto da exceção. Continua parando de propósito, porque seguir tiraria da Riot o login lembrado da conta que saiu sem guardá-lo.
 9. **Resolvido em 2026-11-07:** a preferência `closeRiotClient` saiu, e o login visível sempre fecha a janela da Riot depois que o jogo abre. A opção `closeClient` do [[signInFlow]], que só valia no ramo escondido, saiu com ele no mesmo dia ([[ADR-028 Modo antigo removido]]).
-10. **Corpo de resposta no log.** `requestLaunch` em [[riotClient]] grava até 300 caracteres das respostas de abertura do jogo no `sign-in.log`. Risco baixo, mas contraria "só valores fixos no log" ([[Segurança e privacidade]]).
+10. **Resolvido em 2026-11-07:** corpo de resposta no log. O `requestLaunch` do [[riotClient]] grava só status, elegibilidade e um `errorCode` com formato de código ([[Segurança e privacidade]]).
 11. **Saiu com a janela antiga em 2026-11-07.** Era sobre rejeições sem aviso na janela antiga ([[renderer]]); os [[cards]] não têm essas ações de menu.
 12. **Saiu com o modo antigo em 2026-11-07.** O [[hostEntry]] foi removido.
 13. **Tratado na migração da interface:** [[managerService]] centraliza métodos, quantidade de argumentos, formatos de conta, tipos de configurações e campos de patch; [[managerHost]] valida o remetente IPC isolado.
 
 ## Investigar
 
-- **Serviço único de estado da Riot.** Item 4 da análise de remendos de 2026-11-06: o [[sessionKeeper]], o [[riotWakeup]] e o login têm cada um a sua regra para saber se a Riot está fechada, em segundo plano, na tela de login, conectada ou em jogo. Antes de juntar, conferir na Riot real, só lendo e com autorização, se a API local tem canal de eventos (`/help`). A [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]] não precisou dele.
+- **Canal de eventos da API local.** A regra única do estado da Riot saiu em 2026-11-07 ([[riotState]], [[ADR-029 Estado da Riot definido num lugar só]]), ainda com olhadas periódicas. Falta conferir na Riot real, só lendo e com autorização, se a API local tem canal de eventos (`/help`). Se tiver, pode trocar a olhada a cada 4 s do [[sessionKeeper]].
 - **Validar o reinício com interface do [[riotInterface]].** O caminho `show` foi validado em 2026-10-26; o reinício (reserva) ainda não rodou numa instalação real.
 
 ## Estrutura
 
 14. **Reavaliar depois da migração:** o [[main]] deixou de criar a janela e os handlers da interface; a validação de contas foi extraída para [[managerService]] e a UI para [[managerHost]]/[[manager-preload]]. O harness de inicialização foi atualizado. Separar a bandeja ou o agendamento só se a complexidade voltar a justificar.
 15. **Saiu com a janela antiga em 2026-11-07.** O `src/renderer/app.js` foi removido.
-16. **Lint e formatação.** ESLint (flat config) e Prettier como `devDependencies`, com `npm run lint` e uma regra que barre comentários novos.
-17. **Resolvido em 2026-11-07:** limpar código morto. O que era do modo antigo saiu ([[ADR-028 Modo antigo removido]]). No mesmo dia saíram os ramos do login escondido do [[signInFlow]], o monitor de ocultação do [[windowController]] e do [[windowGuard.ps1]], a interface aberta escondida do [[riotInterface]] e do [[riotProcess]], o ramo `error:focus` do [[riotClient]], o `dryRun` do [[signInFlow]] (com o `submit` do [[login.ps1]]), o `signIn` do [[signInService]], as mensagens em inglês que citavam "Show Riot Client" e três traduções sem uso no [[language]].
+16. **Lint e formatação.** No Rust, `cargo fmt --check` e `cargo clippy --all-targets` sem avisos (em 2026-11-15 ainda há avisos antigos nos testes: tipos complexos e `clone` desnecessário). Nos cartões, ESLint e Prettier como `devDependencies`, com uma regra que barre comentários novos.
+17. **Resolvido em 2026-11-07:** limpar código morto. O que era do modo antigo saiu ([[ADR-028 Modo antigo removido]]). No mesmo dia saíram os ramos do login escondido do [[signInFlow]], o monitor de ocultação do [[windowController]] e do [[windowGuard.ps1]], a interface aberta escondida do [[riotInterface]] e do [[riotProcess]], o ramo `error:focus` do [[riotClient]], o `dryRun` do [[signInFlow]] (com o `submit` do [[login.ps1]]), o `signIn` do [[signInService]], as mensagens em inglês que citavam "Show Riot Client" e uma tradução sem uso no [[language]].
 18. **Feito em 2026-11-07.** O experimento legado, a cópia privada e a janela antiga saíram ([[ADR-028 Modo antigo removido]]). O código está na tag `modo-antigo-final`.
 19. **Resolvido.** `scripts/dev/mock-api.js` define `onSignInOperation`; desde 2026-11-07 ele só tem o que os cartões usam.
+23. **Juntar o branch da migração.** Todo o trabalho do Tauri está no branch `migracao/tauri`, fora da `main` e ainda não enviado ao GitHub. Juntar e enviar depois da conferência acima, com o ok do usuário.
 
 ## Produto
 
-20. **Instalador e atualização.** Instalador assinado, versionamento do formato de `data.json` e atualização controlada. Os auxiliares PowerShell precisam ficar fora do `app.asar` (já suportado por `unpackedPath` em [[paths]]).
-21. **Validar o fluxo dos cartões com contas reais**: sessão nova, sessão expirada e 2FA ([[Integração com o Riot Client]]).
+20. **Instalador e atualização.** Desde 2026-11-15, `cargo tauri build` gera o Setup do Tauri, por usuário, com atalhos, desinstalador e só os arquivos de uma lista fechada ([[ADR-034 Troca do Electron pelo Tauri]]); a opção "Iniciar com o Windows" fica na bandeja. Falta: assinatura de código (certificado pago), atualização automática (o plugin `updater` do Tauri exige assinar as atualizações) e versionamento do formato de `data.json`. Os fuses do Electron deixaram de valer com a saída dele.
+21. **Validar o fluxo dos cartões com contas reais**: sessão nova, sessão expirada e 2FA ([[Integração com o Riot Client]]), agora no Tauri.
 
 ## Ferramentas de desenvolvimento
 
-22. **Servidor de prévia só local.** `scripts/dev/preview-server.js` escuta em todas as interfaces e `decodeURIComponent` pode lançar com URL inválida. Limitar a `127.0.0.1` e tratar o erro.
+22. **Resolvido em 2026-11-07:** servidor de prévia só local. Escuta em `127.0.0.1`, responde 400 a endereço malformado e serve só os arquivos dos cartões ([[Desenvolvimento]]).
 
 Mais riscos de menor impacto estão em "Pontos de atenção" de cada nota de módulo.
 

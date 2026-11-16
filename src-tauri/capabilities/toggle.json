@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "toggle",
+  "description": "Only the Hide accounts box may report its checkbox.",
+  "local": true,
+  "windows": [],
+  "webviews": ["toggle"],
+  "permissions": ["allow-overlay-toggle"]
+}

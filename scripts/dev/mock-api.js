@@ -35,7 +35,7 @@
       stats: { lol: lol(30, 1, null, null), tft: { ranked: null }, val: val(27, 'Radiant', 412, card('f31491e7-4642-ea8b-87fa-ed8fd73e44cf')) } },
   ];
 
-  let settings = { refreshMinutes: 30, staySignedIn: true, riotClientPath: '', language: 'pt', riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
+  let settings = { refreshMinutes: 30, staySignedIn: true, riotClientPath: '', language: 'pt', cardLayout: 'plates', riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
   let lastRefresh = iso(7 * 60000);
   let activeSignIn = null;
   const listeners = {};

@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "cards",
+  "description": "Only the account cards may call the account service.",
+  "local": true,
+  "windows": [],
+  "webviews": ["cards"],
+  "permissions": ["allow-manager"]
+}

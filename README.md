@@ -6,25 +6,39 @@ Cartões de contas presos à janela oficial do Riot Client, sobre a arte à dire
 
 Cada cartão mostra nome, nível e, para Solo/Duo e Flex lado a lado (Competitivo no VALORANT), elo, winrate, vitórias e derrotas. Cadastro e configurações usam diálogos compactos. A caixa "Ocultar contas" mostra a arte da Riot de volta.
 
+- Elos sem chave de API: lidos do LoL ou do VALORANT aberto quando a conta joga. Com chaves no ⚙, todas as contas se atualizam de uma vez
 - Senhas, chaves e sessões criptografadas com o DPAPI do Windows
 - Primeira entrada de cada conta preenchida no formulário da Riot; depois, com "Manter login", entrada em segundo plano com a sessão guardada da conta
 - A Riot sempre abre desconectada, na tela de login com os cartões
 - Não altera a instalação da Riot, não contorna CAPTCHA nem 2FA e não mexe nos jogos nem no Vanguard
 
-## Início rápido
+## Instalar
 
 ```powershell
 npm ci
-npm start
+cd src-tauri
+cargo tauri build
 ```
 
-Inicie por `Abrir Riot com minhas contas.bat` (instala as dependências na primeira vez), `Iniciar gerenciador de contas.bat` ou `npm start`, depois abra o Riot Client normalmente. Os cartões aparecem presos à janela da Riot e a acompanham. Pela bandeja, **Contas no Riot** abre a Riot com os cartões e **Abrir Riot Client** abre só a Riot. Encerre a instância antiga pela bandeja antes de atualizar. O início automático com o Windows não é ativado.
+Rode `src-tauri\target\release\bundle\nsis\Eclipse_<versão>_x64-setup.exe`. Ele instala na sua conta do Windows, sem pedir administrador, em `%LOCALAPPDATA%\Eclipse`, e cria o atalho "Eclipse" no menu Iniciar. O Setup não é assinado: se o Windows avisar, use **Mais informações** → **Executar assim mesmo**. As contas ficam em `%APPDATA%\riot-account-manager\`, e a desinstalação não as apaga. Se achar o Eclipse antigo em Electron instalado, o Setup o desinstala antes, mantendo as contas e o início com o Windows.
 
-Ao clicar em **Jogar**, o botão vira **Cancelar** enquanto o Eclipse entra na conta. Quando a janela do jogo abre, a janela da Riot é fechada. 2FA, CAPTCHA e outras verificações aparecem na própria tela da Riot.
+Abra pelo atalho; o Eclipse fica na bandeja. Na bandeja, **Iniciar com o Windows** abre o Eclipse quando você entra no Windows. Para atualizar, saia pela bandeja e rode o Setup novo por cima.
 
-O modo antigo, com uma cópia privada da interface da Riot (`npm run start:private`), saiu em 2026-11-07. O código está na tag `modo-antigo-final`.
+Pela bandeja, **Contas no Riot** abre a Riot com os cartões e **Abrir Riot Client** abre só a Riot. Ao clicar em **Jogar**, o botão vira **Cancelar** enquanto o Eclipse entra na conta. Quando a janela do jogo abre, a janela da Riot é fechada. 2FA, CAPTCHA e outras verificações aparecem na própria tela da Riot.
 
-Requisitos: Windows 10/11 e Node.js 22+.
+## Rodar do projeto
+
+```powershell
+$env:ECLIPSE_DATA_DIR = "C:\pasta\de\teste"
+cd src-tauri
+cargo run
+```
+
+Em desenvolvimento, o Eclipse só abre com `ECLIPSE_DATA_DIR` apontando para uma pasta escolhida à mão, para nunca abrir as contas reais por acidente. A opção **Iniciar com o Windows** não aparece.
+
+O Eclipse em Electron saiu em 2026-11-15 (a 2.0.0 é a primeira versão só em Tauri); o código está na tag `electron-final`. O modo antigo, com uma cópia privada da interface da Riot, saiu em 2026-11-07 e está na tag `modo-antigo-final`.
+
+Requisitos: Windows 10/11, Rust com o `tauri-cli` (`cargo install tauri-cli`) e Node.js 22+ (para as fontes, a prévia e os testes JS).
 
 ## Documentação
 
@@ -41,15 +55,17 @@ A documentação completa é um vault do Obsidian em [`docs/`](docs/00%20Início
 ## Estrutura
 
 ```
+src-tauri/           o app: Rust, Tauri, Setup e testes
+  src/application/   armazenamento, serviço de login, sessões, elos
+  src/riot/          controle do Riot Client e fluxo de login
+  src/platform/      janelas, DPAPI, início com o Windows, notificações
+  src/integration/   sobreposição presa à Riot, cartões e API local
 src/
-  main/              serviço principal Electron na bandeja, sem janela própria
-  core/              armazenamento, serviço de login, sessões, consulta de elos
-  riot/              controle do Riot Client e fluxo de login
-  platform/windows/  janelas e auxiliares PowerShell
-  integration/       sobreposição presa à Riot e leitura da API local
   renderer/          os cartões
+  integration/       caixa, cobertura e o preload dos cartões
+  platform/windows/  auxiliares PowerShell
 scripts/dev/         prévia no navegador
-test/                espelha src/
+test/                testes JS dos cartões, do preload e dos .ps1
 docs/                vault do Obsidian
 ```
 
@@ -57,8 +73,9 @@ docs/                vault do Obsidian
 
 | Comando | O que faz |
 |---|---|
-| `npm start` | Inicia o Eclipse na bandeja; abra a Riot normalmente |
-| `npm test` | Roda os testes |
+| `cargo test` (em `src-tauri/`) | Roda os testes do app |
+| `cargo tauri build` (em `src-tauri/`) | Gera o Setup |
+| `npm test` | Roda os testes JS |
 | `npm run preview` | Cartões no navegador com contas fictícias (<http://localhost:5178>) |
 
 ## Aviso

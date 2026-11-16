@@ -7,9 +7,21 @@ tags: [uso]
 
 ## Abrir
 
-Os cartões aparecem automaticamente sobre a arte à direita do cliente oficial. Use Entrar e jogar no cartão escolhido. Nome, nível, rank, winrate e resultados correspondem ao jogo escolhido pelos ícones do rodapé, ao lado da conta selecionada; as cores e o botão Jogar mudam com o jogo; no League, cada cartão mostra Solo/Duo e Flex lado a lado. O botão **+** no início do rodapé (adicionar conta), o menu ⋯ de cada cartão e o ⚙ do rodapé abrem somente diálogos nessa área. O rodapé também mostra quantas contas existem e quando os elos foram atualizados; o ↻ ao lado atualiza. Para usar o perfil da Riot, marque "Ocultar contas"; a coluna de login permanece livre.
+Os cartões aparecem automaticamente sobre a arte à direita do cliente oficial. Use Entrar e jogar no cartão escolhido. Nome, nível, rank, winrate e resultados correspondem ao jogo escolhido pelos ícones do rodapé, ao lado da conta selecionada; as cores e o botão Jogar mudam com o jogo. Os dois ícones ao lado do ⚙ trocam entre placas verticais (padrão) e lista compacta, para quem tem muitas contas; a escolha fica salva ([[cards]]). O botão **+** no início do rodapé (adicionar conta), o menu ⋯ de cada cartão e o ⚙ do rodapé abrem somente diálogos nessa área. O rodapé também mostra quantas contas existem e quando os elos foram atualizados; o ↻ ao lado atualiza. Para usar o perfil da Riot, marque "Ocultar contas"; a coluna de login permanece livre.
 
-- Abra `Iniciar gerenciador de contas.bat` ou execute `npm start`. O gerenciador fica na bandeja. Depois abra o Riot Client pelo atalho oficial; os cartões de contas aparecem presos à janela do Riot, acompanham quando você a move e ficam visíveis mesmo com outro programa em foco. `Abrir Riot com minhas contas.bat` faz o mesmo e instala as dependências na primeira vez.
+- **Instalado (desde 2026-11-15, versão 2.0.0, só Tauri):** rode `Eclipse_<versão>_x64-setup.exe`, gerado por `cargo tauri build` em `src-tauri/` ([[Desenvolvimento]]). Ele instala na sua conta do Windows, sem pedir administrador, em `%LOCALAPPDATA%\Eclipse`, cria o atalho "Eclipse" no menu Iniciar e, se achar o Eclipse antigo em Electron, o desinstala mantendo contas e início com o Windows. Na primeira vez, o Windows pode avisar que o app não é reconhecido, porque ele não é assinado: **Mais informações** → **Executar assim mesmo**. Depois, abra pelo atalho; o Eclipse fica na bandeja. As contas ficam em `%APPDATA%\riot-account-manager\`.
+- **Iniciar com o Windows:** no app instalado, clique com o botão direito no ícone da bandeja e marque **Iniciar com o Windows**. Vem desmarcado. Marcado, o Eclipse abre na bandeja quando você entra no Windows, sem abrir a Riot. Desmarque no mesmo lugar.
+- **Atualizar o instalado:** o Setup novo instala por cima e mantém contas, sessões e configurações. Para remover, use "Aplicativos instalados" do Windows; as contas continuam em `%APPDATA%\riot-account-manager\`.
+  1. **Gerar o Setup.** No PowerShell: `cd C:\Users\turia\Desktop\riot-account-manager\src-tauri` e depois `cargo tauri build`. Leva de 1 a 3 minutos. Termina com `Finished 1 bundle at:` e o caminho do `Eclipse_<versão>_x64-setup.exe`, na pasta `src-tauri\target\release\bundle\nsis\`. Se aparecer `error`, não instale: o Setup não foi gerado.
+  2. **Instalar.** Dê dois cliques nesse arquivo. Ele fecha o Eclipse aberto sozinho e instala por cima, sem perguntar nada.
+  3. **Abrir.** Pelo atalho "Eclipse" do menu Iniciar.
+
+  Dentro do Claude Code, dá para rodar o passo 1 sem abrir outro terminal: digite `! cd C:/Users/turia/Desktop/riot-account-manager/src-tauri && cargo tauri build`. Ali o `!` roda no bash, que apaga as barras `\`: o caminho precisa ser com `/`.
+
+  Na pasta `nsis` ficam os Setups de versões anteriores; use o de número maior. Se a versão não mudou, o Setup novo substitui o antigo com o mesmo nome. Subir o número da versão é opcional: o Setup instala por cima de qualquer jeito. Quem sobe a versão muda os três arquivos juntos ([[Desenvolvimento]]).
+
+  Antes de gerar, `cargo test` (em `src-tauri`) e `npm test` (na pasta do projeto) conferem que nada quebrou. Não são obrigatórios para instalar, mas um teste falhando é motivo para não instalar.
+- **Do projeto:** com `ECLIPSE_DATA_DIR` apontando para uma pasta de teste, rode `cargo run` em `src-tauri/`. O gerenciador fica na bandeja. Depois abra o Riot Client pelo atalho oficial; os cartões de contas aparecem presos à janela do Riot, acompanham quando você a move e ficam visíveis mesmo com outro programa em foco. Os `.bat` e o `npm start` do Electron saíram em 2026-11-15.
 - Após atualizar o código, encerre a instância antiga uma vez pelo menu da bandeja para carregar a atualização.
 - Pela bandeja, **Contas no Riot** abre a Riot oficial com os cartões, e **Abrir Riot Client** abre só a Riot.
 
@@ -17,7 +29,7 @@ Só uma cópia do serviço roda por vez. Abrir de novo reutiliza a instância ex
 
 ## Primeiros passos
 
-1. No ⚙ do rodapé dos cartões, informe as chaves de API ([[Visão geral#Fontes de dados]]).
+1. Chaves de API são opcionais. Sem elas, o Eclipse lê o elo do jogo aberto: cada conta ganha elo na primeira vez em que você joga com ela, e ele se atualiza enquanto o jogo está aberto. Com chaves no ⚙ do rodapé, todas as contas se atualizam de uma vez, com o RR do VALORANT e os cortes de Mestre+ ([[Visão geral#Fontes de dados]]).
 2. Adicione a conta com Riot ID (pode colar `Nome#TAG`), servidor, usuário e senha.
 3. Escolha o jogo pelos ícones do rodapé e use **Jogar**.
 

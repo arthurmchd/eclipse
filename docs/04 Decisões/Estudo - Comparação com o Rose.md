@@ -42,7 +42,7 @@ O [core do Pengu](https://github.com/PenguLoader/PenguLoader/blob/main/core/src/
 5. O gerenciador faz o login, esconde o Riot Client e reabre o League na conta escolhida.
 6. O plugin reaparece e reconecta para ler o resultado.
 
-**Não implementado**: o usuário escolheu a tela de login do Riot. Partes desta proposta foram reaproveitadas no que foi construído: serviço de login compartilhado ([[signInService]]), ponte autenticada em `127.0.0.1` ([[bridgeServer]]), execução na bandeja e proteção contra troca com jogo aberto feita no serviço, não na interface.
+**Não implementado**: o usuário escolheu a tela de login do Riot. Partes desta proposta foram reaproveitadas no que foi construído: serviço de login compartilhado ([[signInService]]), ponte autenticada em `127.0.0.1` ([[bridgeServer]]), execução na bandeja e proteção contra troca com jogo aberto feita no serviço, não na interface. Em 2026-11-08 o Eclipse ganhou também um instalador próprio, como o do Rose ([[ADR-030 Eclipse instalado por um Setup próprio]]).
 
 ## Sobre a tela de login do Riot Client
 

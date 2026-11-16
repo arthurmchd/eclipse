@@ -7,6 +7,178 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-15 · Segunda leitura do OP.GG no ↻
+
+- Pedido do usuário: quando ele pede a atualização (↻, salvar as configurações ou salvar uma conta), as contas que vieram do OP.GG são lidas de novo 8 s depois, já com o perfil que a primeira consulta mandou o OP.GG atualizar ([[refresher]], [[ADR-037 Elo do League pelo OP.GG]]). As atualizações automáticas continuam com uma leitura só.
+- Medido com um perfil público: a atualização do OP.GG ficou pronta antes da consulta seguinte, poucos segundos depois.
+- Três testes novos no `refresher.rs`.
+- Versão 2.4.0, gerada e instalada por cima nesta máquina.
+
+## 2026-11-15 · Elo do League pelo OP.GG
+
+- Decisão do usuário, depois de comparar o Eclipse com outros gerenciadores no GitHub: o OP.GG é a fonte principal do elo do League sem chave, e o jogo aberto corrige na hora a conta em que a pessoa joga ([[ADR-037 Elo do League pelo OP.GG]]).
+- Módulo novo [[opgg]]: pedido ao endpoint público `mcp-api.op.gg`, leitura do formato de texto dele e o bloco `stats.lol` com a hora do perfil e `source: "opgg"`.
+- O [[rankApi]] usa a API oficial com chave e o OP.GG sem chave ou quando ela falha, e só troca o elo salvo por um mais novo. O [[refresher]] passa a atualizar todas as contas mesmo sem chave. O [[rankWatcher]] apaga a marca do OP.GG ao ler o jogo.
+- Conferido com um perfil público, nunca com contas do usuário: a chamada real pelo Eclipse, e que cada consulta faz o OP.GG atualizar o perfil mas devolve o dado anterior.
+- Testes: `src-tauri/tests/application/opgg.rs` novo; os testes da passada sem chave e do erro sem chave foram atualizados.
+- Versão 2.3.0, gerada e instalada por cima nesta máquina.
+
+## 2026-11-15 · Ícones do elo do pacote do usuário
+
+- Pedido do usuário: trocar os ícones do elo do League, que "não são bons", pelos do pacote do emoji.gg que ele baixou. Os nove viraram PNG dentro do app; o de Esmeralda, que falta no pacote, saiu do emblema oficial com o mesmo recorte ([[ranks]]). Sem elo continua o símbolo do CommunityDragon.
+- Os emblemas ficaram maiores na placa, na lista e na linha do corte ([[cards]]).
+- Teste novo em `test/renderer/ranks.test.js`: todo elo aponta para um arquivo que existe. Conferido na prévia, em placas e lista.
+- Versão 2.2.0, gerada e instalada por cima nesta máquina. Desde este dia, o usuário autorizou gerar e instalar o Setup depois de toda mudança, sem perguntar.
+
+## 2026-11-15 · Lista compacta sem o retângulo cinza
+
+- Relato do usuário na 2.1.0: na lista compacta, uma conta sem partidas no Solo/Duo mostrava um retângulo cinza na coluna de vitórias. Era a barra vazia; agora a coluna mostra só "—" ([[cards]]).
+- Versão 2.1.1: Setup gerado. A pedido do usuário, a instalação ficou com ele, e o [[Como usar]] ganhou o passo a passo para gerar e instalar uma versão nova sozinho.
+
+## 2026-11-15 · Placas verticais e lista compacta
+
+- Pedido do usuário: reformular o cartão das contas. Num quadro com sete opções inspiradas em sites de estatísticas, escolheu as placas verticais como padrão e a lista compacta para quem tem muitas contas, trocadas por dois ícones no rodapé ([[cards]]).
+- Os dados do cartão saíram do visual: `cardView.js` monta os campos de cada conta e `cards.js` só os desenha, em placa ou em linha.
+- A escolha fica salva na configuração `cardLayout` (`plates` ou `list`), validada pelo [[managerService]] e guardada pelo [[store]] só depois do primeiro clique.
+- Saíram o banner do League e a arte larga do VALORANT; o retrato do VALORANT usa a arte quadrada ([[ranks]]).
+- Testes: `test/renderer/cardView.test.js` novo, o do banner saiu; testes Rust do `cardLayout` no store e no serviço.
+- Versão 2.1.0: Setup gerado e instalado por cima nesta máquina, a pedido do usuário. 390 testes com `cargo test` e 27 com `npm test`. A pasta da Cinzel da instalação anterior continua em `%LOCALAPPDATA%\Eclipse`, porque o Setup não apaga arquivos de versões antigas; o app não a serve mais.
+
+## 2026-11-15 · Cartões respeitam a ordem das janelas e a caixa não some no arraste
+
+- Relato do usuário depois da 2.0.0: com a Riot em segundo plano, os cartões ficavam por cima dos outros programas. A janela deles estava "sempre por cima" e a da Riot não; a janela de abertura da Riot é "sempre por cima" e passa o estilo para os cartões presos a ela. O [[riotWindowObserver]] passa a tirar o estilo dos cartões quando a Riot escolhida não o tem, e a pô-los logo acima dela.
+- Relato do usuário: arrastando a Riot, a caixa "Ocultar contas" sumia até soltar. A leitura de cor que detecta o formulário da Riot pegava a tela um quadro atrasada; agora só lê com a janela parada desde a leitura anterior.
+- Testes: autoteste do helper com os casos novos. O `test/package.test.js` deixa de travar o número 2.0.0 e passa a conferir que npm, Tauri e Cargo têm a mesma versão, 2.0.0 ou mais nova.
+- Versão 2.0.1: Setup gerado e instalado por cima nesta máquina, a pedido do usuário. 388 testes com `cargo test` e 24 com `npm test`.
+
+## 2026-11-15 · Eclipse 2.0.0: só Tauri
+
+- A pedido do usuário, o Electron saiu do projeto antes da conferência na Riot real ([[ADR-034 Troca do Electron pelo Tauri]], revisão). O último commit com ele tem a tag `electron-final`. Detalhes do que saiu e do que ficou em [[Migração para Tauri]].
+- Versão 2.0.0, a primeira só em Tauri. O Setup do Tauri foi gerado e instalado nesta máquina; ele desinstalou o Eclipse em Electron, mantendo as contas, as sessões e o início com o Windows.
+- Os `.bat` saíram: o Eclipse abre pelo atalho do Setup. Em desenvolvimento, `cargo run` com `ECLIPSE_DATA_DIR`.
+- O `CLAUDE.md`, o README, o [[00 Início]], o [[Como usar]] e as notas dos módulos passaram a apontar para os arquivos em Rust; o texto sobre o JS ficou marcado como histórico.
+- Testes: 388 com `cargo test` e 24 com `npm test`.
+- Depois de instalar, o usuário abriu o Eclipse 2.0.0 e as contas reais abriram normalmente: primeira leitura, pelo Rust, do `data.json`, das senhas e das sessões gravadas pelo Electron.
+- O [[Backlog]] ganhou a lista do que falta conferir no Tauri e perdeu o que só valia para o Electron.
+- As notas de todos os módulos foram reescritas para o Rust: a API pública, as dependências e os testes listam os itens e arquivos em Rust, os parágrafos "Versão Rust" das fases viraram regras comuns, e o aviso "Só Rust" saiu do topo. O que só fazia sentido no Electron saiu, menos o histórico de decisões. A [[Arquitetura]] e o guia de [[Desenvolvimento]] passaram a descrever o app em Tauri, com os comandos, os testes e o Setup de hoje.
+
+## 2026-11-15 · Migração para Tauri: o Eclipse assume o arraste da Riot
+
+- O usuário conferiu a [[ADR-035 Posição da sobreposição movida pelo helper]] na Riot real e disse que, arrastando rápido, os cartões continuavam para trás. Pela [[ADR-036 Arraste da Riot assumido pelo Eclipse]], no Tauri, o arraste pela barra de cima com os cartões à vista passa a ser do Eclipse: o [[overlayDrag]] (novo) toma a captura do mouse e move a Riot e a sobreposição juntas num único `DeferWindowPos` por movimento.
+- O helper do [[riotWindowObserver]] avisa o começo do arraste (`EVENT_SYSTEM_MOVESIZESTART`, só com `follow`) e não move a sobreposição enquanto ela tem a captura.
+- Se a captura ficar com a Riot, o Eclipse desiste e os cartões seguem como na ADR-035. Cada desfecho ganha uma linha no `sign-in.log`, uma vez por execução.
+- Testes: 388 com `cargo test` (18 novos) e os 383 do `npm test`, que rodam o autoteste do helper. O laço de arraste do Windows não pode ser testado sem mouse: na Riot real, quem confere é o usuário. No Electron nada muda.
+
+## 2026-11-14 · Migração para Tauri: certificado da Riot conferido no Rust
+
+- Com a Riot aberta pelo usuário e com a permissão dele, o [[riotTransport]] em Rust fez um único `GET` na Riot real (o sinalizador de segundo plano do [[riotAppControls]]) e o TLS do Windows aceitou o certificado dela em `127.0.0.1`, com a validação ligada: resposta 200. Nada foi gravado, nenhum login foi tocado e o Eclipse em Tauri não foi aberto.
+- O teste manual ficou em `src-tauri/tests/riot/riot_transport.rs`, marcado com `#[ignore]`: só roda a pedido e só imprime o status.
+- **Primeiro uso do Eclipse em Tauri na Riot real, pelo usuário, com uma pasta de dados de teste.** Dois defeitos achados e corrigidos:
+  - Os cartões seguiam o arraste da Riot com muito atraso. Cada movimento reposicionava as três webviews sem precisar; agora elas só são reposicionadas quando o tamanho muda, e a thread principal aplica só a posição mais nova ([[riotOverlay]]).
+  - Depois dessa correção o atraso ficou "bem menor", mas arrastando rápido o usuário ainda sentia os cartões soltos e pediu "uma espécie de fita". Agora, no Tauri, o helper do [[riotWindowObserver]] move a sobreposição no instante em que mede a Riot, e o Rust cuida só do tamanho ([[ADR-035 Posição da sobreposição movida pelo helper]]). No Electron nada muda.
+  - Ao reabrir, as contas só apareciam depois de atualizar. Os cartões pediam as contas antes de o estado do app entrar no Tauri; agora ele entra antes de a janela ser criada ([[main]]).
+- O [[00 Início]] ganhou os links da [[ADR-033 Sobreposição no Tauri]] e da [[ADR-034 Troca do Electron pelo Tauri]].
+
+## 2026-11-13 · Migração para Tauri, fase 5: bandeja completa e Setup do Tauri
+
+- **Fase 5 da [[Migração para Tauri]], primeira parte ([[ADR-034 Troca do Electron pelo Tauri]]):** a bandeja do Tauri ganhou "Iniciar com o Windows" ([[startWithWindows]]), a segunda cópia passou a abrir as contas da primeira (`tauri-plugin-single-instance`) e os balões viraram notificações do Windows ([[notices]], [[toasts]], com o `tauri-winrt-notification`).
+- O Eclipse em Tauri não abre com o Electron aberto: confere se o Electron segura o `lockfile` da pasta de dados ([[electronInstance]]).
+- Setup do Tauri: `cargo tauri build` gera um instalador de 2,3 MB, por usuário, com os cartões, as fontes e os `.ps1` numa lista fechada; no app instalado, a raiz do [[paths]] é a pasta do executável. Se achar o Eclipse em Electron instalado, o Setup o desinstala em modo de atualização, mantendo a pasta de dados e o início com o Windows (`src-tauri/windows/hooks.nsh`). A CSP do `tauri.conf.json` ficou `default-src 'none'`.
+- Testes: 369 com `cargo test`, incluindo o conteúdo do Setup; os 383 do `npm test` continuam passando.
+- Nada foi instalado nem rodado; o Setup só foi compilado. A tag no git e a remoção do Electron esperam o usuário conferir o app em Tauri na Riot real.
+
+## 2026-11-13 · Migração para Tauri, fase 4: a sobreposição e o app ligado
+
+- **Fase 4 da [[Migração para Tauri]]:** [[riotWindowObserver]], [[riotOverlay]], [[overlayToggle]], [[overlayCover]], [[managerHost]] e a ponte do [[manager-preload]] em Rust, e o [[main]] em Rust ligando o [[store]], os serviços da fase 3 e a bandeja. Novos: [[assetProtocol]] (o `eclipse://`, lista fechada de arquivos), [[refresher]] (a fila de elos que no Electron mora no `index.js`) e [[appPorts]] (as portas do [[managerService]] e o `saveLeavingSession`).
+- Decisões na [[ADR-033 Sobreposição no Tauri]]: uma janela transparente com três webviews (feature `unstable` do Tauri), `SetWindowRgn`, pixels físicos, o mesmo `.ps1`, comandos liberados por webview, oclusão do WebView2 desligada e Win32 só na thread principal.
+- Em desenvolvimento, o app exige `ECLIPSE_DATA_DIR` com uma pasta absoluta e não abre sem ela ([[paths]]). O [[store]] em Rust grava também o `sign-in.log`.
+- Testes novos em `src-tauri/tests/`: 359 com `cargo test`; o temporizador manual foi para `tests/support/`. Os 383 do `npm test` continuam passando; o app Electron não mudou.
+- O app em Tauri não foi rodado: ligado, ele vigia a janela da Riot real e mexe no login lembrado da Riot, mesmo com dados fictícios. Nada leu os dados reais nem falou com a Riot.
+
+## 2026-11-13 · Migração para Tauri, fase 3: os serviços em Rust
+
+- **Fase 3 da [[Migração para Tauri]]:** [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[rankApi]] e [[startWithWindows]] portados para `src-tauri/src/`, com o novo [[timers]] no lugar do `setTimeout`. O login roda numa thread própria. O [[store]] ganhou o `ServiceStore`, a interface que os serviços usam.
+- O [[startWithWindows]] em Rust grava ele mesmo a entrada de inicialização no registro do usuário, no formato do Electron. Crates novos: `sha2` (hash da chave do [[rankApi]]) e `winreg`.
+- Testes novos em `src-tauri/tests/application/` e `tests/platform/windows/`, portados dos testes JS: 315 com `cargo test`. Os 383 do `npm test` continuam passando; o app Electron não mudou.
+- Os serviços ainda não estão ligados ao app; ligar o [[main]] e o `ManagerPorts` ficou para a fase 4. Nada leu os dados reais, consultou a Riot, chamou as APIs de elo ou tocou o registro do Windows.
+
+## 2026-11-13 · Migração para Tauri, fase 2: a camada da Riot em Rust
+
+- **Fase 2 da [[Migração para Tauri]]:** [[asar]], [[backend]], [[riotTransport]], [[riotState]], [[riotAuthentication]], [[riotInterface]], [[riotAppControls]], [[riotProcess]], [[gameRanks]], [[riotClient]] e [[signInFlow]] portados para `src-tauri/src/`, mais [[windowController]] e [[windowsEnvironment]], que o login usa. As regras de segurança não mudaram: senha só para a rota local da Riot ou para o `login.ps1` pela entrada padrão, nenhuma tentativa de contornar CAPTCHA ou 2FA, logs só com textos fixos.
+- O executor do PowerShell ganhou cancelamento e, no prazo ou no cancelamento, encerra a árvore inteira do processo.
+- Testes novos em `src-tauri/tests/riot/`, `tests/integration/` e `tests/platform/windows/`, portados dos testes JS: 215 com `cargo test`. Os 383 do `npm test` continuam passando; o app Electron não mudou.
+- Não conferido com a Riot real: nenhum processo da Riot foi aberto, fechado ou consultado. Falta ver se o TLS do Windows aceita o certificado local da Riot.
+
+## 2026-11-13 · Começa a migração para Tauri e Rust
+
+- A pedido do usuário, para deixar o Eclipse mais leve ([[ADR-032 Migração para Tauri e Rust]]). O app Electron não mudou e continua sendo o Eclipse de verdade; o Tauri cresce ao lado, em `src-tauri/`, por fases ([[Migração para Tauri]]).
+- **Fase 1, base:** projeto Tauri 2 com bandeja e Sair; [[store]], [[language]], [[managerService]] e `paths` portados para Rust; [[safeStorage]] (novo) lê e grava os segredos no formato do `safeStorage` do Electron, conferido com o Electron 44 do projeto numa pasta temporária.
+- Rust 1.100 instalado pelo `rustup` (winget, só no usuário) e `tauri-cli` 2 pelo `cargo`.
+- Testes novos em `src-tauri/tests/`: 39 com `cargo test`, mais um manual com uma amostra do Electron. Os 383 do `npm test` continuam passando.
+- `.gitignore` ganhou `src-tauri/target/` e `src-tauri/gen/`.
+
+## 2026-11-08 · Borda de cima da Riot e Setup sem o nome do autor
+
+- **[[riotOverlay]]:** a pedido do usuário, os cartões não passam mais da borda da Riot em cima. O Windows desenha a borda de 1 px da Riot por cima da primeira linha da área cliente, só em cima (conferido na Riot real, só lendo). Com cantos arredondados, essa linha sai da região dos cartões e da coluna coberta, e as pontas de cima descem junto. A janela e os cartões não mudam de tamanho. Não conferido na tela: o usuário preferiu não ter a tela capturada.
+- **Setup:** o `author` passou de "Arthur" para "Eclipse" (empresa, copyright e editor no Windows) e o `appId` passou a `Eclipse.AccountManager`. O `nsis.guid` fica na chave do primeiro Setup, para o novo instalar por cima ([[ADR-030 Eclipse instalado por um Setup próprio]]).
+- Testes novos: a borda de cima em `test/integration/overlay/riotOverlay.test.js` e o nome do instalador em `test/package.test.js`. 383 testes.
+
+## 2026-11-08 · Elo do LoL conferido na Riot real
+
+- Com o LoL do usuário aberto e só `GET` ([[gameRanks]]): o certificado foi aceito e as rotas e os campos vieram como esperado, com `queues` e `queueMap` juntos e as filas sem elo com `tier` vazio e `"NA"`. O Eclipse instalado gravou sozinho o elo do LoL e do TFT numa conta salva ("updated a saved account from the League client"). O VALORANT não foi conferido: estava fechado ([[Backlog]]).
+- **[[rankWatcher]]:** o cliente do LoL não manda a sequência de vitórias (`hotStreak`). A leitura agora mantém a que veio de uma chave enquanto as vitórias e derrotas da fila não mudam, em vez de apagá-la a cada minuto. Nenhum cartão mostra esse campo.
+- Testes novos: o formato real da resposta do LoL, com valores fictícios, em `test/riot/gameRanks.test.js`, e a sequência de vitórias em `test/core/rankWatcher.test.js`. 381 testes.
+
+## 2026-11-08 · Elo sem chave, lido do jogo
+
+- A pedido do usuário, para um amigo usar o Eclipse sem criar chave de API ([[ADR-031 Elo lido do próprio jogo, sem chave]]).
+- **[[gameRanks]] (novo):** lê o elo da conta que está no jogo. LoL e TFT pelo cliente do LoL (`lockfile` da pasta do jogo, mesmo certificado da Riot, só `GET`); VALORANT pela presença da própria conta no chat do Riot Client. As presenças dos amigos são descartadas.
+- **[[rankWatcher]] (novo):** a cada 60 s, com o jogo aberto e fora de um login, grava o elo na conta salva com o mesmo Riot ID. Mantém o que só a chave dá (cortes de Mestre+, RR, pico, temporada passada) enquanto o elo for o mesmo.
+- **[[main]]:** cria o watcher e, sem nenhuma chave, faz a atualização só pedir a leitura do jogo, sem consultar servidores. Com chave, nada muda.
+- **[[ranks]]:** um elo de VALORANT sem RR aparece sem a linha de RR, em vez de "null RR".
+- **[[cards]]:** a dica das chaves no ⚙ diz que elas são opcionais. O diálogo não mudou de forma.
+- Não conferido na Riot real: as rotas e os campos vêm da documentação da comunidade ([[Backlog]]).
+- Testes novos: `test/riot/gameRanks.test.js`, `test/core/rankWatcher.test.js`, o watcher e a atualização sem chave em `test/main/mainStartup.test.js` e o VALORANT sem RR em `test/renderer/ranks.test.js`. 379 testes.
+
+## 2026-11-08 · Eclipse instalável
+
+- A pedido do usuário: o Eclipse funciona como o Rose, instalado e na bandeja, sem abrir o VS Code ([[ADR-030 Eclipse instalado por um Setup próprio]]).
+- **`npm run dist`** gera `dist/Eclipse Setup 1.0.0.exe` com o electron-builder 26.18.0: instalação de um clique, por usuário, sem administrador, com atalhos "Eclipse" no menu Iniciar e na Área de Trabalho e desinstalador. Sem assinatura e sem atualização automática.
+- **Mesmos dados:** o `name` continua `riot-account-manager`, e o nome "Eclipse" vem só de `build.productName`. Conferido no pacote: o `package.json` do `app.asar` não tem `productName`. A desinstalação não apaga os dados.
+- **Pacote só com o código:** `src/`, `package.json` e as fontes. Os três `.ps1` saem do `app.asar` iguais aos do projeto ([[paths]]).
+- **[[startWithWindows]] (novo):** opção "Iniciar com o Windows" na bandeja, desmarcada por padrão e só no app instalado ([[main]], [[language]]). O desinstalador apaga a entrada, menos ao instalar uma versão nova por cima (`scripts/build/installer.nsh`).
+- O `package.json` ganhou `author`, que vira a empresa do executável no lugar de "GitHub, Inc.".
+- O Setup gerado não foi executado: instalar e abrir o Eclipse mexe na Riot real e na pasta de dados real.
+- Testes novos: `test/platform/windows/startWithWindows.test.js`, `test/package.test.js` e a opção da bandeja em `test/main/mainStartup.test.js`. 362 testes.
+
+## 2026-11-07 · Estado da Riot num lugar só
+
+- A pedido do usuário, item 4 da análise de remendos de 2026-11-06 ([[ADR-029 Estado da Riot definido num lugar só]]).
+- **[[riotState]] (novo):** define fechada, em jogo, com janela, sem janela, em segundo plano e conta `'yes'`/`'no'`/`'unknown'`. Cada olhada consulta a Riot no máximo uma vez por pergunta.
+- **[[sessionKeeper]], [[riotWakeup]], `closeEverything` do [[riotClient]] e o começo do [[signInFlow]]** passam a perguntar a ele, em vez de combinar `runningGames`, `authorization` e `sessionState` cada um do seu jeito.
+- **[[riotClient]]:** exporta `look()`; saem as saídas `clientRunning`, `isAuthorized`, `authorization` e `sessionState`, que só o guardião e o wakeup usavam.
+- O comportamento com a Riot real não muda. Nos testes do guardião, a Riot falsa responde só pela lista de processos e por `authorization`, passando pela regra real; cenários impossíveis ("roda" e "não roda" na mesma conferência) deixam de existir.
+- Fica para depois: conferir na Riot real se a API local tem canal de eventos ([[Backlog]]).
+- Testes novos: `test/riot/riotState.test.js` e, no [[signInFlow]], uma conta `'unknown'` nunca reaproveitada. 351 testes.
+
+## 2026-11-07 · Seis correções pequenas do Backlog
+
+- A pedido do usuário, fecha os itens 4, 5, 7, 8, 10 e 22 do [[Backlog]].
+- **[[signInService]] (item 8):** o `onClosed` ganha proteção. Uma falha ao guardar a sessão de quem sai registra uma linha fixa e para o login com "Could not keep the session of the account that was signed in. Try Play again", traduzido pelo [[language]]. Continua parando de propósito: seguir tiraria da Riot o login lembrado da conta que saiu sem guardá-lo. O texto da exceção, que pode trazer caminhos, não vai mais à tela nem ao log.
+- **[[rankApi]] (item 5):** cada consulta tem prazo de 15 s, do pedido ao fim do corpo, e é abortada ao estourar. O `retry-after` vale em segundos ou como data HTTP; um pedido de espera acima de 60 s vira erro em vez de travar a fila.
+- **[[store]] (item 4):** uma chave de API ilegível vem vazia no `getKeys()`, e o refresh segue com as outras. Antes derrubava o refresh de todas as contas.
+- **[[main]] (item 7):** contas pedidas durante um refresh entram numa passada extra logo depois, em vez de esperar o ciclo seguinte. O refresh passa a ser feito por `runRefresh`.
+- **[[riotClient]] (item 10):** o `requestLaunch` vira `createLaunchRequester` e grava no `sign-in.log` só status, elegibilidade e um `errorCode` com formato de código, sem os 300 caracteres de cada resposta.
+- **Prévia (item 22):** `scripts/dev/preview-server.js` escuta só em `127.0.0.1`, responde 400 a endereço malformado e serve só `src/renderer/`, as fontes e o `mock-api.js` ([[Desenvolvimento]]). Também fecha um furo achado no caminho: a checagem por `startsWith` deixava passar uma pasta vizinha com o mesmo começo de nome.
+- [[Segurança e privacidade]] ganha as regras de log e da prévia.
+- Testes novos para cada item, incluindo `test/scripts/dev/preview-server.test.js`. 344 testes.
+
+## 2026-11-07 · Duas traduções voltam
+
+- Correção da limpeza anterior: dos três pares tirados do [[language]] como sem uso, dois eram usados pelo lado em português. Com o app em inglês, "Preparando o login no Riot Client…" e "Não foi possível acompanhar a janela do Riot…" apareceriam em português.
+- Os dois pares voltam. O [[signInFlow]] passa a escrever "Preparing the Riot Client sign-in…" e "Signing in…", e o [[riotWindowObserver]] "Could not follow the Riot window. Restart Eclipse.", em inglês como o resto; o [[language]] traduz na saída.
+- Teste novo: todo status do [[signInFlow]] e o erro do observador são escritos em inglês e têm tradução. 330 testes.
+
 ## 2026-11-07 · Resto do código morto sai
 
 - A pedido do usuário, fecha o item 17 do [[Backlog]].

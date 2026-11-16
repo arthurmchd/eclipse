@@ -1,8 +1,8 @@
 ---
 tipo: módulo
-arquivo: src/riot/riotInterface.js
+arquivo: src-tauri/src/riot/riot_interface.rs
 camada: riot
-testes: test/riot/riotInterface.test.js
+testes: src-tauri/tests/riot/riot_interface.rs
 tags: [módulo]
 ---
 
@@ -17,11 +17,12 @@ tags: [módulo]
 
 ## API pública
 
-| Export | Tipo | Descrição |
+| Item | Tipo | Descrição |
 |---|---|---|
-| `createInterfaceOpener({ runningGames, localApi, stopClient, launchClient, waitFor, showTimeoutMs, stopTimeoutMs })` | função | Retorna `openInterface`. Prazos padrão de 10 s. |
-| `openInterface({ exe, signal, log })` | função async | Devolve `'existing'`, `'shown'` ou `'launched'`. Lança erro se os serviços não pararem. |
-| `SHOW_INTERFACE` | string | `/riot-client-lifecycle/v1/show` |
+| `InterfaceOpener` | struct | Recebe processos abertos (`running_games`), a API local do [[riotTransport]], parada, início e espera como funções, e os prazos `show_timeout_ms` e `stop_timeout_ms` (10 s) |
+| `open(exe, cancel, log)` | método | Devolve `Opened::Existing`, `Shown` ou `Launched`. Erro se os serviços não pararem |
+| `wait_for(sonda, prazo, intervalo)` | função | Repete uma sonda até dar certo ou o prazo acabar |
+| `SHOW_INTERFACE` | constante | `/riot-client-lifecycle/v1/show` |
 
 ## Sequência
 
@@ -36,8 +37,8 @@ Cada caminho escreve uma linha no `sign-in.log` pelo `log` recebido.
 
 ## Dependências
 
-- Usa: `localApi` do [[riotTransport]], `launchClient` do [[riotProcess]], `runningGames`, `waitFor` e `taskkill` do [[riotClient]].
-- Usado por: [[riotClient]], dentro de `typeCredentials`.
+- Usa: a API local do [[riotTransport]], `launch_client` do [[riotProcess]], e processos abertos, espera e `taskkill` do [[riotClient]].
+- Usado por: [[riotClient]], antes de digitar as credenciais no formulário nativo.
 
 ## Invariantes e decisões
 
@@ -46,11 +47,11 @@ Cada caminho escreve uma linha no `sign-in.log` pelo `log` recebido.
 - **Reiniciar é seguro neste ponto.** O formulário nativo só é usado antes de qualquer envio de senha (API indisponível ou CAPTCHA antes da submissão, ver [[riotAuthentication]]). Encerrar os serviços não perde credenciais enviadas nem uma sessão autenticada, e o `RiotGamesPrivateSettings.yaml` restaurado continua em disco.
 - **Nunca dois clientes.** Se os serviços não saírem em 10 s, a abertura falha em vez de iniciar uma segunda instância.
 - **Cancelamento antes de cada efeito.** O `signal` é conferido antes do `show`, do encerramento e do lançamento.
-- **A janela nova fica visível.** Desde 2026-11-07 nada a esconde, e a opção `visible` saiu: a interface sempre abre visível, mesmo que alguém peça o contrário. Antes, o [[signInFlow]] chamava `windows.hide()` antes do `typeCredentials`, e o monitor do [[windowGuard.ps1]] ocultava a interface assim que ela era criada.
+- **A janela nova fica visível.** Desde 2026-11-07 nada a esconde, e a opção de abrir escondida saiu: a interface sempre abre visível. Antes, o [[signInFlow]] escondia as janelas antes de digitar as credenciais, e o monitor do [[windowGuard.ps1]] ocultava a interface assim que ela era criada.
 
 ## Testes
 
-`riotInterface.test.js`: janela existente reaproveitada; `show` funcionando sem reinício; `show` falhando (2xx sem janela, 404 ou erro de rede) leva ao reinício com interface visível; serviços parados iniciam direto com interface visível, mesmo se pedirem oculta; serviços que não param geram erro sem segundo cliente; cancelamento antes de qualquer efeito.
+`src-tauri/tests/riot/riot_interface.rs`: janela existente reaproveitada sem reiniciar nada; serviços em `--headless` recebendo o `show` antes de qualquer reinício; `show` que não abre janela levando ao reinício com interface visível; serviços parados iniciando direto com interface visível; serviços que não param gerando erro sem segundo cliente; cancelamento antes de mostrar, reiniciar ou iniciar.
 
 ## Pontos de atenção
 

@@ -102,11 +102,4 @@ function createManagerApi({ ipcRenderer, setInterval: repeat = setInterval, clea
   return Object.freeze(api);
 }
 
-if (process.versions?.electron) {
-  const { contextBridge, ipcRenderer } = require('electron');
-  contextBridge.exposeInMainWorld('api', createManagerApi({
-    ipcRenderer, onUnload: (callback) => window.addEventListener('unload', callback, { once: true }),
-  }));
-}
-
 if (typeof module === 'object' && module.exports) module.exports = { createManagerApi };

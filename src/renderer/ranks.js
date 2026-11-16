@@ -40,26 +40,20 @@ const valGroup = (tier) => VAL_GROUPS.find((g) => g.tiers.includes(tier)) || VAL
 
 export const lolEmblem = (tierId) =>
   tierId === 'UNRANKED' ? `${CD}/ranked-mini-crests/unranked.svg` : `${CD}/ranked-emblem/emblem-${tierId.toLowerCase()}.png`;
-export const lolCrest = (tierId) => `${CD}/ranked-mini-crests/${tierId.toLowerCase()}.svg`;
+const LOCAL_CRESTS = new Set(LOL_TIERS.filter((t) => t.id !== 'UNRANKED').map((t) => t.id));
+export const lolCrest = (tierId) =>
+  LOCAL_CRESTS.has(tierId) ? `assets/rank-${tierId.toLowerCase()}.png` : `${CD}/ranked-mini-crests/unranked.svg`;
 export const valIcon = (tier, size = 'large') => `${VAL_TIERS}/${tier}/${size}icon.png`;
 export const valGroupIcon = (group) => valIcon(group.id === 'UNRATED' ? 0 : group.tiers[group.tiers.length - 1], 'small');
 export const profileIcon = (id) =>
   `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${id}.jpg`;
 
-const BANNERS = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/regalia/bannerskins';
 const PLAYER_CARDS = 'https://media.valorant-api.com/playercards';
 const DEFAULT_CARD = '9fb348bc-41a0-91ad-8a3e-818035c4e561';
 
-export function lolBanner(lol) {
-  const name = String(lol?.banner || '').toLowerCase();
-  if (/^[a-z0-9_]{1,80}$/.test(name)) return `${BANNERS}/${name}.png`;
-  const best = LOL_TIERS.find((t) => t.id !== 'UNRANKED' && [lol?.solo?.tier, lol?.flex?.tier].includes(t.id));
-  return `${BANNERS}/${best ? best.id.toLowerCase() : 'default'}.png`;
-}
-
 export function valCardArt(card) {
   const id = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(String(card || ''))?.[0] || DEFAULT_CARD;
-  return `${PLAYER_CARDS}/${id.toLowerCase()}/wideart.png`;
+  return `${PLAYER_CARDS}/${id.toLowerCase()}/smallart.png`;
 }
 
 const title = (s) => s.charAt(0) + s.slice(1).toLowerCase();
@@ -85,9 +79,9 @@ export function rankOf(acc, game, queue) {
       emblem: valIcon(ranked ? tier : 0),
       emblemKind: 'val',
       label: ranked ? title(v.tierName) : 'Unrated',
-      sub: ranked ? `${v.rr} RR` : v ? 'No competitive games this act' : '',
-      progress: ranked ? Math.min(1, v.rr / (tier === 27 ? 1000 : 100)) : 0,
-      score: ranked ? tier * 1000 + v.rr : -1,
+      sub: ranked ? (Number.isFinite(v.rr) ? `${v.rr} RR` : '') : v ? 'No competitive games this act' : '',
+      progress: ranked && Number.isFinite(v.rr) ? Math.min(1, v.rr / (tier === 27 ? 1000 : 100)) : 0,
+      score: ranked ? tier * 1000 + (Number.isFinite(v.rr) ? v.rr : 0) : -1,
       level: v?.level ?? null,
       wins: null,
       losses: null,

@@ -39,6 +39,8 @@ A sessão guardada foi recusada pela Riot, a conta saiu pela Riot ou pelo "Sign 
 
 ## Elos não atualizam
 
+- **Sem chave:** o elo só muda com o jogo aberto naquela conta, e a conta precisa estar salva no Eclipse com o mesmo Riot ID. O `data.log` diz o que aconteceu: "updated a saved account", "signed in to an account that is not saved in Eclipse" ou "could not read the ranks". A última quer dizer que o jogo não respondeu como esperado ([[gameRanks]]); o cartão fica como estava.
+- **VALORANT sem RR:** normal sem a chave da HenrikDev. O jogo só informa o elo.
 - A chave de desenvolvimento da Riot expira a cada 24 h. Registre uma *Personal API Key* e informe no ⚙ dos cartões.
 - VALORANT depende da HenrikDev.
 - Uma consulta presa ou uma chave ilegível pode travar a atualização ([[Backlog]], itens 4 e 5). Feche e abra o app.
@@ -53,7 +55,15 @@ Backups só abrem no mesmo usuário Windows ([[ADR-002 Segredos protegidos pelo 
 
 ## O atalho abre a instância antiga
 
-Só uma cópia roda por vez. Depois de atualizar o código: bandeja → **Sair** e abra de novo.
+Só uma cópia roda por vez. Depois de atualizar o código: bandeja → **Sair** e abra de novo. O mesmo vale entre o Eclipse instalado e o `npm start`: o que abrir depois só pede à primeira cópia que abra a Riot com os cartões.
+
+## O Windows avisa que o Setup não é reconhecido
+
+O Setup e o `Eclipse.exe` não são assinados ([[ADR-030 Eclipse instalado por um Setup próprio]]). Na tela azul do SmartScreen, **Mais informações** → **Executar assim mesmo**. O aviso some depois da primeira execução daquele arquivo.
+
+## O Eclipse instalado abriu sem contas
+
+Ele usa `%APPDATA%\riot-account-manager\`, a mesma pasta do `npm start`. Se abriu vazio, o `package.json` do build provavelmente ganhou um `productName` no topo ou outro `name`; o `test/package.test.js` deveria ter barrado. As contas continuam na pasta antiga; não cadastre de novo, corrija o build.
 
 ## Mensagens que saíram
 

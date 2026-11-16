@@ -8,46 +8,61 @@ tags: [dev]
 ## Requisitos
 
 - Windows 10/11 (DPAPI, PowerShell e o Riot Client são requisitos reais, inclusive para parte dos testes)
-- Node.js 22 ou mais novo
-- `npm ci` na primeira vez
+- Rust pelo `rustup` (`winget install Rustlang.Rustup`), as Build Tools do Visual Studio com C++ e o WebView2, que já vem no Windows 11. `cargo install tauri-cli --version "^2" --locked` dá o `cargo tauri`.
+- Node.js 22 ou mais novo, para as fontes que o Setup leva, a prévia no navegador e os testes JS. `npm ci` na primeira vez.
 
 ## Comandos
 
 | Comando | O que faz |
 |---|---|
-| `npm start` | Inicia o Eclipse na bandeja; os cartões aparecem sobre a Riot oficial |
-| `npm test` | Roda todos os testes (`node --test "test/**/*.test.js"`) |
+| `cargo run` (em `src-tauri/`) | Abre o Eclipse em desenvolvimento. Só abre com `ECLIPSE_DATA_DIR` apontando para uma pasta absoluta escolhida à mão ([[paths]]) |
+| `cargo test` (em `src-tauri/`) | Roda os testes Rust |
+| `cargo tauri build` (em `src-tauri/`) | Gera o Setup em `src-tauri/target/release/bundle/nsis/` ([[ADR-034 Troca do Electron pelo Tauri]]) |
+| `npm test` | Roda os testes JS (`node --test "test/**/*.test.js"`) |
 | `npm run preview` | Cartões no navegador com contas fictícias em <http://localhost:5178> |
 
-Os comandos do modo antigo (`start:riot-login`, `start:private`, `preview:riot-login`, `integration:*`, `legacy:*`) saíram em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
+O Eclipse em Electron saiu na versão 2.0.0, em 2026-11-15; o código está na tag `electron-final`. Os comandos do modo antigo saíram em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
 
-Rodar um teste só: `node --test test/riot/signInFlow.test.js`.
+Rodar só uma parte: `cargo test --test riot sign_in_flow` (uma camada e um filtro de nome) ou `node --test test/renderer/ranks.test.js`.
 
 ## Testes
 
-- `test/` espelha `src/`.
+- `src-tauri/tests/` espelha `src-tauri/src/`: cada camada é um arquivo (`tests/application.rs`, `tests/riot.rs` e assim por diante) que inclui os testes da pasta dela por `#[path]`.
+- `test/` tem o que continua em JavaScript: os cartões (`test/renderer/`), o [[manager-preload]], os helpers PowerShell ([[login.ps1]], [[windowGuard.ps1]]), a prévia e o `package.json`.
 - Não autenticam contas reais nem abrem jogos.
-- Os testes do helper de janelas (`windowGuard.ps1`: compila o C# e roda um autoteste que não toca janelas do desktop) e o teste dos cartões com Electron real usam recursos reais do Windows com dados sintéticos.
+- Os testes dos helpers PowerShell compilam o C# e rodam autotestes que só tocam janelas próprias, criadas fora da tela. O do [[riotWindowObserver]] roda no `cargo test`.
 - Pastas temporárias são criadas dentro da pasta do próprio teste e removidas no fim; os testes conferem isso antes de apagar.
-- `test/main/mainStartup.test.js` executa `src/main/index.js` dentro de um `vm` com um `require` falso. **Se você adicionar um `require` em `src/main/index.js`, inclua o módulo no mapa `deps` desse teste.**
-- `test/core/store.test.js` faz o mesmo com `src/core/store.js`.
+- O único teste que fala com a Riot real é marcado com `#[ignore]` e só roda a pedido, com a Riot aberta pelo usuário ([[riotTransport]]).
+- `test/package.test.js` trava o `package.json`: sem Electron, só as fontes como dependências, a versão igual à do Tauri e do Cargo, e o nome `riot-account-manager`.
+
+## Gerar o instalador
+
+`cargo tauri build` (em `src-tauri/`) compila em modo release e gera `Eclipse_<versão>_x64-setup.exe`, o instalador de um clique, por usuário e sem administrador. O Setup leva o `eclipse.exe` e, por uma lista fechada em `bundle.resources` do `tauri.conf.json`, as páginas, as fontes e os três `.ps1` nos mesmos caminhos relativos do projeto ([[paths]]). `src-tauri/tests/paths.rs` confere que os três `.ps1` vão e nenhum outro script.
+
+O instalador e o desinstalador têm passos próprios em `src-tauri/windows/hooks.nsh`: desinstalar o Eclipse em Electron, se houver, mantendo as contas, trocar o caminho do início com o Windows e apagá-lo na desinstalação, menos numa atualização ([[startWithWindows]]).
+
+Para lançar uma versão nova, suba a versão no `tauri.conf.json`, no `Cargo.toml` e no `package.json` (o `test/package.test.js` confere que são iguais); o Setup novo instala por cima e mantém os dados.
+
+Depois de gerar, não abra o app para conferir: o Eclipse instalado mexe na Riot real e na pasta de dados real.
 
 ## Convenções
 
 - **Sem comentários no código.** O porquê vai para a nota do módulo ([[ADR-005 Código sem comentários e conhecimento no vault]]).
-- **CommonJS no main e nos scripts, ES modules no renderer.** Sem build, sem TypeScript.
-- **Fábricas com dependências injetáveis** (`createX({ spawn, request, ... })`) para tudo que toca processo, rede ou disco.
-- **Caminhos só por `src/paths.js`** ([[paths]]).
-- **Nenhuma janela própria:** os cartões são um `WebContentsView` ([[managerHost]]) dentro de uma janela transparente presa à janela da Riot ([[riotOverlay]]). A interface de desenvolvimento continua disponível no navegador com dados fictícios.
-- **Nomes de arquivo em camelCase**, exceto páginas e preloads (`cards.html`, `manager-preload.js`, `toggle-preload.js`).
+- **Rust no app; JavaScript só nas páginas.** Os cartões e a caixa usam ES modules sem build e sem TypeScript; o [[manager-preload]] é embutido no executável.
+- **Dependências por trait** para tudo que toca processo, rede, disco, registro ou tempo, para os testes trocarem por dublês.
+- **Caminhos só por `src-tauri/src/paths.rs`** ([[paths]]). Os scripts e testes JS usam `src/paths.js`.
+- **Nenhuma janela própria:** os cartões são uma webview ([[managerHost]]) dentro de uma janela transparente presa à janela da Riot ([[riotOverlay]]). A interface de desenvolvimento continua disponível no navegador com dados fictícios.
+- **Nomes de arquivo:** `snake_case` no Rust; camelCase no JavaScript, exceto páginas e preloads (`cards.html`, `manager-preload.js`).
 
 ## Adicionar um módulo
 
 1. Crie o arquivo na camada certa ([[Estrutura de pastas]]).
-2. Crie o teste no caminho espelhado em `test/`.
+2. Crie o teste no caminho espelhado em `src-tauri/tests/` e inclua-o no arquivo da camada.
 3. Crie a nota em `03 Módulos/<camada>/` a partir do template [[Módulo]].
 4. Ligue a nota em [[00 Início]] e nas notas que dependem dele.
 
 ## Prévia no navegador
 
-`npm run preview` serve a raiz do projeto, redireciona `/` para `/src/renderer/cards.html` e injeta nela `scripts/dev/mock-api.js`, que cria um `window.api` falso com contas de exemplo. É só para desenvolvimento: escuta em todas as interfaces e não deve ser exposto ([[Backlog]]).
+`npm run preview` redireciona `/` para `/src/renderer/cards.html` e injeta nela `scripts/dev/mock-api.js`, que cria um `window.api` falso com contas de exemplo. É só para desenvolvimento.
+
+Desde 2026-11-07 o servidor escuta só em `127.0.0.1` e serve só `src/renderer/`, `node_modules/@fontsource/` e `scripts/dev/mock-api.js`. O resto do projeto (`.git`, `package.json`, `.client-integration/`, `src-tauri/`) recebe 403, inclusive por `%2F` e `%2e%2e` codificados e por pastas vizinhas com o mesmo começo de nome. Até então a checagem era `startsWith` na raiz, que deixava passar uma pasta vizinha como `riot-account-manager-x`. Um endereço malformado recebe 400 em vez de derrubar o servidor. O teste fica em `test/scripts/dev/preview-server.test.js`; `scripts/` não espelha `src/`, então o teste segue o caminho do script.
