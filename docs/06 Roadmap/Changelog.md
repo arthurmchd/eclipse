@@ -10,6 +10,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 ## 2026-11-20 · README novo
 
 - Pedido do usuário: "arrume o readme como algo bem profissional", sem o nome antigo. Logo, frase de apresentação, selos de versão e downloads, capturas com contas fictícias da prévia (`.github/assets/`), recursos, instalação, como funciona, segurança, perguntas frequentes, seção para desenvolvedores e aviso legal da Riot. Os detalhes técnicos continuam no vault.
+- Repositório renomeado de `riot-account-manager` para `eclipse` (`github.com/arthurmchd/eclipse`), também a pedido do usuário. A pasta do projeto e a de dados continuam com o nome antigo.
 
 ## 2026-11-20 · Repositório público e primeiro release
 

@@ -61,7 +61,7 @@ O `.gitignore` não remove arquivos já versionados nem apaga segredos do histó
 
 ## Releases
 
-Desde 2026-11-20 cada versão sai como release público em `arthurmchd/riot-account-manager`, pedido do usuário ("um release para qualquer um poder baixar"). O primeiro foi o `v2.15.1`. O `gh` (GitHub CLI) está instalado em `C:\Program Files\GitHub CLI\gh.exe`, com login feito pelo próprio usuário (`gh auth login --web`).
+Desde 2026-11-20 cada versão sai como release público em `arthurmchd/eclipse`, pedido do usuário ("um release para qualquer um poder baixar"). O primeiro foi o `v2.15.1`. O repositório se chamava `riot-account-manager` e foi renomeado para `eclipse` em 2026-11-20, a pedido do usuário; o GitHub redireciona os endereços antigos. O `gh` (GitHub CLI) está instalado em `C:\Program Files\GitHub CLI\gh.exe`, com login feito pelo próprio usuário (`gh auth login --web`).
 
 1. Com a versão nova já gerada e testada, junte o `migracao/tauri` no `main` por PR, como os anteriores: `gh pr create --base main --head migracao/tauri` e `gh pr merge <n> --merge`.
 2. Calcule o SHA-256: `Get-FileHash src-tauri\target\release\bundle\nsis\Eclipse_<versão>_x64-setup.exe`.

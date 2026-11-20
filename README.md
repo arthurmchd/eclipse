@@ -8,13 +8,13 @@
 
 Gerenciador de contas que vive dentro do Riot Client: escolha a conta, clique em Jogar e o Eclipse entra e abre o jogo.
 
-[![Versão](https://img.shields.io/github/v/release/arthurmchd/riot-account-manager?label=vers%C3%A3o&color=c8aa6e)](https://github.com/arthurmchd/riot-account-manager/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/arthurmchd/riot-account-manager/total?color=d53235)](https://github.com/arthurmchd/riot-account-manager/releases)
+[![Versão](https://img.shields.io/github/v/release/arthurmchd/eclipse?label=vers%C3%A3o&color=c8aa6e)](https://github.com/arthurmchd/eclipse/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/arthurmchd/eclipse/total?color=d53235)](https://github.com/arthurmchd/eclipse/releases)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows&logoColor=white)](#baixar-e-instalar)
 [![Tauri](https://img.shields.io/badge/Tauri-2-24c8db?logo=tauri&logoColor=white)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-orange?logo=rust&logoColor=white)](https://www.rust-lang.org)
 
-[**Baixar**](https://github.com/arthurmchd/riot-account-manager/releases/latest) · [Recursos](#recursos) · [Como funciona](#como-funciona) · [Segurança](#segurança-e-privacidade) · [Perguntas frequentes](#perguntas-frequentes)
+[**Baixar**](https://github.com/arthurmchd/eclipse/releases/latest) · [Recursos](#recursos) · [Como funciona](#como-funciona) · [Segurança](#segurança-e-privacidade) · [Perguntas frequentes](#perguntas-frequentes)
 
 <img src=".github/assets/league.png" alt="Contas do League of Legends no Eclipse" width="860">
 
@@ -61,7 +61,7 @@ Gerenciador de contas que vive dentro do Riot Client: escolha a conta, clique em
 
 ## Baixar e instalar
 
-1. Baixe o `Eclipse_<versão>_x64-setup.exe` da [versão mais recente](https://github.com/arthurmchd/riot-account-manager/releases/latest).
+1. Baixe o `Eclipse_<versão>_x64-setup.exe` da [versão mais recente](https://github.com/arthurmchd/eclipse/releases/latest).
 2. Rode o arquivo. Ele instala na sua conta do Windows, sem pedir administrador, e cria o atalho **Eclipse** no menu Iniciar.
 3. Abra o Eclipse e depois o Riot Client, pelo atalho de sempre. As contas aparecem dentro da janela da Riot.
 
