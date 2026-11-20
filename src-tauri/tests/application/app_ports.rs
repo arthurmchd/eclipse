@@ -28,7 +28,7 @@ fn ports(changed: Arc<Mutex<Vec<Value>>>, opened: Arc<Mutex<Vec<String>>>) -> (A
     let ports = AppPorts {
         sign_in,
         refresher,
-        running_games: Box::new(|| Ok(RunningGames { lol: true, val: false, client: true, client_window: false })),
+        running_games: Box::new(|| Ok(RunningGames { lol: true, lor: true, client: true, ..RunningGames::default() })),
         open_external: Box::new(move |url| {
             opened.lock().unwrap().push(url.to_string());
             if url.contains("fail") {
@@ -38,6 +38,7 @@ fn ports(changed: Arc<Mutex<Vec<Value>>>, opened: Arc<Mutex<Vec<String>>>) -> (A
             }
         }),
         settings_changed: Box::new(move |settings| changed.lock().unwrap().push(Value::Object(settings.clone()))),
+        seen_account: Box::new(|| Some(RiotId::new("Seen", "BR1"))),
         version: "1.0.0".into(),
     };
     (ports, timers, dir)
@@ -47,7 +48,8 @@ fn ports(changed: Arc<Mutex<Vec<Value>>>, opened: Arc<Mutex<Vec<String>>>) -> (A
 fn the_cards_get_regions_version_and_refresh_times_from_the_app() {
     let (ports, _timers, _dir) = ports(Arc::default(), Arc::default());
     let context = ports.init_context();
-    assert_eq!(context.keys().collect::<Vec<_>>(), ["regions", "valRegions", "version", "lastRefresh", "nextRefresh"]);
+    assert_eq!(context.keys().collect::<Vec<_>>(), ["regions", "valRegions", "version", "lastRefresh", "nextRefresh", "seenAccount"]);
+    assert_eq!(context["seenAccount"], json!({ "gameName": "Seen", "tagLine": "BR1" }));
     assert_eq!(context["regions"], regions_json());
     assert_eq!(context["valRegions"], json!(VAL_REGIONS));
     assert_eq!(context["version"], json!("1.0.0"));
@@ -62,8 +64,8 @@ fn running_games_links_and_settings_go_to_their_own_handlers_without_leaking_det
     let changed: Arc<Mutex<Vec<Value>>> = Arc::default();
     let opened: Arc<Mutex<Vec<String>>> = Arc::default();
     let (ports, timers, _dir) = ports(changed.clone(), opened.clone());
-    assert_eq!(ports.running_games().unwrap(), json!({ "lol": true, "val": false, "client": true, "clientWindow": false }));
-    assert_eq!(running_games_json(RunningGames::default()), json!({ "lol": false, "val": false, "client": false, "clientWindow": false }));
+    assert_eq!(ports.running_games().unwrap(), json!({ "lol": true, "val": false, "tft": false, "2xko": false, "lor": true, "client": true, "clientWindow": false }));
+    assert_eq!(running_games_json(RunningGames::default()), json!({ "lol": false, "val": false, "tft": false, "2xko": false, "lor": false, "client": false, "clientWindow": false }));
     assert!(ports.open_external("https://developer.riotgames.com").is_ok());
     let failure = ports.open_external("https://fail.invalid").unwrap_err();
     assert_eq!(failure.message, OPEN_FAILED);

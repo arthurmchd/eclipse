@@ -57,3 +57,47 @@ test('the climb to Grandmaster or Challenger comes with the queue', async () => 
   assert.deepEqual([climb.tier, climb.label], ['Grão-Mestre', 'faltam 85 PdL']);
   assert.match(climb.crest, /^assets\/rank-grandmaster\.png$/);
 });
+
+test('the launch bar names the selected account with its main rank and server', async () => {
+  const { selectionView } = await load('cardView.js');
+  const { TEXT } = await load('cardsText.js');
+  const regions = { euw1: { label: 'EUW' } };
+  const account = { ...lolAccount, region: 'euw1', hasPassword: true };
+  assert.deepEqual(selectionView(account, 'lol', regions, TEXT.pt), { name: 'Hextech Fox #EUW', detail: 'Diamante II · EUW' });
+  assert.deepEqual(selectionView(account, 'lol', regions, TEXT.en), { name: 'Hextech Fox #EUW', detail: 'Diamond II · EUW' });
+  assert.deepEqual(selectionView(account, 'val', regions, TEXT.pt), { name: 'Hextech Fox #EUW', detail: 'Sem classificação · EUW' });
+  assert.deepEqual(selectionView(account, 'riot', regions, TEXT.pt), { name: 'Hextech Fox #EUW', detail: 'Só entrar na conta · EUW' });
+  assert.deepEqual(selectionView({ ...account, region: 'xx9' }, 'riot', regions, TEXT.en), { name: 'Hextech Fox #EUW', detail: 'Only sign in · xx9' });
+});
+
+test('the launch bar asks for a password or an account before playing', async () => {
+  const { selectionView } = await load('cardView.js');
+  const { TEXT } = await load('cardsText.js');
+  assert.deepEqual(selectionView({ ...lolAccount, region: 'euw1', hasPassword: false }, 'lol', {}, TEXT.pt), { name: 'Hextech Fox #EUW', detail: TEXT.pt.addPassword });
+  assert.deepEqual(selectionView(null, 'lol', {}, TEXT.pt), { name: TEXT.pt.selectAccount, detail: '' });
+  assert.deepEqual(selectionView(undefined, 'val', {}, TEXT.en), { name: TEXT.en.selectAccount, detail: '' });
+});
+
+test('TFT shows Ranked and Double Up with League tiers and the League level and icon', async () => {
+  const { accountView, GAME_QUEUES } = await load('cardView.js');
+  const { TEXT } = await load('cardsText.js');
+  assert.deepEqual(GAME_QUEUES.tft, ['ranked', 'doubleUp']);
+  const account = { ...lolAccount, stats: { ...lolAccount.stats, tft: { ranked: { tier: 'GOLD', division: 'I', lp: 30, wins: 12, losses: 10 }, doubleUp: null } } };
+  const view = accountView(account, 'tft', TEXT.pt);
+  assert.deepEqual([view.main.name, view.main.tier, view.main.points, view.main.progress, view.main.climb], ['Ranqueada', 'Ouro I', '30 PdL', null, null]);
+  assert.deepEqual([view.others[0].name, view.others[0].tier], ['Dupla', 'Sem classificação']);
+  assert.equal(view.level, 412);
+  assert.match(view.avatar, /profile-icons\/4895\.jpg$/);
+  assert.equal(accountView(account, 'tft', TEXT.en).others[0].name, 'Double Up');
+});
+
+test('the launch bar names 2XKO and Runeterra, which have no rank in Eclipse', async () => {
+  const { selectionView, GAME_NAMES } = await load('cardView.js');
+  const { TEXT } = await load('cardsText.js');
+  const account = { ...lolAccount, region: 'euw1', hasPassword: true };
+  const regions = { euw1: { label: 'EUW' } };
+  assert.deepEqual(Object.keys(GAME_NAMES), ['lol', 'val', 'tft', '2xko', 'lor', 'riot']);
+  assert.equal(selectionView(account, '2xko', regions, TEXT.pt).detail, '2XKO · EUW');
+  assert.equal(selectionView(account, 'lor', regions, TEXT.en).detail, 'Legends of Runeterra · EUW');
+  assert.equal(selectionView(account, 'tft', regions, TEXT.pt).detail, 'Sem classificação · EUW');
+});

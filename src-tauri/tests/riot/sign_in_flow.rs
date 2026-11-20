@@ -253,10 +253,12 @@ impl Fake {
 
     fn start_game(&self, game: &str) {
         let mut processes = self.processes.get();
-        if game == "val" {
-            processes.val = true;
-        } else {
-            processes.lol = true;
+        match game {
+            "val" => processes.val = true,
+            "tft" => processes.tft = true,
+            "2xko" => processes.xko = true,
+            "lor" => processes.lor = true,
+            _ => processes.lol = true,
         }
         self.processes.set(processes);
     }
@@ -480,6 +482,18 @@ fn the_riot_window_closes_only_after_a_real_game_window_is_ready() {
 }
 
 #[test]
+fn tft_2xko_and_runeterra_wait_for_their_own_game_and_announce_it_by_name() {
+    for (game, status) in [("tft", "Starting Teamfight Tactics in the background…"), ("2xko", "Starting 2XKO in the background…"), ("lor", "Starting Legends of Runeterra in the background…")] {
+        let mut f = direct();
+        f.opts.game = game;
+        assert!(f.run().unwrap().game_started, "{game}");
+        assert!(f.has("request-launch"), "{game}");
+        assert!(f.processes.get().game(game), "{game}");
+        assert!(f.statuses().iter().any(|(text, _)| text == status), "{game}");
+    }
+}
+
+#[test]
 fn a_running_game_process_without_a_game_window_times_out_without_reporting_success() {
     let f = fixture();
     f.game_window.set(false);
@@ -633,7 +647,8 @@ fn an_unresolved_player_session_verification_never_opens_a_game_despite_existing
     let mut f = direct();
     f.authorized.set(true);
     f.on_session_state = Box::new(|_: &Fake| state(AuthKind::Challenge));
-    assert!(error_of(f.run()).message.contains("security check timed out"));
+    assert_eq!(error_of(f.run()).message, "Sign-in timed out. Open the Riot Client to see what happened");
+    assert!(f.attention().iter().all(|text| !text.contains("security check")));
     assert!(!f.has("request-launch"));
     assert!(!f.has("authenticate"));
     assert_eq!(f.reveals(), 1);
@@ -765,7 +780,11 @@ fn a_native_verification_remains_available_after_it_expires() {
         let typed = typed_flag(&mut f);
         f.on_session_state = Box::new(move |_: &Fake| Ok(Some(if typed.get() { challenge } else { AuthState::of(AuthKind::Auth) })));
         let error = error_of(f.run());
-        assert!(error.message.contains("timed out waiting for your attention"), "{challenge:?}");
+        if challenge == AuthState::of(AuthKind::Challenge) {
+            assert_eq!(error.message, "Sign-in timed out. Open the Riot Client to see what happened");
+        } else {
+            assert!(error.message.contains("timed out waiting for your attention"), "{challenge:?}");
+        }
         assert!(error.needs_attention && error.native_client);
         assert_eq!(f.reveals(), 2);
         assert_eq!(f.last_event(), "reveal");
@@ -1156,6 +1175,63 @@ fn a_riot_check_that_outlasts_the_grace_period_still_asks_for_attention_and_reve
     let attention = timeline.borrow().iter().find(|(kind, _)| *kind == "attention").copied().unwrap();
     assert!(attention.1 >= 12_000 && attention.1 < 20_000);
     assert!(timeline.borrow().iter().any(|(kind, _)| *kind == "reveal"));
+}
+
+#[test]
+fn an_unfinished_riot_sign_in_that_ends_in_a_riot_service_error_never_claims_a_security_check() {
+    let mut f = direct();
+    f.on_authenticate = Box::new(native_form);
+    let typed = typed_flag(&mut f);
+    f.on_session_state = Box::new(move |f: &Fake| {
+        if !typed.get() {
+            return state(AuthKind::Auth);
+        }
+        if f.elapsed() > 40_000 {
+            return Err(RiotError::new("Could not contact the Riot authentication service"));
+        }
+        state(AuthKind::Challenge)
+    });
+    let error = error_of(f.run());
+    assert_eq!(error.message, "Could not contact the Riot authentication service");
+    let attention = f.attention();
+    assert_eq!(attention, vec!["Riot has not finished signing in. Check the Riot window in case it needs you".to_string()]);
+    assert!(f.reveals() >= 2);
+    assert!(!f.has("request-launch"));
+}
+
+#[test]
+fn only_a_captcha_the_riot_refused_or_a_2fa_request_is_announced_as_a_verification() {
+    let cases = [
+        (AuthState::failed(AuthKind::Challenge, "captcha_not_allowed"), "Riot needs a security check. Complete it in the Riot window"),
+        (AuthState::of(AuthKind::Multifactor), "Riot needs your 2FA code. Enter it in the Riot window"),
+        (AuthState::of(AuthKind::Challenge), "Riot has not finished signing in. Check the Riot window in case it needs you"),
+    ];
+    for (riot_state, text) in cases {
+        let mut f = direct();
+        f.on_authenticate = Box::new(native_form);
+        let typed = typed_flag(&mut f);
+        f.on_session_state = Box::new(move |_: &Fake| Ok(Some(if typed.get() { riot_state } else { AuthState::of(AuthKind::Auth) })));
+        let _ = f.run();
+        assert_eq!(f.attention().first().map(String::as_str), Some(text), "{riot_state:?}");
+    }
+}
+
+#[test]
+fn a_background_sign_in_names_a_verification_only_when_the_riot_reason_confirms_it() {
+    for (reason, text) in [
+        ("multifactor", "Riot needs your 2FA code. Enter it in the Riot window"),
+        ("security_check", "Riot needs a security check. Complete it in the Riot window"),
+        ("challenge", "Riot has not finished signing in. Check the Riot window in case it needs you"),
+    ] {
+        let mut f = direct();
+        f.on_authenticate = Box::new(move |f: &Fake, _: bool| {
+            f.event("authenticate");
+            Ok(Some(AuthOutcome::attention(reason)))
+        });
+        authorize_after(&mut f, 1400);
+        assert!(f.run().unwrap().game_started, "{reason}");
+        assert_eq!(f.attention().first().map(String::as_str), Some(text), "{reason}");
+    }
 }
 
 fn outdated(updated_at: u64) -> (Fake, Rc<RefCell<Vec<u64>>>) {

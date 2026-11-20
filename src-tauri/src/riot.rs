@@ -126,8 +126,28 @@ pub trait LocalApi: Send + Sync {
 pub struct RunningGames {
     pub lol: bool,
     pub val: bool,
+    pub tft: bool,
+    pub xko: bool,
+    pub lor: bool,
     pub client: bool,
     pub client_window: bool,
+}
+
+impl RunningGames {
+    pub fn game(&self, game: &str) -> bool {
+        match game {
+            "lol" => self.lol,
+            "val" => self.val,
+            "tft" => self.tft,
+            "2xko" => self.xko,
+            "lor" => self.lor,
+            _ => false,
+        }
+    }
+
+    pub fn any_game(&self) -> bool {
+        self.lol || self.val || self.tft || self.xko || self.lor
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

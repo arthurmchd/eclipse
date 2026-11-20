@@ -32,6 +32,8 @@ tags: [módulo, tauri]
 
 ## Invariantes e decisões
 
+- **Jogos abertos (2026-11-19).** `running_games_json` devolve também `tft`, `2xko` e `lor`; os cartões pedem confirmação antes de trocar de conta com qualquer um aberto ([[ADR-038 TFT, 2XKO e Runeterra no Eclipse]]).
+- **`seenAccount`.** Desde 2026-11-15, `init_context` inclui o último Riot ID não salvo visto pelo [[rankWatcher]], quando há; o [[managerService]] tira se ele já estiver salvo.
 - **Um login recusado volta como conflito (409)**, com a mensagem do [[signInService]], que já não leva dados da conta.
 - **Erro ao abrir um link é genérico.** O texto do sistema, que pode ter caminhos do usuário, não chega aos cartões.
 - **A sessão que a Riot deixou vai para quem é dona dela, e só.** Primeiro o [[sessionKeeper]] tenta achar a dona; senão, ela vai para a conta atual, e só se o Riot ID da sessão for o da conta. Sem login lembrado, sem conta atual ou com Riot ID diferente, nada é gravado. As linhas do log são as mesmas do Electron.

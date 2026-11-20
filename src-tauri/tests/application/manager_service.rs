@@ -12,6 +12,7 @@ struct Ports {
     calls: Mutex<Vec<Value>>,
     active: Mutex<Option<String>>,
     failing_settings: bool,
+    seen: Option<Value>,
 }
 
 impl Ports {
@@ -65,7 +66,11 @@ impl ManagerPorts for Ports {
     }
 
     fn init_context(&self) -> Map<String, Value> {
-        json!({ "regions": { "br1": {} }, "valRegions": ["br"], "nextRefresh": "2026-10-27T12:00:00.000Z" }).as_object().unwrap().clone()
+        let mut context = json!({ "regions": { "br1": {} }, "valRegions": ["br"], "nextRefresh": "2026-10-27T12:00:00.000Z" }).as_object().unwrap().clone();
+        if let Some(seen) = &self.seen {
+            context.insert("seenAccount".into(), seen.clone());
+        }
+        context
     }
 
     fn settings_changed(&self, settings: &Map<String, Value>) {
@@ -320,4 +325,79 @@ fn language_is_saved_only_as_pt_or_en_and_announces_the_settings_change() {
     assert_eq!(changed, vec![json!("en"), json!("pt")]);
     let failing = fixture_with(Ports { failing_settings: true, ..Ports::default() });
     assert_eq!(failing.service.dispatch("saveSettings", &[json!({ "language": "en" })]).unwrap()["language"], "en");
+}
+
+#[test]
+fn games_are_validated_before_they_are_saved_and_tags_or_a_color_are_refused() {
+    let f = fixture();
+    let base = json!({ "gameName": "Meta", "tagLine": "BR1", "region": "br1", "username": "meta-fixture-user", "password": "meta-fixture-password" });
+    let with = |key: &str, value: Value| {
+        let mut input = base.clone();
+        input[key] = value;
+        input
+    };
+    let saved = f.service.dispatch("saveAccount", &[base.clone()]).unwrap();
+    assert!(saved.get("tags").is_none());
+    assert_eq!(saved["games"], json!(["lol", "val"]));
+    let saved = f.service.dispatch("saveAccount", &[with("games", json!(["val", "lol"]))]).unwrap();
+    assert_eq!(saved["games"], json!(["lol", "val"]));
+    for (key, value) in [("tags", json!(["Main"])), ("tags", json!([])), ("color", json!("#e8505b")), ("games", json!([])), ("games", json!(["tft"])), ("games", json!("lol"))] {
+        assert_eq!(status(f.service.dispatch("saveAccount", &[with(key, value.clone())])), 400, "{key} {value}");
+    }
+}
+
+#[test]
+fn several_accounts_are_added_at_once_or_none_when_a_line_is_invalid() {
+    let f = fixture();
+    let line = |name: &str| json!({ "gameName": name, "tagLine": "BR1", "region": "br1", "username": format!("{name}-fixture-user"), "password": format!("{name}-fixture-password"), "games": ["lol"] });
+    let added = f.service.dispatch("addAccounts", &[json!([line("one"), line("two")])]).unwrap();
+    let ids: Vec<Value> = added.as_array().unwrap().iter().map(|account| account["id"].clone()).collect();
+    assert_eq!(ids.len(), 2);
+    assert!(added.as_array().unwrap().iter().all(|account| account.get("password").is_none() && account["games"] == json!(["lol"])));
+    assert_eq!(f.ports.calls().last().unwrap(), &json!(["refresh", ids]));
+    let mut broken = line("three");
+    broken["password"] = json!("");
+    let failure = f.service.dispatch("addAccounts", &[json!([line("four"), broken])]).unwrap_err();
+    assert_eq!(failure.message, "Line 2: Add a password for the new account");
+    let mut with_id = line("five");
+    with_id["id"] = json!(f.account);
+    assert_eq!(status(f.service.dispatch("addAccounts", &[json!([with_id])])), 400);
+    assert_eq!(status(f.service.dispatch("addAccounts", &[json!([])])), 400);
+    let many: Vec<Value> = (0..51).map(|index| line(&format!("n{index}"))).collect();
+    assert_eq!(status(f.service.dispatch("addAccounts", &[json!(many)])), 400);
+    assert_eq!(f.store.lock().unwrap().list_accounts().len(), 3);
+}
+
+#[test]
+fn favorites_and_the_manual_order_are_saved_for_known_accounts() {
+    let f = fixture();
+    let pinned = f.service.dispatch("pinAccount", &[json!(f.account), json!(true)]).unwrap();
+    assert_eq!(pinned["pinned"], true);
+    assert!(pinned.get("password").is_none());
+    assert_eq!(status(f.service.dispatch("pinAccount", &[json!(f.account), json!("yes")])), 400);
+    assert_eq!(status(f.service.dispatch("pinAccount", &[json!("unknown"), json!(true)])), 404);
+    let other = f.service.dispatch("saveAccount", &[json!({ "gameName": "Second", "tagLine": "BR1", "region": "br1", "username": "second-fixture-user", "password": "second-fixture-password" })]).unwrap();
+    let other = other["id"].clone();
+    assert_eq!(f.service.dispatch("reorderAccounts", &[json!([other, f.account])]).unwrap(), true);
+    assert_eq!(f.service.dispatch("init", &[]).unwrap()["accounts"][0]["id"], other);
+    assert_eq!(status(f.service.dispatch("reorderAccounts", &[json!([f.account])])), 409);
+    assert_eq!(status(f.service.dispatch("reorderAccounts", &[json!([1, 2])])), 400);
+}
+
+#[test]
+fn the_card_sort_is_saved_only_as_a_known_order() {
+    let f = fixture();
+    assert_eq!(f.service.dispatch("saveSettings", &[json!({ "cardSort": "recent" })]).unwrap()["cardSort"], "recent");
+    assert_eq!(status(f.service.dispatch("saveSettings", &[json!({ "cardSort": "random" })])), 400);
+}
+
+#[test]
+fn the_account_seen_in_the_game_is_offered_only_while_it_is_not_saved() {
+    let seen = |name: &str| {
+        let f = fixture_with(Ports { seen: Some(json!({ "gameName": name, "tagLine": "br1" })), ..Ports::default() });
+        f.service.dispatch("init", &[]).unwrap()["seenAccount"].clone()
+    };
+    assert_eq!(seen("Unsaved"), json!({ "gameName": "Unsaved", "tagLine": "br1" }));
+    assert_eq!(seen("EXAMPLE"), Value::Null);
+    assert_eq!(fixture().service.dispatch("init", &[]).unwrap()["seenAccount"], Value::Null);
 }

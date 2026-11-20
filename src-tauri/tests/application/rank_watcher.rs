@@ -74,6 +74,7 @@ struct Fixture {
     store: Arc<FakeStore>,
     timers: Arc<ManualTimers>,
     updates: Arc<Mutex<Vec<Value>>>,
+    unsaved: Arc<Mutex<Vec<String>>>,
     lines: Arc<Mutex<Vec<String>>>,
     busy: Arc<AtomicBool>,
     clock: Arc<AtomicI64>,
@@ -88,6 +89,7 @@ fn fixture(accounts: Option<Vec<Value>>, processes: Option<RunningGames>) -> Fix
     let riot = Arc::new(Riot { processes: Mutex::new(processes), calls: Mutex::new(Vec::new()), league: Mutex::new(Box::new(|_| Some(league_reading()))), valorant: Mutex::new(None), watcher: Mutex::new(None) });
     let timers = ManualTimers::new();
     let updates = Arc::new(Mutex::new(Vec::new()));
+    let unsaved = Arc::new(Mutex::new(Vec::new()));
     let lines = Arc::new(Mutex::new(Vec::new()));
     let busy = Arc::new(AtomicBool::new(false));
     let clock = Arc::new(AtomicI64::new(DateTime::parse_from_rfc3339(AT).unwrap().timestamp_millis()));
@@ -104,6 +106,10 @@ fn fixture(accounts: Option<Vec<Value>>, processes: Option<RunningGames>) -> Fix
             let updates = updates.clone();
             move |account| updates.lock().unwrap().push(account["id"].clone())
         }),
+        on_unsaved: Box::new({
+            let unsaved = unsaved.clone();
+            move |riot_id| unsaved.lock().unwrap().push(format!("{}#{}", riot_id.game_name, riot_id.tag_line))
+        }),
         now: Box::new({
             let clock = clock.clone();
             move || clock.load(Ordering::SeqCst)
@@ -111,7 +117,7 @@ fn fixture(accounts: Option<Vec<Value>>, processes: Option<RunningGames>) -> Fix
     };
     let watcher = Arc::new(RankWatcher::new(riot.clone(), store.clone(), timers.clone(), hooks, POLL_MS, RESAVE_MS));
     *riot.watcher.lock().unwrap() = Some(watcher.clone());
-    Fixture { watcher, riot, store, timers, updates, lines, busy, clock }
+    Fixture { watcher, riot, store, timers, updates, unsaved, lines, busy, clock }
 }
 
 impl Fixture {
@@ -190,6 +196,7 @@ fn an_account_that_is_not_saved_or_saved_twice_is_never_touched() {
         f.start();
         assert_eq!(f.saves(), 0);
         assert_eq!(f.lines(), ["game ranks: the League client is signed in to an account that is not saved in Eclipse"]);
+        assert_eq!(f.unsaved.lock().unwrap().first().map(String::as_str), Some("synthetic#br1"));
     }
 }
 

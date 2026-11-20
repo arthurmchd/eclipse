@@ -20,6 +20,9 @@ test('the preload exposes fixed account methods and preserves their argument sha
   assert.equal(f.api.invoke, undefined);
   assert.equal(f.api.getPassword, undefined);
   assert.deepEqual(await f.api.saveAccount({ password: 'synthetic-only' }), { method: 'saveAccount', args: [{ password: 'synthetic-only' }] });
+  await f.api.addAccounts([{ gameName: 'Synthetic' }]);
+  await f.api.pinAccount('synthetic-id', true, 'extra');
+  await f.api.reorderAccounts(['b', 'a']);
   await f.api.minimizeRiot('close');
   await f.api.closeRiot();
   assert.equal(f.api.revealRiot, undefined);
@@ -27,6 +30,9 @@ test('the preload exposes fixed account methods and preserves their argument sha
   for (const name of ['copy', 'closeManager', 'patchAccount', 'forgetSession', 'showRiotClient', 'pickClientPath', 'openDataFolder']) assert.equal(f.api[name], undefined);
   assert.deepEqual(f.calls.map((call) => call.slice(1)), [
     ['saveAccount', [{ password: 'synthetic-only' }]],
+    ['addAccounts', [[{ gameName: 'Synthetic' }]]],
+    ['pinAccount', ['synthetic-id', true]],
+    ['reorderAccounts', [['b', 'a']]],
     ['windowAction', ['minimize']], ['windowAction', ['close']],
   ]);
   f.unload();

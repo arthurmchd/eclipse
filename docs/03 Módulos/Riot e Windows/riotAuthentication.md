@@ -82,6 +82,7 @@ Fonte: enumeração `PlayerSessionStateType` lida (sem alterar nada) em `C:\Riot
 
 ## Invariantes e decisões
 
+- **Motivo `security_check` só para CAPTCHA recusado (2026-11-19).** Depois do envio, um `challenge` com `captcha_not_allowed` volta como `attention("security_check")`; os outros `challenge` continuam `attention("challenge")`, que o [[signInFlow]] trata como estado sem nome, sem falar em verificação.
 - **Só valores fixos saem do módulo.** As respostas podem ter tokens, nomes de usuário, dados de desafio e mensagens de erro vindas do usuário. Nada disso passa adiante.
 - **Tela de verificação desconhecida vira `challenge`.** Ela não pode receber envio automático de senha. O cliente normal mostra a ação necessária.
 - **CAPTCHA antes do envio usa o formulário nativo.** Esta operação ainda não enviou credenciais. O formulário nativo segue o caminho normal de CAPTCHA, em vez de enviar um token vazio.
@@ -107,7 +108,7 @@ Fonte: enumeração `PlayerSessionStateType` lida (sem alterar nada) em `C:\Riot
 
 ## Pontos de atenção
 
-- **Estado novo da Riot trava o login em "atenção".** Consequência aceita da falha fechada: se a Riot criar um estado automático novo, o login mostra "Riot needs a security check" e expira em 180 s. Solução: incluir o estado em `NON_BLOCKING_SESSION_STATES`, com teste.
+- **Estado novo da Riot trava o login em "atenção".** Consequência aceita da falha fechada: se a Riot criar um estado automático novo, o login mostra "A Riot ainda não terminou o login" e expira em 180 s com "O login expirou" (até 2026-11-19, falava em verificação de segurança). Solução: incluir o estado em `NON_BLOCKING_SESSION_STATES`, com teste.
 - **Listas de estados dependem da Riot.** As telas humanas, `NON_BLOCKING_SESSION_STATES` e os erros seguros precisam de revisão a cada versão: [[Atualização do Riot Client]].
 - **Idioma fixo.** `en_US` em `start` e `complete`.
 - Regras gerais: [[Segurança e privacidade]], [[Fluxo de login]].

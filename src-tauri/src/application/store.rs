@@ -14,7 +14,8 @@ use serde_json::{json, Map, Value};
 use crate::platform::windows::safe_storage::Cipher;
 
 pub const RETIRED_SETTINGS: [&str; 4] = ["minimizeOnLaunch", "hideRiotClient", "closeRiotClient", "streamerMode"];
-const BACKUP_ACCOUNT_FIELDS: [&str; 12] = ["id", "createdAt", "gameName", "tagLine", "region", "valRegion", "username", "password", "note", "lastSeason", "ban", "pinned"];
+const BACKUP_ACCOUNT_FIELDS: [&str; 13] = ["id", "createdAt", "gameName", "tagLine", "region", "valRegion", "username", "password", "note", "lastSeason", "ban", "pinned", "games"];
+pub const ACCOUNT_GAMES: [&str; 2] = ["lol", "val"];
 const BACKUP_LIMIT: usize = 30;
 const LOG_LIMIT: u64 = 200 * 1024;
 
@@ -39,6 +40,7 @@ pub struct AccountInput {
     pub note: String,
     pub last_season: Map<String, Value>,
     pub ban: Value,
+    pub games: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -48,6 +50,7 @@ pub struct SettingsInput {
     pub riot_client_path: Option<String>,
     pub language: Option<String>,
     pub card_layout: Option<String>,
+    pub card_sort: Option<String>,
     pub riot_api_key: Option<String>,
     pub riot_tft_api_key: Option<String>,
     pub henrik_api_key: Option<String>,
@@ -314,19 +317,18 @@ impl Store {
         self.data.accounts.iter().position(|account| account.get("id").and_then(Value::as_str) == Some(id))
     }
 
-    pub fn upsert_account(&mut self, input: AccountInput) -> Result<Map<String, Value>, String> {
-        let existing = input.id.as_deref().and_then(|id| self.account_index(id));
-        let mut account = match existing {
-            Some(index) => self.data.accounts[index].clone(),
-            None => {
-                let mut fresh = Map::new();
-                fresh.insert("id".into(), Value::String(uuid::Uuid::new_v4().to_string()));
-                fresh.insert("createdAt".into(), Value::String(now_iso()));
-                fresh.insert("stats".into(), json!({}));
-                fresh.insert("lastPlayed".into(), Value::Null);
-                fresh
-            }
-        };
+    fn fresh_account() -> Map<String, Value> {
+        let mut fresh = Map::new();
+        fresh.insert("id".into(), Value::String(uuid::Uuid::new_v4().to_string()));
+        fresh.insert("createdAt".into(), Value::String(now_iso()));
+        fresh.insert("stats".into(), json!({}));
+        fresh.insert("lastPlayed".into(), Value::Null);
+        fresh.insert("signInCount".into(), json!(0));
+        fresh.insert("pinned".into(), Value::Bool(false));
+        fresh
+    }
+
+    fn fill_account(&self, account: &mut Map<String, Value>, input: AccountInput) -> Result<bool, String> {
         account.insert("gameName".into(), Value::String(clean_name(&input.game_name)));
         account.insert("tagLine".into(), Value::String(clean_name(&input.tag_line).trim_start_matches('#').to_string()));
         account.insert("region".into(), Value::String(if input.region.is_empty() { "br1".into() } else { input.region.clone() }));
@@ -343,15 +345,29 @@ impl Store {
         }
         account.insert("lastSeason".into(), Value::Object(seasons));
         account.insert("ban".into(), if input.ban.is_object() { input.ban.clone() } else { Value::Null });
+        account.remove("tags");
+        account.remove("color");
+        let games: Vec<&str> = ACCOUNT_GAMES.iter().copied().filter(|game| input.games.iter().any(|chosen| chosen == game)).collect();
+        account.insert("games".into(), json!(if games.is_empty() { ACCOUNT_GAMES.to_vec() } else { games }));
         let new_password = input.password.as_deref().filter(|password| !password.is_empty());
         if let Some(password) = new_password {
             account.insert("password".into(), self.encrypt(password)?);
         }
+        Ok(new_password.is_some() || old_username != Some(Value::String(username)))
+    }
+
+    pub fn upsert_account(&mut self, input: AccountInput) -> Result<Map<String, Value>, String> {
+        let existing = input.id.as_deref().and_then(|id| self.account_index(id));
+        let mut account = match existing {
+            Some(index) => self.data.accounts[index].clone(),
+            None => Self::fresh_account(),
+        };
+        let login_changed = self.fill_account(&mut account, input)?;
         let id = text_of(account.get("id"));
         match existing {
             Some(index) => {
                 self.data.accounts[index] = account;
-                if new_password.is_some() || old_username != Some(Value::String(username)) {
+                if login_changed {
                     self.forget_session(&id)?;
                 }
             }
@@ -359,6 +375,42 @@ impl Store {
         }
         self.save()?;
         Ok(self.public_account(self.get_account(&id).unwrap()))
+    }
+
+    pub fn add_accounts(&mut self, inputs: Vec<AccountInput>) -> Result<Vec<Map<String, Value>>, String> {
+        let mut added = Vec::with_capacity(inputs.len());
+        for input in inputs {
+            let mut account = Self::fresh_account();
+            self.fill_account(&mut account, input)?;
+            added.push(account);
+        }
+        let ids: Vec<String> = added.iter().map(|account| text_of(account.get("id"))).collect();
+        let before = self.data.accounts.len();
+        self.data.accounts.extend(added);
+        if let Err(error) = self.save() {
+            self.data.accounts.truncate(before);
+            return Err(error);
+        }
+        Ok(ids.iter().filter_map(|id| self.get_account(id)).map(|account| self.public_account(account)).collect())
+    }
+
+    pub fn reorder_accounts(&mut self, ids: &[String]) -> Result<(), String> {
+        let current: Vec<String> = self.data.accounts.iter().map(|account| text_of(account.get("id"))).collect();
+        let mut wanted = ids.to_vec();
+        let mut present = current.clone();
+        wanted.sort();
+        present.sort();
+        wanted.dedup();
+        if wanted.len() != ids.len() || wanted != present {
+            return Err("The account list changed".into());
+        }
+        let previous = self.data.accounts.clone();
+        self.data.accounts.sort_by_key(|account| ids.iter().position(|id| *id == text_of(account.get("id"))).unwrap_or(usize::MAX));
+        if let Err(error) = self.save() {
+            self.data.accounts = previous;
+            return Err(error);
+        }
+        Ok(())
     }
 
     pub fn delete_account(&mut self, id: &str) -> Result<(), String> {
@@ -477,6 +529,8 @@ impl Store {
         public.insert("language".into(), Value::String(language.into()));
         let layout = if settings.get("cardLayout").and_then(Value::as_str) == Some("list") { "list" } else { "plates" };
         public.insert("cardLayout".into(), Value::String(layout.into()));
+        let sort = settings.get("cardSort").and_then(Value::as_str).filter(|sort| ["rank", "name", "recent"].contains(sort)).unwrap_or("manual");
+        public.insert("cardSort".into(), Value::String(sort.into()));
         public.insert("riotApiKeyMasked".into(), Value::String(mask(settings.get("riotApiKey"))));
         public.insert("riotTftApiKeyMasked".into(), Value::String(mask(settings.get("riotTftApiKey"))));
         public.insert("henrikApiKeyMasked".into(), Value::String(mask(settings.get("henrikApiKey"))));
@@ -498,6 +552,9 @@ impl Store {
         }
         if let Some(layout) = input.card_layout {
             self.data.settings.insert("cardLayout".into(), Value::String(layout));
+        }
+        if let Some(sort) = input.card_sort {
+            self.data.settings.insert("cardSort".into(), Value::String(sort));
         }
         for (name, value) in [("riotApiKey", input.riot_api_key), ("riotTftApiKey", input.riot_tft_api_key), ("henrikApiKey", input.henrik_api_key)] {
             if let Some(value) = value {

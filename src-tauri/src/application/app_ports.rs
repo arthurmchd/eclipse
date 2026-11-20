@@ -9,16 +9,17 @@ use super::sign_in_service::SignInService;
 use super::store::{account_id, account_riot_id, ServiceStore};
 use crate::riot::riot_client::has_persisted_login;
 use crate::riot::sign_in_flow::Closed;
-use crate::riot::{same_riot_id, RunningGames};
+use crate::riot::{same_riot_id, RiotId, RunningGames};
 
 pub type Probe = Box<dyn Fn() -> Result<RunningGames, String> + Send + Sync>;
 pub type Opener = Box<dyn Fn(&str) -> Result<(), String> + Send + Sync>;
 pub type SettingsChanged = Box<dyn Fn(&Map<String, Value>) + Send + Sync>;
+pub type SeenAccount = Box<dyn Fn() -> Option<RiotId> + Send + Sync>;
 
 pub const OPEN_FAILED: &str = "Could not open the link";
 
 pub fn running_games_json(games: RunningGames) -> Value {
-    json!({ "lol": games.lol, "val": games.val, "client": games.client, "clientWindow": games.client_window })
+    json!({ "lol": games.lol, "val": games.val, "tft": games.tft, "2xko": games.xko, "lor": games.lor, "client": games.client, "clientWindow": games.client_window })
 }
 
 pub struct AppPorts {
@@ -27,6 +28,7 @@ pub struct AppPorts {
     pub running_games: Probe,
     pub open_external: Opener,
     pub settings_changed: SettingsChanged,
+    pub seen_account: SeenAccount,
     pub version: String,
 }
 
@@ -70,6 +72,9 @@ impl ManagerPorts for AppPorts {
         context.insert("version".into(), Value::String(self.version.clone()));
         context.insert("lastRefresh".into(), self.refresher.last_refresh());
         context.insert("nextRefresh".into(), self.refresher.next_refresh());
+        if let Some(seen) = (self.seen_account)() {
+            context.insert("seenAccount".into(), json!({ "gameName": seen.game_name, "tagLine": seen.tag_line }));
+        }
         context
     }
 

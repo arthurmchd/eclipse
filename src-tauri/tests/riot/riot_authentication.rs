@@ -266,7 +266,7 @@ fn a_captcha_required_by_the_new_context_selects_the_native_form_before_any_pass
 #[test]
 fn captcha_rejection_requests_manual_attention_and_does_not_retry_a_submitted_password() {
     let f = fixture(vec![ok(auth()), status(400, json!({ "error": "captcha_not_allowed", "token": "private" }))]);
-    assert_eq!(f.authenticate().unwrap(), AuthOutcome::attention("challenge"));
+    assert_eq!(f.authenticate().unwrap(), AuthOutcome::attention("security_check"));
     assert_eq!(f.count(COMPLETE), 1);
 }
 

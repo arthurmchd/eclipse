@@ -65,9 +65,17 @@ public static class RiotWindowHelper {
   }
 
   static bool GameProcess(string game, string name) {
-    return game == "val"
-      ? (name.Equals("VALORANT-Win64-Shipping", StringComparison.OrdinalIgnoreCase) || name.Equals("VALORANT", StringComparison.OrdinalIgnoreCase))
-      : (name.Equals("LeagueClientUx", StringComparison.OrdinalIgnoreCase) || name.Equals("League of Legends", StringComparison.OrdinalIgnoreCase));
+    string[] names;
+    switch (game) {
+      case "val": names = new[] { "VALORANT-Win64-Shipping", "VALORANT" }; break;
+      case "tft": names = new[] { "TFTClient-Win64-Shipping", "TFTClient" }; break;
+      case "2xko": names = new[] { "Lion-Win64-Shipping", "Lion" }; break;
+      case "lor": names = new[] { "LoR" }; break;
+      default: names = new[] { "LeagueClientUx", "League of Legends" }; break;
+    }
+    foreach (string candidate in names)
+      if (name.Equals(candidate, StringComparison.OrdinalIgnoreCase)) return true;
+    return false;
   }
 
   public static void Reveal() {
@@ -96,7 +104,7 @@ public static class RiotWindowHelper {
   }
 
   public static bool GameWindow(string game) {
-    if (game != "lol" && game != "tft" && game != "val")
+    if (game != "lol" && game != "tft" && game != "val" && game != "2xko" && game != "lor")
       throw new ArgumentException("invalid-game");
     bool found = false;
     EnumWindows((h, l) => {
@@ -125,8 +133,10 @@ public static class RiotWindowHelper {
     if (!ClientInterface("riot client") || !ClientInterface("RiotClientUx") || ClientInterface("RiotClientUxRender")
         || ClientInterface("RiotClientServices") || ClientInterface("LeagueClientUx") || ClientInterface("VALORANT"))
       throw new InvalidOperationException("process-filter-test-failed");
-    if (!GameProcess("lol", "LeagueClientUx") || !GameProcess("tft", "League of Legends") || !GameProcess("val", "VALORANT-Win64-Shipping")
-        || GameProcess("lol", "VALORANT") || GameProcess("val", "LeagueClientUx") || GameProcess("lol", "Riot Client"))
+    if (!GameProcess("lol", "LeagueClientUx") || !GameProcess("tft", "TFTClient-Win64-Shipping") || !GameProcess("val", "VALORANT-Win64-Shipping")
+        || !GameProcess("2xko", "Lion-Win64-Shipping") || !GameProcess("lor", "LoR")
+        || GameProcess("lol", "VALORANT") || GameProcess("val", "LeagueClientUx") || GameProcess("lol", "Riot Client")
+        || GameProcess("tft", "League of Legends") || GameProcess("lor", "Lion") || GameProcess("2xko", "LoR"))
       throw new InvalidOperationException("game-filter-test-failed");
     bool rejected = false;
     try { GameWindow("lol\nreveal"); } catch (ArgumentException) { rejected = true; }

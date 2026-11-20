@@ -70,6 +70,7 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-035 Posição da sobreposição movida pelo helper]]
 - [[ADR-036 Arraste da Riot assumido pelo Eclipse]]
 - [[ADR-037 Elo do League pelo OP.GG]]
+- [[ADR-038 TFT, 2XKO e Runeterra no Eclipse]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]
@@ -88,6 +89,7 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[Solução de problemas]]: logs, backups e recuperação
 - [[Publicar no GitHub]]
 - [[Trabalhando com agentes]]: como o Claude Code usa este vault
+- [[Memória]]: o que o agente lembra entre conversas
 
 ## Roadmap
 

@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use crate::riot::{Cancel, RiotError, RiotResult};
 
 pub const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-const GAMES: [&str; 3] = ["lol", "tft", "val"];
+const GAMES: [&str; 5] = ["lol", "tft", "val", "2xko", "lor"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HelperOutput {

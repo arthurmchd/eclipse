@@ -325,6 +325,10 @@ impl Inner {
         if self.exists(attempt) {
             self.store.set_current_account(id).map_err(RiotError::new)?;
             let mut fields = Map::new();
+            if result.game_started || (attempt.game == "riot" && result.client_opened) {
+                let count = self.store.account(id).and_then(|account| account.get("signInCount").and_then(Value::as_u64)).unwrap_or(0);
+                fields.insert("signInCount".into(), Value::from(count + 1));
+            }
             if result.game_started {
                 fields.insert("lastPlayed".into(), Value::String(now_iso()));
                 fields.insert("lastGame".into(), Value::String(attempt.game.clone()));

@@ -583,7 +583,20 @@ fn a_launch_without_an_answer_or_with_an_odd_error_code_logs_only_fixed_text() {
     let (answer, logs) = launch(&odd, "tft");
     assert_eq!(answer, LaunchAnswer { status: 0, error_code: None });
     assert_eq!(logs, ["launch eligibility: HTTP 200 not eligible", "launch request: HTTP 0"]);
-    assert!(odd.routes()[1].1.contains("league_of_legends"));
+    assert!(odd.routes()[1].1.contains("/products/teamfighttactics/"));
+}
+
+#[test]
+fn each_game_launches_its_own_riot_product() {
+    for (game, product) in [("lol", "league_of_legends"), ("val", "valorant"), ("tft", "teamfighttactics"), ("2xko", "lion"), ("lor", "bacon")] {
+        let api = launcher(reply(200, json!(true)), reply(200, json!(true)));
+        launch(&api, game);
+        assert_eq!(
+            api.routes(),
+            [crate::route("GET", &format!("/product-launcher/v1/products/{product}/patchlines/live/eligibility")), crate::route("POST", &format!("/product-launcher/v1/products/{product}/patchlines/live"))],
+            "{game}"
+        );
+    }
 }
 
 #[test]
@@ -610,10 +623,21 @@ fn the_process_list_finds_games_riot_services_and_the_riot_window_by_name() {
     let output = "\"System Idle Process\",\"0\",\"Services\",\"0\",\"8 K\"\r\n\"RiotClientServices.exe\",\"10\",\"Console\",\"1\",\"9 K\"\r\n\"league of legends.exe\",\"11\",\"Console\",\"1\",\"9 K\"\r\n";
     let processes = parse_tasklist(output);
     assert!(processes.contains("riotclientservices.exe"));
-    assert_eq!(running_games_in(&processes), RunningGames { lol: true, val: false, client: true, client_window: false });
+    assert_eq!(running_games_in(&processes), RunningGames { lol: true, client: true, ..RunningGames::default() });
     let window = parse_tasklist("\"Riot Client.exe\",\"12\"\n\"VALORANT-Win64-Shipping.exe\",\"13\"");
-    assert_eq!(running_games_in(&window), RunningGames { lol: false, val: true, client: true, client_window: true });
+    assert_eq!(running_games_in(&window), RunningGames { val: true, client: true, client_window: true, ..RunningGames::default() });
     assert_eq!(running_games_in(&parse_tasklist("")), RunningGames::default());
+    let tft = running_games_in(&parse_tasklist("\"TFTClient-Win64-Shipping.exe\",\"14\""));
+    assert_eq!(tft, RunningGames { tft: true, ..RunningGames::default() });
+    assert!(tft.game("tft") && tft.any_game() && !tft.game("lol"));
+    let xko = running_games_in(&parse_tasklist("\"Lion-Win64-Shipping.exe\",\"15\""));
+    assert_eq!(xko, RunningGames { xko: true, ..RunningGames::default() });
+    assert!(xko.game("2xko") && !xko.game("lor"));
+    let lor = running_games_in(&parse_tasklist("\"LoR.exe\",\"16\""));
+    assert_eq!(lor, RunningGames { lor: true, ..RunningGames::default() });
+    assert!(lor.game("lor") && lor.any_game());
+    assert!(!RunningGames { client: true, client_window: true, ..RunningGames::default() }.any_game());
+    assert!(!RunningGames { lol: true, ..RunningGames::default() }.game("riot"));
 }
 
 #[test]

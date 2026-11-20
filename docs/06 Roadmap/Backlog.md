@@ -8,6 +8,15 @@ tags: [backlog]
 
 Ordenado por prioridade. Use o template [[Tarefa]] para detalhar um item antes de começar. Todos os itens abaixo foram conferidos no código em 2026-10-26, durante a documentação dos módulos. Eles já existiam antes da reorganização.
 
+## Lista de recursos de 2026-11-15, bloco por bloco
+
+Pedido do usuário depois de comparar o Eclipse com outros gerenciadores. Cada bloco sai numa versão instalada, para ele testar antes do próximo.
+
+1. **Organizar muitas contas.** Feito na 2.5.0 ([[Changelog]], [[cards]]). Copiar usuário ou senha saiu da lista por decisão do usuário. Falta conferir na Riot real: o arraste dentro da sobreposição e a sugestão da conta aberta.
+2. **Informações da conta.** Aviso de banimento, suspensão, decaimento e restrição de ranqueada; histórico do elo com gráfico, PdL e partidas de hoje, elo-alvo e pico da temporada; elo do TFT nos cartões; Essência Azul e RP no LoL, VP, Radianite e loja diária no VALORANT; campeões e skins com busca; "quem pode fazer duo com meu amigo"; abrir no OP.GG ou tracker.gg. O usuário aceitou em 2026-11-15 que os dados que exigem a conta logada apareçam como "visto em <data>", lidos quando a conta entra.
+3. **Uso no dia a dia.** Atualização automática (exige assinar as atualizações, item 20), atalhos e paleta Ctrl+K, entrar pela bandeja ou pela barra de tarefas, atalho por conta e link `eclipse://`, modo streamer com o OBS aberto, temas e tamanho da interface.
+4. **Otimizações.** Atualizar só o que mudou no cartão, limitar consultas de elo simultâneas e reaproveitar conexões, logs com códigos fixos, copiar as configurações do jogo da main para as alts. No League isso escreve em `C:\Riot Games\League of Legends\Config`: o usuário autorizou a exceção em 2026-11-15, mas ela exige um ADR antes do código, com backup antes de cada cópia.
+
 ## Conferir o Eclipse 2.0.0 (Tauri) no Riot real
 
 Desde 2026-11-15 o Eclipse é só Tauri ([[ADR-034 Troca do Electron pelo Tauri]]). O comportamento é o mesmo do Electron, mas foi reescrito em Rust e conferido só com uma Riot falsa nos testes. O que foi visto na Riot real até agora:

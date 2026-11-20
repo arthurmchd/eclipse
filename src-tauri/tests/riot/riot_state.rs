@@ -51,7 +51,10 @@ fn a_closed_riot_has_no_account_and_no_services_without_asking_its_local_api() {
 #[test]
 fn each_mode_of_an_open_riot_comes_from_its_processes_and_from_its_services_only_without_a_window_or_game() {
     let modes = [
-        (RunningGames { client: true, lol: true, client_window: true, val: false }, Mode::Game, vec!["processes"]),
+        (RunningGames { client: true, lol: true, client_window: true, ..RunningGames::default() }, Mode::Game, vec!["processes"]),
+        (RunningGames { client: true, tft: true, ..RunningGames::default() }, Mode::Game, vec!["processes"]),
+        (RunningGames { client: true, xko: true, ..RunningGames::default() }, Mode::Game, vec!["processes"]),
+        (RunningGames { client: true, lor: true, ..RunningGames::default() }, Mode::Game, vec!["processes"]),
         (RunningGames { client: true, val: true, ..RunningGames::default() }, Mode::Game, vec!["processes"]),
         (RunningGames { client: true, client_window: true, ..RunningGames::default() }, Mode::Window, vec!["processes"]),
         (client(), Mode::Hidden, vec!["processes", "session"]),

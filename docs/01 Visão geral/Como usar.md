@@ -7,7 +7,7 @@ tags: [uso]
 
 ## Abrir
 
-Os cartões aparecem automaticamente sobre a arte à direita do cliente oficial. Use Entrar e jogar no cartão escolhido. Nome, nível, rank, winrate e resultados correspondem ao jogo escolhido pelos ícones do rodapé, ao lado da conta selecionada; as cores e o botão Jogar mudam com o jogo. Os dois ícones ao lado do ⚙ trocam entre placas verticais (padrão) e lista compacta, para quem tem muitas contas; a escolha fica salva ([[cards]]). O botão **+** no início do rodapé (adicionar conta), o menu ⋯ de cada cartão e o ⚙ do rodapé abrem somente diálogos nessa área. O rodapé também mostra quantas contas existem e quando os elos foram atualizados; o ↻ ao lado atualiza. Para usar o perfil da Riot, marque "Ocultar contas"; a coluna de login permanece livre.
+Os cartões aparecem automaticamente sobre a arte à direita do cliente oficial. Use Entrar e jogar no cartão escolhido. Nome, nível, rank, winrate e resultados correspondem ao jogo escolhido pelas abas do rodapé, ao lado da conta selecionada; as cores e o botão Jogar mudam com o jogo. Os dois ícones ao lado do ⚙ trocam entre placas verticais (padrão) e lista compacta, para quem tem muitas contas; a escolha fica salva ([[cards]]). O botão **+** no início do rodapé (adicionar conta), o menu ⋯ de cada cartão e o ⚙ do rodapé abrem somente diálogos nessa área. O rodapé também mostra quantas contas existem e quando os elos foram atualizados; o ↻ ao lado atualiza. Para usar o perfil da Riot, marque "Ocultar contas"; a coluna de login permanece livre.
 
 - **Instalado (desde 2026-11-15, versão 2.0.0, só Tauri):** rode `Eclipse_<versão>_x64-setup.exe`, gerado por `cargo tauri build` em `src-tauri/` ([[Desenvolvimento]]). Ele instala na sua conta do Windows, sem pedir administrador, em `%LOCALAPPDATA%\Eclipse`, cria o atalho "Eclipse" no menu Iniciar e, se achar o Eclipse antigo em Electron, o desinstala mantendo contas e início com o Windows. Na primeira vez, o Windows pode avisar que o app não é reconhecido, porque ele não é assinado: **Mais informações** → **Executar assim mesmo**. Depois, abra pelo atalho; o Eclipse fica na bandeja. As contas ficam em `%APPDATA%\riot-account-manager\`.
 - **Iniciar com o Windows:** no app instalado, clique com o botão direito no ícone da bandeja e marque **Iniciar com o Windows**. Vem desmarcado. Marcado, o Eclipse abre na bandeja quando você entra no Windows, sem abrir a Riot. Desmarque no mesmo lugar.
@@ -29,9 +29,9 @@ Só uma cópia do serviço roda por vez. Abrir de novo reutiliza a instância ex
 
 ## Primeiros passos
 
-1. Chaves de API são opcionais. Sem elas, o Eclipse lê o elo do jogo aberto: cada conta ganha elo na primeira vez em que você joga com ela, e ele se atualiza enquanto o jogo está aberto. Com chaves no ⚙ do rodapé, todas as contas se atualizam de uma vez, com o RR do VALORANT e os cortes de Mestre+ ([[Visão geral#Fontes de dados]]).
+1. Não é preciso configurar nada para ver os elos ([[Visão geral#Fontes de dados]]). Desde 2026-11-19 o ⚙ não tem mais campos de chave de API; uma chave guardada antes continua sendo usada.
 2. Adicione a conta com Riot ID (pode colar `Nome#TAG`), servidor, usuário e senha.
-3. Escolha o jogo pelos ícones do rodapé e use **Jogar**.
+3. Escolha o jogo pelas abas do rodapé e use **Jogar**.
 
 Para editar ou remover uma conta, use o menu ⋯ do cartão.
 
@@ -63,7 +63,7 @@ O passo a passo técnico está em [[Fluxo de login]].
 
 ## Configurações
 
-O ⚙ tem idioma, **Manter login**, as chaves de API e o intervalo de atualização dos elos. As opções antigas de esconder, fechar e minimizar o Riot e o modo streamer saíram em 2026-11-07 ([[ADR-028 Modo antigo removido]]): a Riot fica visível no login e é fechada quando o jogo abre.
+O ⚙ tem idioma, **Manter login** e o intervalo de atualização dos elos (as chaves de API saíram em 2026-11-19). As opções antigas de esconder, fechar e minimizar o Riot e o modo streamer saíram em 2026-11-07 ([[ADR-028 Modo antigo removido]]): a Riot fica visível no login e é fechada quando o jogo abre.
 
 ## Onde estão meus dados
 

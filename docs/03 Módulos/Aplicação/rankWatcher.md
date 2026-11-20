@@ -35,6 +35,7 @@ tags: [módulo]
 
 ## Invariantes e decisões
 
+- **Conta não salva vira sugestão.** Desde 2026-11-15, quando o jogo aberto está numa conta que não existe no Eclipse (ou existe duas vezes), `on_unsaved` recebe o Riot ID. O [[main]] guarda só o último na memória, sem gravar em disco, e os [[cards]] o oferecem ao adicionar conta.
 - **A leitura do jogo apaga a marca do OP.GG.** Desde 2026-11-15 ([[ADR-037 Elo do League pelo OP.GG]]), `merge_reading` remove o `source` do `stats.lol`: o bloco passa a ser do jogo, com a hora da leitura, e um perfil mais antigo do [[opgg]] não o substitui.
 
 - **Criado em 2026-11-08** ([[ADR-031 Elo lido do próprio jogo, sem chave]]).

@@ -13,6 +13,15 @@ App Windows em Tauri e Rust (`src-tauri/`) que gerencia várias contas Riot, faz
 - Use wikilinks `[[nome]]` pelo nome da nota, sem caminho.
 - O subagente `vault-keeper` faz essa atualização quando pedido.
 
+## Memória
+
+A memória do agente neste projeto fica no vault, em `docs/07 Memória/`, e não na pasta de memória do Claude Code em `~/.claude/`.
+
+- No começo de toda tarefa, leia `docs/07 Memória/Memória.md` e as notas que tocam o assunto.
+- Quando o usuário corrigir ou confirmar um jeito de trabalhar, ou houver algo a lembrar na próxima conversa, crie ou atualize uma nota ali pelo template `docs/_templates/Nota de memória.md` e ponha a linha no índice, sem esperar pedido.
+- Fato que já cabe numa nota de módulo, decisão, guia ou no Changelog vai para essa nota, não para a memória.
+- O vault vai para o GitHub: nada de segredos, contas Riot ou dados pessoais na memória.
+
 ## Regras de código
 
 - **Nenhum comentário** em Rust, JS, CSS, HTML, PowerShell ou no C# embutido.

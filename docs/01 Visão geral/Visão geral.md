@@ -17,11 +17,13 @@ O Eclipse roda na bandeja e desenha os cartões de contas sobre a arte à direit
 
 ## Recursos
 
-- Ícones de jogo no rodapé: Riot (só entrar), League e VALORANT, cada um com as cores e o botão Jogar do seu cliente
-- Dois visuais, trocados por ícones no rodapé: placas verticais (padrão) e lista compacta ([[cards]]). No League, Solo/Duo e Flex com os emblemas de elo que vêm com o app; em Mestre ou acima, quanto falta para o corte de Grão-Mestre ou Desafiante. No VALORANT, a arte do cartão de jogador, o Competitivo e a barra de RR
-- Adicionar conta pelo **+** do rodapé; editar e remover pelo menu ⋯ do cartão
-- ⚙ Configurações: idioma (português ou inglês), **Manter login**, chaves de API e intervalo de atualização dos elos
-- ↻ atualiza os elos; o rodapé mostra quantas contas existem e quando foram atualizadas
+- Abas de jogo no rodapé: League, VALORANT e Riot Client (só entrar), cada um com as cores e o botão Jogar do seu cliente
+- Dois visuais, trocados por ícones acima dos cartões: placas verticais (padrão) e lista compacta ([[cards]]). No League, Solo/Duo e Flex com os emblemas de elo que vêm com o app; em Mestre ou acima, quanto falta para o corte de Grão-Mestre ou Desafiante. No VALORANT, a arte do cartão de jogador, o Competitivo e a barra de RR
+- Adicionar conta pelo **+ Adicionar conta** acima dos cartões; editar e remover pelo menu ⋯ do cartão
+- Busca, filtros (servidor, elo) e ordenação; arrastar para reordenar, estrela para fixar no topo e "Jogada há 2 dias · 17 entradas" ([[cards]])
+- Adicionar várias contas de uma vez, escolher em que jogo cada conta aparece e preencher o Riot ID com a conta aberta na Riot
+- ⚙ Configurações: idioma (português ou inglês), **Manter login** e intervalo de atualização dos elos
+- ↻ atualiza os elos; a faixa acima dos cartões mostra quantas contas existem e quando foram atualizadas
 - Jogar vira Cancelar durante o login
 - Cópias dos botões de minimizar e fechar da Riot, desenhadas sobre os originais
 
@@ -36,6 +38,8 @@ O elo do TFT ainda é consultado ([[rankApi]]), mas não aparece nos cartões.
 | TFT (opcional) | Riot API oficial | A Riot aprova chave pessoal por jogo, então o TFT pode ter a sua |
 | VALORANT | HenrikDev (não oficial) | A API oficial de elo do VALORANT só é liberada para apps aprovados |
 | LoL, TFT e VALORANT, sem chave | O jogo aberto no PC ([[gameRanks]]) | Nenhuma. Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]): a conta ganha elo quando joga. Sem RR no VALORANT nem cortes de Mestre+ |
+
+Desde 2026-11-19 as configurações não têm mais campos para as chaves da Riot e da HenrikDev, a pedido do usuário. Uma chave guardada antes continua sendo usada.
 
 Ver [[rankApi]].
 
