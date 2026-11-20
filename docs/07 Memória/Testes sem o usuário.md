@@ -14,6 +14,8 @@ Para testar o Eclipse sem o usuário, o agente usa só capturas de tela pelo Pow
 
 **Como aplicar:** conferir o visual capturando só janelas do Eclipse, nunca a janela da Riot nem a área de trabalho inteira. O resto vai por testes com dependências falsas injetadas. Pedir antes de qualquer conferência na Riot real.
 
+Exceção pontual: em 2026-11-20 o usuário autorizou, só para as capturas do README, abrir uma cópia de teste com contas fictícias e capturar a janela da Riot na tela de login ([[Publicar no GitHub#Capturas do README]]). A autorização não vale para outras vezes.
+
 ## Relacionado
 
 - [[Memória]]

@@ -4,130 +4,132 @@
 
 # Eclipse
 
-**Todas as suas contas da Riot, um clique de distância.**
+**Every Riot account you own, one click away.**
 
-Gerenciador de contas que vive dentro do Riot Client: escolha a conta, clique em Jogar e o Eclipse entra e abre o jogo.
+An account manager that lives inside the Riot Client: pick an account, hit Play, and Eclipse signs in and launches the game.
 
-[![Versão](https://img.shields.io/github/v/release/arthurmchd/eclipse?label=vers%C3%A3o&color=c8aa6e)](https://github.com/arthurmchd/eclipse/releases/latest)
+[![Release](https://img.shields.io/github/v/release/arthurmchd/eclipse?label=release&color=c8aa6e)](https://github.com/arthurmchd/eclipse/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/arthurmchd/eclipse/total?color=d53235)](https://github.com/arthurmchd/eclipse/releases)
-[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows&logoColor=white)](#baixar-e-instalar)
+[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows&logoColor=white)](#download-and-install)
 [![Tauri](https://img.shields.io/badge/Tauri-2-24c8db?logo=tauri&logoColor=white)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-orange?logo=rust&logoColor=white)](https://www.rust-lang.org)
 
-[**Baixar**](https://github.com/arthurmchd/eclipse/releases/latest) · [Recursos](#recursos) · [Como funciona](#como-funciona) · [Segurança](#segurança-e-privacidade) · [Perguntas frequentes](#perguntas-frequentes)
+[**Download**](https://github.com/arthurmchd/eclipse/releases/latest) · [Features](#features) · [How it works](#how-it-works) · [Security](#security-and-privacy) · [FAQ](#faq)
 
-<img src=".github/assets/league.png" alt="Contas do League of Legends no Eclipse" width="860">
+<img src=".github/assets/league.png" alt="Eclipse showing League of Legends accounts inside the Riot Client" width="900">
+
+<sub>Eclipse inside the Riot Client: sign in on the left, your accounts on the right.</sub>
 
 </div>
 
-## Recursos
+## Features
 
-**Entrar sem digitar**
-- Um clique em **Jogar** entra na conta e abre o jogo; a janela da Riot fecha sozinha quando o jogo aparece.
-- Na primeira vez, o Eclipse preenche o login da própria Riot. Depois, com **Manter login**, entra em segundo plano com a sessão guardada daquela conta.
-- 2FA, CAPTCHA e termos de uso continuam na tela da Riot, com você.
+**Sign in without typing**
+- One click on **Play** signs in and launches the game; the Riot window closes on its own once the game shows up.
+- The first time, Eclipse fills in Riot's own sign-in form. After that, with **Stay signed in**, it signs in in the background using the session saved for that account.
+- 2FA, CAPTCHA and terms of service stay on Riot's screen, in your hands.
 
-**Ver tudo de uma vez**
-- League of Legends, VALORANT, Teamfight Tactics, 2XKO e Legends of Runeterra, cada um na sua aba, além de só entrar no Riot Client.
-- Elo, PdL ou RR, winrate, partidas e nível de cada conta, atualizados sozinhos. Sem precisar de chave de API.
-- A borda e o ícone que você usa no jogo aparecem na placa da conta.
+**See everything at a glance**
+- League of Legends, VALORANT, Teamfight Tactics, 2XKO and Legends of Runeterra, each in its own tab, plus a plain Riot Client sign-in.
+- Rank, LP or RR, win rate, games played and level for every account, refreshed automatically. No API key needed.
+- The border and icon you use in game show up on the account's card.
 
-**Organizar muitas contas**
-- Busca, filtros por servidor e elo, favoritas fixadas no topo e ordem manual arrastando.
-- Placas grandes ou lista compacta, como preferir.
-- Cadastro de várias contas de uma vez.
+**Organize lots of accounts**
+- Search, filters by server and rank, favorites pinned to the top and a manual order you set by dragging.
+- Large cards or a compact list, whichever you prefer.
+- Add many accounts at once.
 
-**Com a cara da Riot**
-- Tema escuro do Riot Client, com o visual de cada jogo: dourado no League, vermelho e cantos cortados no VALORANT.
-- Animações e sons de interface do cliente do League (dá para desligar).
-- Português e inglês.
+**Looks like Riot**
+- The Riot Client's dark theme, styled after each game: gold in League, red with cut corners in VALORANT.
+- Motion and interface sounds from the League client (you can turn the sounds off).
+- English and Portuguese.
 
-**No seu Windows**
-- Fica na bandeja, abre junto com o Windows se você quiser e avisa por notificação.
-- Instala sem pedir administrador e se atualiza por cima, sem perder contas.
+**Made for Windows**
+- Lives in the system tray, can start with Windows and lets you know through notifications.
+- Installs without admin rights and updates in place without losing your accounts.
 
 <table>
   <tr>
-    <td><img src=".github/assets/valorant.png" alt="Contas do VALORANT no Eclipse"></td>
-    <td><img src=".github/assets/lista.png" alt="Lista compacta de contas no Eclipse"></td>
+    <td><img src=".github/assets/valorant.png" alt="Eclipse showing VALORANT accounts inside the Riot Client"></td>
+    <td><img src=".github/assets/list.png" alt="Eclipse compact account list inside the Riot Client"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Aba do VALORANT</sub></td>
-    <td align="center"><sub>Lista compacta</sub></td>
+    <td align="center"><sub>VALORANT tab</sub></td>
+    <td align="center"><sub>Compact list</sub></td>
   </tr>
 </table>
 
-<sub>Capturas com contas fictícias.</sub>
+<sub>Screenshots use made-up accounts.</sub>
 
-## Baixar e instalar
+## Download and install
 
-1. Baixe o `Eclipse_<versão>_x64-setup.exe` da [versão mais recente](https://github.com/arthurmchd/eclipse/releases/latest).
-2. Rode o arquivo. Ele instala na sua conta do Windows, sem pedir administrador, e cria o atalho **Eclipse** no menu Iniciar.
-3. Abra o Eclipse e depois o Riot Client, pelo atalho de sempre. As contas aparecem dentro da janela da Riot.
+1. Download `Eclipse_<version>_x64-setup.exe` from the [latest release](https://github.com/arthurmchd/eclipse/releases/latest).
+2. Run it. It installs for your Windows user, without admin rights, and adds an **Eclipse** shortcut to the Start menu.
+3. Open Eclipse, then open the Riot Client the way you always do. Your accounts appear inside the Riot window.
 
 > [!NOTE]
-> O instalador ainda não é assinado digitalmente. Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informações** → **Executar assim mesmo**. Cada versão traz o SHA-256 do instalador nas notas, para você conferir com `Get-FileHash`.
+> The installer is not code-signed yet. If Windows shows "Windows protected your PC", click **More info** → **Run anyway**. Every release lists the installer's SHA-256 so you can check it with `Get-FileHash`.
 
-**Requisitos:** Windows 10 ou 11, 64 bits, com o Riot Client instalado.
+**Requirements:** 64-bit Windows 10 or 11 with the Riot Client installed.
 
-**Atualizar:** saia do Eclipse pela bandeja e rode o instalador novo por cima. Contas, sessões e configurações continuam.
+**Updating:** quit Eclipse from the tray and run the new installer over the old one. Accounts, sessions and settings are kept.
 
-**Desinstalar:** em **Configurações → Aplicativos instalados** do Windows.
+**Uninstalling:** from Windows **Settings → Installed apps**.
 
-## Como funciona
+## How it works
 
-O Eclipse acompanha a janela do Riot Client e mostra as contas sobre a arte, ao lado do login. Ele fala com o Riot Client pelo serviço local que a própria Riot usa, no seu computador.
+Eclipse follows the Riot Client window and shows your accounts over the artwork, next to the sign-in form. It talks to the Riot Client through the same local service Riot itself uses, on your own computer.
 
-| Etapa | O que acontece |
+| Step | What happens |
 |---|---|
-| Primeira entrada da conta | O Eclipse preenche usuário e senha no formulário da Riot. Verificações aparecem para você ali mesmo. |
-| Próximas entradas | Com **Manter login**, a Riot recebe de volta a sessão que ela mesma guardou para aquela conta, sem formulário. |
-| Trocar de conta | A Riot fecha com a saída normal e abre na conta escolhida. A sessão de quem saiu continua valendo. |
-| Elos | League pelo OP.GG; League, TFT e VALORANT também lidos do jogo aberto quando a conta joga. |
+| First sign-in for an account | Eclipse fills in username and password on Riot's form. Any verification shows up for you right there. |
+| Later sign-ins | With **Stay signed in**, Riot gets back the session it saved for that account itself, with no form at all. |
+| Switching accounts | Riot quits the normal way and reopens on the account you picked. The previous account's session stays valid. |
+| Ranks | League from OP.GG; League, TFT and VALORANT are also read from the open game whenever the account plays. |
 
-## Segurança e privacidade
+## Security and privacy
 
-- **Tudo fica no seu computador.** Senhas e sessões são criptografadas com a proteção de dados do Windows (DPAPI), atrelada à sua conta do Windows.
-- **Nada é contornado.** O Eclipse não burla CAPTCHA, 2FA ou qualquer verificação da Riot.
-- **Os jogos não são tocados.** O Eclipse não altera a instalação da Riot, não injeta código e não mexe nos jogos nem no Vanguard.
-- **Rede fechada.** O Eclipse não abre portas no seu PC e só conversa com o Riot Client local por conexão verificada.
-- **Serviços externos, com transparência.** O Riot ID e o servidor de cada conta vão ao OP.GG para buscar o elo do League. Ícones, emblemas e sons vêm da CommunityDragon. Senha e sessão nunca saem do seu computador.
+- **Everything stays on your computer.** Passwords and sessions are encrypted with Windows Data Protection (DPAPI), tied to your Windows user.
+- **Nothing is bypassed.** Eclipse never works around CAPTCHA, 2FA or any other Riot verification.
+- **Games are left alone.** Eclipse does not modify the Riot installation, does not inject code and never touches the games or Vanguard.
+- **No open ports.** Eclipse opens no network ports on your PC and only talks to the local Riot Client over a verified connection.
+- **External services, stated plainly.** Each account's Riot ID and server go to OP.GG to look up League ranks. Icons, emblems and sounds come from CommunityDragon. Passwords and sessions never leave your computer.
 
-## Perguntas frequentes
+## FAQ
 
 <details>
-<summary><b>Posso ser banido por usar o Eclipse?</b></summary>
+<summary><b>Can I get banned for using Eclipse?</b></summary>
 <br>
-O Eclipse usa só o próprio Riot Client: preenche o login da Riot e devolve a ela a sessão do "Manter login". Ele não lê nem altera a memória dos jogos e não interage com o Vanguard. Ainda assim, é um projeto não oficial, e a Riot não se manifestou sobre ele. Use por sua conta.
+Eclipse only uses the Riot Client itself: it fills in Riot's sign-in form and hands back the "Stay signed in" session Riot saved. It doesn't read or change game memory and doesn't interact with Vanguard. Still, it's an unofficial project and Riot hasn't commented on it. Use it at your own risk.
 </details>
 
 <details>
-<summary><b>Preciso de chave de API da Riot?</b></summary>
+<summary><b>Do I need a Riot API key?</b></summary>
 <br>
-Não. O elo do League vem do OP.GG, e o do VALORANT e do TFT aparece quando a conta joga com o Eclipse aberto.
+No. League ranks come from OP.GG, and VALORANT and TFT ranks show up once the account plays with Eclipse open.
 </details>
 
 <details>
-<summary><b>A Riot pediu código de verificação. E agora?</b></summary>
+<summary><b>Riot asked for a verification code. What now?</b></summary>
 <br>
-Digite o código na própria tela da Riot, como sempre. Depois disso, com <b>Manter login</b> ligado, as próximas entradas daquela conta não pedem nada até a sessão expirar.
+Type the code on Riot's own screen, as usual. After that, with <b>Stay signed in</b> on, that account won't ask again until its session expires.
 </details>
 
 <details>
-<summary><b>Por que uma conta voltou a pedir senha?</b></summary>
+<summary><b>Why is an account asking for its password again?</b></summary>
 <br>
-A sessão guardada deixa de valer quando você sai da conta pelo menu da Riot ou usa <b>Sign Out</b> no LoL. Para fechar o jogo, use <b>Exit</b>. Trocar a senha ou sair de todos os dispositivos também encerra a sessão.
+A saved session stops working when you sign out from the Riot menu or use <b>Sign Out</b> in League. To close the game, use <b>Exit</b>. Changing the password or signing out of all devices also ends the session.
 </details>
 
 <details>
-<summary><b>Funciona no macOS ou no Linux?</b></summary>
+<summary><b>Does it work on macOS or Linux?</b></summary>
 <br>
-Não. O Eclipse é só para Windows, como o Vanguard.
+No. Eclipse is Windows only, just like Vanguard.
 </details>
 
-## Para desenvolvedores
+## For developers
 
-Requisitos: Rust com `tauri-cli` (`cargo install tauri-cli`) e Node.js 22 ou mais novo.
+Requirements: Rust with `tauri-cli` (`cargo install tauri-cli`) and Node.js 22 or newer.
 
 ```powershell
 npm ci
@@ -135,33 +137,33 @@ cd src-tauri
 cargo tauri build
 ```
 
-O instalador sai em `src-tauri\target\release\bundle\nsis\`. Em desenvolvimento, o app só abre com uma pasta de dados de teste, para nunca tocar nas contas reais:
+The installer ends up in `src-tauri\target\release\bundle\nsis\`. In development the app only starts with a test data folder, so it can never touch real accounts:
 
 ```powershell
-$env:ECLIPSE_DATA_DIR = "C:\pasta\de\teste"
+$env:ECLIPSE_DATA_DIR = "C:\path\to\test\data"
 cd src-tauri
 cargo run
 ```
 
-| Comando | O que faz |
+| Command | What it does |
 |---|---|
-| `cargo test` (em `src-tauri/`) | Testes do app |
-| `npm test` | Testes da interface |
-| `npm run preview` | Interface no navegador com contas fictícias, em <http://localhost:5178> |
-| `cargo tauri build` (em `src-tauri/`) | Gera o instalador |
+| `cargo test` (in `src-tauri/`) | App tests |
+| `npm test` | Interface tests |
+| `npm run preview` | Interface in the browser with made-up accounts, at <http://localhost:5178> |
+| `cargo tauri build` (in `src-tauri/`) | Builds the installer |
 
 ```
-src-tauri/           app em Rust e Tauri, instalador e testes
-  src/application/   armazenamento, login, sessões e elos
-  src/riot/          Riot Client e fluxo de login
-  src/platform/      janelas, criptografia, bandeja e notificações
-  src/integration/   sobreposição na janela da Riot
-src/renderer/        interface das contas
-docs/                documentação (vault do Obsidian)
+src-tauri/           Rust and Tauri app, installer and tests
+  src/application/   storage, sign-in, sessions and ranks
+  src/riot/          Riot Client control and sign-in flow
+  src/platform/      windows, encryption, tray and notifications
+  src/integration/   overlay attached to the Riot window
+src/renderer/        account interface
+docs/                documentation (Obsidian vault, in Portuguese)
 ```
 
-A documentação completa, com arquitetura, decisões e o porquê de cada regra, fica em [`docs/`](docs/00%20Início.md). Comece por [Visão geral](docs/01%20Visão%20geral/Visão%20geral.md), [Arquitetura](docs/02%20Arquitetura/Arquitetura.md) e [Segurança e privacidade](docs/02%20Arquitetura/Segurança%20e%20privacidade.md).
+The full documentation, with architecture, decisions and the reasoning behind every rule, lives in [`docs/`](docs/00%20Início.md), written in Portuguese. Good starting points: [Overview](docs/01%20Visão%20geral/Visão%20geral.md), [Architecture](docs/02%20Arquitetura/Arquitetura.md) and [Security and privacy](docs/02%20Arquitetura/Segurança%20e%20privacidade.md).
 
-## Aviso legal
+## Legal
 
-O Eclipse não é endossado pela Riot Games e não reflete as opiniões da Riot Games nem de ninguém envolvido oficialmente na produção ou no gerenciamento das propriedades da Riot Games. Riot Games, League of Legends, VALORANT, Teamfight Tactics, 2XKO e Legends of Runeterra são marcas ou marcas registradas da Riot Games, Inc.
+Eclipse isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, League of Legends, VALORANT, Teamfight Tactics, 2XKO and Legends of Runeterra are trademarks or registered trademarks of Riot Games, Inc.

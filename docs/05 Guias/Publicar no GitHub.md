@@ -70,6 +70,17 @@ Desde 2026-11-20 cada versão sai como release público em `arthurmchd/eclipse`,
 
 Só o Setup vai no release: nunca dados, logs, `.client-integration/`, `app.asar` ou capturas com contas.
 
+## Capturas do README
+
+O README é em inglês e mostra o Eclipse dentro da janela inteira do Riot Client (`.github/assets/league.png`, `valorant.png` e `list.png`). Capturar a janela da Riot vai contra [[Testes sem o usuário]], então refazer exige pedir ao usuário de novo. Como foi feito em 2026-11-20:
+
+1. Com a Riot aberta na tela de login e sem jogo, fechar o Eclipse instalado.
+2. Montar uma pasta de teste com as contas de `scripts/dev/mock-api.js`, senha de mentira, `language: "en"` e `refreshMinutes: 0`, para os elos fictícios não serem trocados pelo OP.GG.
+3. Rodar `target/debug/eclipse.exe` com `ECLIPSE_DATA_DIR` apontando para ela (o app instalado ignora essa variável) e restaurar a janela da Riot.
+4. Capturar a Riot e a janela do Eclipse com `PrintWindow` e juntar as duas. A parte transparente do Eclipse sai preta; o preto puro fora do painel de cartões vira transparente.
+5. Para outra aba ou modo, mudar `cardLayout` na pasta de teste e reabrir. A aba do jogo não fica salva: o VALORANT veio da prévia no mesmo tamanho do painel (1136 × 864) e foi colado sobre a captura.
+6. Fechar a cópia de teste, apagar a pasta, minimizar a Riot se ela estava minimizada e reabrir o Eclipse instalado.
+
 ## Para quem baixar
 
 O caminho normal é o Setup do release mais recente (seção "Baixar" do README). Para gerar do código: `npm ci` e `cargo tauri build` em `src-tauri/`. As contas não acompanham o código nem o Setup.
