@@ -113,6 +113,45 @@ pub fn parse_league(summoner: &Value, ranked: &Value) -> Option<Reading> {
     })
 }
 
+pub fn prestige_theme(level: i64) -> i64 {
+    match level {
+        ..30 => 1,
+        30..50 => 2,
+        _ => (3 + (level - 50) / 25).min(21),
+    }
+}
+
+pub fn league_border(regalia: &Value, level: &Value) -> Value {
+    match regalia.get("crestType").and_then(Value::as_str).map(str::to_lowercase).as_deref() {
+        Some("prestige") => {
+            let chosen = regalia.get("selectedPrestigeCrest").and_then(Value::as_i64).filter(|crest| (1..=21).contains(crest));
+            let level = level.as_i64().or_else(|| regalia.get("summonerLevel").and_then(Value::as_i64)).filter(|level| *level >= 1);
+            match chosen.or_else(|| level.map(prestige_theme)) {
+                Some(theme) => json!({ "kind": "level", "theme": theme }),
+                None => Value::Null,
+            }
+        }
+        Some("ranked") => {
+            let last = regalia.get("lastSeasonHighestRank").and_then(Value::as_str);
+            let highest = regalia.get("highestRankedEntry").and_then(|entry| entry.get("tier")).and_then(Value::as_str);
+            [last, highest]
+                .into_iter()
+                .flatten()
+                .map(str::to_uppercase)
+                .find(|tier| LOL_TIERS.contains(&tier.as_str()))
+                .map(|tier| json!({ "kind": "ranked", "tier": tier }))
+                .unwrap_or(Value::Null)
+        }
+        _ => Value::Null,
+    }
+}
+
+fn val_border(player: &Value) -> Option<Value> {
+    let chosen = player.get("preferredLevelBorderId")?;
+    let id = chosen.as_str().filter(|id| uuid_like(id) && !id.chars().all(|c| c == '0' || c == '-'));
+    Some(Value::String(id.map(str::to_lowercase).unwrap_or_else(|| "level".into())))
+}
+
 pub fn val_tier_name(tier: i64) -> String {
     if tier == 27 {
         return "Radiant".into();
@@ -147,12 +186,11 @@ pub fn parse_valorant(session: &Value, presences: &Value) -> Option<Reading> {
         .filter(|card| uuid_like(card))
         .map(|card| Value::String(format!("https://media.valorant-api.com/playercards/{}/smallart.png", card.to_lowercase())))
         .unwrap_or(Value::Null);
-    Some(Reading {
-        riot_id: RiotId { game_name, tag_line },
-        lol: None,
-        tft: None,
-        val: Some(json!({ "tier": tier, "tierName": val_tier_name(tier), "level": count(player.get("accountLevel")), "card": card })),
-    })
+    let mut val = json!({ "tier": tier, "tierName": val_tier_name(tier), "level": count(player.get("accountLevel")), "card": card });
+    if let Some(border) = val_border(player) {
+        val["border"] = border;
+    }
+    Some(Reading { riot_id: RiotId { game_name, tag_line }, lol: None, tft: None, val: Some(val) })
 }
 
 pub struct GameRanks {
@@ -173,7 +211,12 @@ impl GameRanks {
     pub fn league(&self) -> Option<Reading> {
         let summoner = answer(self.league_api.as_ref(), "/lol-summoner/v1/current-summoner")?;
         let ranked = answer(self.league_api.as_ref(), "/lol-ranked/v1/current-ranked-stats")?;
-        parse_league(&summoner, &ranked)
+        let mut reading = parse_league(&summoner, &ranked)?;
+        if let (Some(regalia), Some(lol)) = (answer(self.league_api.as_ref(), "/lol-regalia/v2/current-summoner/regalia"), reading.lol.as_mut()) {
+            let border = league_border(&regalia, &lol["level"]);
+            lol["border"] = border;
+        }
+        Some(reading)
     }
 
     pub fn valorant(&self) -> Option<Reading> {

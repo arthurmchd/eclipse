@@ -94,6 +94,9 @@ pub fn merge_reading(stats: Option<&Value>, reading: &Reading, at: &str) -> Valu
         merged.insert("iconId".into(), first_present([lol.get("iconId"), old.get("iconId")]));
         merged.insert("solo".into(), keep_from_key(lol.get("solo"), old.get("solo")));
         merged.insert("flex".into(), keep_from_key(lol.get("flex"), old.get("flex")));
+        if let Some(border) = lol.get("border") {
+            merged.insert("border".into(), border.clone());
+        }
         merged.insert("updatedAt".into(), Value::String(at.into()));
         merged.remove("source");
         next.insert("lol".into(), Value::Object(merged));
@@ -118,6 +121,9 @@ pub fn merge_reading(stats: Option<&Value>, reading: &Reading, at: &str) -> Valu
         merged.insert("lastChange".into(), if same_tier { first_present([old.get("lastChange"), None]) } else { Value::Null });
         merged.insert("level".into(), first_present([val.get("level"), old.get("level")]));
         merged.insert("card".into(), truthy(val.get("card")).or_else(|| truthy(old.get("card"))).cloned().unwrap_or(Value::Null));
+        if let Some(border) = val.get("border") {
+            merged.insert("border".into(), border.clone());
+        }
         merged.insert("updatedAt".into(), Value::String(at.into()));
         next.insert("val".into(), Value::Object(merged));
         errors.remove("val");

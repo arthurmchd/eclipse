@@ -17,7 +17,7 @@ const OVERLAY_FILES: [&str; 6] = [
     "src/integration/overlay/cover.html",
     "src/integration/overlay/cover.css",
 ];
-const FONTS: [(&str, &str); 3] = [("inter", "400"), ("teko", "500"), ("teko", "600")];
+const FONTS: [(&str, &str); 6] = [("inter", "400"), ("inter", "500"), ("inter", "600"), ("inter", "700"), ("teko", "500"), ("teko", "600")];
 
 pub fn page_url(page: &str) -> String {
     format!("{SCHEME}://localhost/{page}")

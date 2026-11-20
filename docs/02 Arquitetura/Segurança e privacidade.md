@@ -42,6 +42,7 @@ Lista central das regras que protegem o usuário. Cada uma aponta para o módulo
 ### Serviços externos
 - Desde 2026-11-15 ([[ADR-037 Elo do League pelo OP.GG]]), o Eclipse manda ao OP.GG (`mcp-api.op.gg`) o Riot ID e o servidor de cada conta salva, a cada atualização dos elos, mesmo sem chave. Vão todos do mesmo IP, e o OP.GG consegue ligar as contas à mesma pessoa. Não vão login, senha nem sessão. A resposta é lida como não confiável, com limites de tamanho e de aninhamento e conferência de cada campo ([[opgg]]).
 - Com chave, o Riot ID também vai à API oficial da Riot e, para o VALORANT, à HenrikDev ([[rankApi]]).
+- Com "Sons da interface" ligado (o padrão desde a 2.15.1), os cartões tocam arquivos `.ogg` da CommunityDragon, que recebe o IP e o nome do som, como já recebe com os ícones. A CSP de `cards.html` libera áudio só desse domínio (`media-src https://raw.communitydragon.org`) e continua sem `connect-src`, sem script de fora e sem `style` inline ([[sounds]], [[ADR-040 Visual da Riot e sons da interface]]).
 
 ### Rede local fechada
 - O Eclipse não abre porta de rede. A prévia de desenvolvimento (`npm run preview`) escuta só em `127.0.0.1` e serve só os arquivos dos cartões, as fontes e o `mock-api.js` ([[Desenvolvimento]]). Os cartões falam com o main só pelo IPC do [[managerHost]], com lista fechada de métodos e validação dos argumentos no [[managerService]].

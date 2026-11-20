@@ -1,7 +1,8 @@
-import { rankOf, lolCrest, profileIcon, valCardArt } from './ranks.js';
+import { rankOf, lolCrest, profileIcon, valCardArt, lolBorder, valBorder } from './ranks.js';
 
 export const GAME_QUEUES = { lol: ['solo', 'flex'], tft: ['ranked', 'doubleUp'], val: ['competitive'] };
 export const GAME_NAMES = { lol: 'League of Legends', val: 'VALORANT', tft: 'Teamfight Tactics', '2xko': '2XKO', lor: 'Legends of Runeterra', riot: 'Riot Client' };
+export const GAME_SHORT = { lol: 'League', val: 'VALORANT', tft: 'TFT' };
 export const LAYOUTS = ['plates', 'list'];
 
 export const layoutOf = settings => settings?.cardLayout === 'list' ? 'list' : 'plates';
@@ -40,13 +41,20 @@ export function queueView(account, game, queue, text) {
   };
 }
 
+export function queueLabel(game, stats, queue, text) {
+  const name = text.queues[queue];
+  if (game === stats) return { label: name, title: '', column: name };
+  return { label: text.rankFrom(GAME_SHORT[stats]), title: `${name} · ${GAME_NAMES[stats]}`, column: `${name} · ${GAME_SHORT[stats]}` };
+}
+
 export function accountView(account, game, text) {
   const queues = GAME_QUEUES[game].map(queue => queueView(account, game, queue, text));
   const [main, ...others] = queues;
   const lol = account.stats?.lol;
   const avatar = game === 'val' ? valCardArt(account.stats?.val?.card) : Number.isInteger(lol?.iconId) && lol.iconId >= 0 ? profileIcon(lol.iconId) : '';
   const level = main.level ?? (game === 'tft' && Number.isFinite(lol?.level) ? lol.level : null);
-  return { id: account.id, name: account.gameName, tag: account.tagLine, level, avatar, accent: main.color, main, others };
+  const border = game === 'val' ? valBorder(account.stats?.val?.border, account.stats?.val?.level) : lolBorder(lol?.border);
+  return { id: account.id, name: account.gameName, tag: account.tagLine, level, avatar, accent: main.color, main, others, border };
 }
 
 export function selectionView(account, game, regions, text) {

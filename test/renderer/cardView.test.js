@@ -101,3 +101,22 @@ test('the launch bar names 2XKO and Runeterra, which have no rank in Eclipse', a
   assert.equal(selectionView(account, 'lor', regions, TEXT.en).detail, 'Legends of Runeterra · EUW');
   assert.equal(selectionView(account, 'tft', regions, TEXT.pt).detail, 'Sem classificação · EUW');
 });
+
+test('a tab without its own rank says which game the rank comes from', async () => {
+  const { queueLabel } = await load('cardView.js');
+  const { TEXT } = await load('cardsText.js');
+  assert.deepEqual(queueLabel('lol', 'lol', 'solo', TEXT.pt), { label: 'Solo/Duo', title: '', column: 'Solo/Duo' });
+  assert.deepEqual(queueLabel('riot', 'lol', 'solo', TEXT.pt), { label: 'Elo do League', title: 'Solo/Duo · League of Legends', column: 'Solo/Duo · League' });
+  assert.deepEqual(queueLabel('2xko', 'val', 'competitive', TEXT.en), { label: 'VALORANT rank', title: 'Competitive · VALORANT', column: 'Competitive · VALORANT' });
+});
+
+test('a plate has no border until one is read from the game, and each tab uses the border of its own game', async () => {
+  const { TEXT } = await load('cardsText.js');
+  const { accountView } = await load('cardView.js');
+  const plain = { id: 'a', gameName: 'A', tagLine: 'BR1', stats: { lol: { level: 10, iconId: 1 }, val: { tier: 9, tierName: 'Silver 1', level: 45 } } };
+  for (const game of ['lol', 'tft', 'val']) assert.equal(accountView(plain, game, TEXT.pt).border, null);
+  const read = { ...plain, stats: { lol: { ...plain.stats.lol, border: { kind: 'level', theme: 2 } }, val: { ...plain.stats.val, border: 'level' } } };
+  assert.equal(accountView(read, 'lol', TEXT.pt).border.kind, 'level');
+  assert.equal(accountView(read, 'tft', TEXT.pt).border.kind, 'level');
+  assert.match(accountView(read, 'val', TEXT.pt).border.src, /levelborders\/9c4afb15-40d7-3557-062a-4bb198cb9958\//);
+});

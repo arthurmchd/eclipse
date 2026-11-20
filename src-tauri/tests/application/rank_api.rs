@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use chrono::DateTime;
-use eclipse::application::rank_api::{encode_component, key_hash, ladder_cutoffs, retry_delay, ApiHooks, Cutoffs, HttpAnswer, HttpFailure, RankApi, RankHttp, UreqHttp, TOO_SLOW};
+use eclipse::application::rank_api::{encode_component, keep_border, key_hash, ladder_cutoffs, retry_delay, ApiHooks, Cutoffs, HttpAnswer, HttpFailure, RankApi, RankHttp, UreqHttp, TOO_SLOW};
 use eclipse::application::store::ApiKeys;
 use serde_json::{json, Map, Value};
 
@@ -416,4 +416,12 @@ fn the_real_client_gives_up_on_an_answer_that_never_comes_or_whose_body_never_ar
 fn the_real_client_reads_the_status_the_retry_header_and_the_body_of_an_error() {
     let url = serve(b"HTTP/1.1 429 Too Many Requests\r\nRetry-After: 3\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}");
     assert_eq!(UreqHttp.get(&url, &[], 2000), Ok(HttpAnswer { status: 429, retry_after: Some("3".into()), body: Some(json!({})) }));
+}
+
+#[test]
+fn a_key_refresh_keeps_the_border_read_from_the_game() {
+    let old = json!({ "level": 1, "border": { "kind": "ranked", "tier": "GOLD" } });
+    assert_eq!(keep_border(json!({ "level": 2 }), Some(&old)), json!({ "level": 2, "border": { "kind": "ranked", "tier": "GOLD" } }));
+    assert_eq!(keep_border(json!({ "level": 2 }), None), json!({ "level": 2 }));
+    assert_eq!(keep_border(json!({ "level": 2 }), Some(&json!({ "level": 1 }))), json!({ "level": 2 }));
 }

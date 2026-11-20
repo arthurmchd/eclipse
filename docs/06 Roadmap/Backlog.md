@@ -67,6 +67,9 @@ Os itens da seção seguinte foram conferidos, quando foram, no Electron; ao con
   - ver no app, com as contas do usuário, os ícones, os banners por elo e os cartões do VALORANT reais;
   - ler o banner escolhido no cliente e preencher `stats.lol.banner` no [[rankApi]]. Provável fonte: `lol-challenges` `player-data`, `preferences.bannerAccent`, que deve ser o `id` do `regalia.json` (1 padrão, 2 ranqueado, 3+ temáticos). Confirmar o formato com a chave do usuário antes;
   - opcional: título do jogador no VALORANT (a HenrikDev v2 devolve o UUID; o texto vem de valorant-api `playertitles`).
+- **Borda equipada.** Desde 2026-11-20 ([[gameRanks]], [[cards]]). Falta, com o usuário entrando numa conta e o jogo aberto:
+  - borda de nível do League conferida em 2026-11-20 (o usuário confirmou); falta uma conta com a borda de elo equipada, e conferir que o tema salvo é o mesmo escolhido no cliente quando não é o do nível atual;
+  - no VALORANT, ver se a presença traz `preferredLevelBorderId` e se a moldura bate com a do jogo.
 - **Gerenciador some ao entrar na conta.** Login real em 2026-11-04 12:29 entrou e abriu o jogo com o código novo; falta o usuário confirmar que os cartões sumiram logo após "Signed in", antes do jogo abrir.
 
 - **Saída pela Riot apaga a sessão.** Desde 2026-11-07 ([[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]). Falta conferir na Riot real:

@@ -7,6 +7,72 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-20 · Repositório público e primeiro release
+
+- Pedido do usuário: "consegue colocar no github? e um release para qualquer um poder baixar". O repositório passa a público, e cada versão sai como release com o Setup e o SHA-256. O README ganhou "Baixar", o aviso do SmartScreen e o aviso de projeto de fã da Riot ([[Estudo - Visual da Riot]]).
+
+## 2026-11-20 · Eclipse 2.15.1: sons ligados por padrão
+
+- Pedido do usuário: "pode deixar o som como ligado como padrão?". "Sons da interface" vem ligado; só quem desmarcar nas configurações fica sem som ([[sounds]], [[store]], [[ADR-040 Visual da Riot e sons da interface]]).
+
+## 2026-11-20 · Eclipse 2.15.0: cara de Riot
+
+- Pedido do usuário: "pode aplicar todas as mudanças menos a da arte no fundo" ([[ADR-040 Visual da Riot e sons da interface]]). Tema escuro do Riot Client, Inter, movimento da Riot, estilo próprio nas abas League e VALORANT e neutro nas outras, cantos e sombras do Riot Client, cores de aviso da Riot e rótulos em maiúsculas ([[cards]]).
+- "Sons da interface" nas configurações, desligado por padrão: sons do cliente do League vindos da CommunityDragon ([[sounds]], `uiSounds` no [[store]] e no [[managerService]]). A CSP dos cartões ganha `media-src https://raw.communitydragon.org`.
+- Inter 500, 600 e 700 no Setup e no [[assetProtocol]]. Fundo da visualização dos cartões escuro no Tauri ([[riotOverlay]]).
+
+## 2026-11-20 · Estudo do visual da Riot
+
+- Pedido do usuário: cores, fontes, cantos, sombras, movimento, bibliotecas e sons do Riot Client e do cliente do League, lidos dos arquivos instalados e da CommunityDragon ([[Estudo - Visual da Riot]]). Só documentação; nada no código.
+
+## 2026-11-20 · Estudo dos gerenciadores no GitHub
+
+- Pedido do usuário: 35 gerenciadores de contas da Riot no GitHub comparados com o Eclipse, inclusive os abandonados, e como lidam com a verificação da Riot ([[Estudo - Gerenciadores no GitHub]]). Só documentação; nada no código.
+
+## 2026-11-20 · Borda equipada nas placas
+
+- Pedido do usuário: a placa mostra a borda que a conta usa no jogo, lida depois que ele entra com o jogo aberto; antes disso, nenhuma borda ([[cards]], [[ranks]]). League e TFT: borda de nível ou armadura de elo, por um `GET` a mais no cliente do LoL (`lol-regalia`, [[gameRanks]]). VALORANT: moldura e selo de nível, pela presença que o Eclipse já lia.
+- A borda salva fica quando a leitura não a traz ([[rankWatcher]]) e quando a chave ou o OP.GG atualizam o elo ([[rankApi]]).
+- Conferido no LoL real no mesmo dia: a borda de nível de uma conta do usuário apareceu depois de uns 4 minutos com o cliente aberto. A primeira tentativa não leu nada porque o cliente ficou aberto só 25 s e a leitura é de minuto em minuto. Borda de elo e VALORANT ainda não conferidos ([[Backlog]]). Conferido na prévia, com bordas fictícias, nas abas League, TFT e VALORANT.
+- Versão 2.14.0, gerada e instalada por cima nesta máquina.
+
+## 2026-11-20 · Placa selecionada sem efeito
+
+- Pedido do usuário: o escurecimento das outras placas (2.13.0) saiu; a placa selecionada não tem mais marca visual até ele escolher outra solução ([[cards]]). Continuam: começar sem seleção, desmarcar com novo clique ou Espaço, duplo clique para entrar, e a conta escolhida no rodapé. A lista não mudou.
+- Versão 2.13.1, gerada e instalada por cima nesta máquina.
+
+## 2026-11-20 · Seleção escurece as outras contas
+
+- Pedido do usuário: no lugar do fundo tingido (2.12.2), a conta selecionada fica normal e as outras placas escurecem ([[cards]]). Nenhuma conta abre selecionada; clicar de novo na selecionada (ou Espaço) desmarca e tira o escurecimento; duplo clique entra direto, inclusive na que já estava selecionada.
+- O duplo clique passou a ser o segundo `click` em vez do evento `dblclick`, que o WebView não dispara quando o primeiro clique redesenha a lista. Conferido na prévia com um Edge sem janela: início sem seleção, selecionar, desmarcar com clique e com Espaço, duplo clique numa conta nova e na já selecionada.
+- Versão 2.13.0, gerada e instalada por cima nesta máquina.
+
+## 2026-11-20 · Conta selecionada com fundo tingido
+
+- Pedido do usuário: o selo "Selecionada" com borda e anel saiu das placas. A selecionada agora tem o fundo e a borda tingidos na cor do jogo, como na lista ([[cards]]). Escolhida entre sete opções numa página de comparação fora do projeto. Conferido na prévia em League e VALORANT.
+- Versão 2.12.2, gerada e instalada por cima nesta máquina.
+
+## 2026-11-20 · Placas sem degradê
+
+- Pedido do usuário: o brilho na cor do elo atrás do ícone das placas saiu; o fundo ficou escuro e liso ([[cards]]). O aro do retrato e a borda do nível seguem na cor do elo. Conferido na prévia.
+- Versão 2.12.1, gerada e instalada por cima nesta máquina.
+
+## 2026-11-20 · Revisão de design dos cartões
+
+- Pedido do usuário: análise de design do Eclipse para quem quer entrar rápido nas contas, com a lista priorizada aplicada inteira, menos o nome do jogo ao lado do ícone, que virou só ícones maiores ([[cards]]).
+- Jogar com duplo clique ou Enter na conta; ícones dos jogos de 24 para 30 px; placas de cerca de 415 para 273 px, com o nome acima do elo e sem a linha do Flex; "Sem classificação" discreto; texto mínimo de 12 px e cinza mais claro nas placas; ↻, + e ⚙ maiores.
+- Busca de até 360 px, que recebe o que se digita fora dos campos; caixas abrem no primeiro campo; "Preencher com Nome#TAG" como botão; "Remover conta" à esquerda; contador com "N em outros jogos"; abas Riot, 2XKO e Runeterra dizem de que jogo é o elo.
+- Testes novos em `cardList.test.js` (`usage` sem contagem, `countLabel`, `startsSearch`) e `cardView.test.js` (`queueLabel`). Conferido na prévia em capturas de um Edge sem janela.
+- Versão 2.12.0, gerada e instalada por cima nesta máquina.
+
+## 2026-11-20 · Cadastro com os cinco jogos
+
+- Pedido do usuário: ao adicionar uma conta, escolher com ícones se ela fica no VALORANT, LoL, TFT, 2XKO, Runeterra ou em todos ([[cards]]). O "Mostrar em" virou seis pílulas com ícone: Todos e os cinco jogos. Com Todos marcado, um clique num jogo deixa só ele; depois cada clique soma ou tira um. Vale também para "Várias contas" e para editar.
+- Cada aba de jogo mostra só as contas marcadas para ela. O TFT deixou de seguir o League, e 2XKO e Runeterra deixaram de mostrar todas.
+- Backend: `ACCOUNT_GAMES` com os cinco jogos no [[store]] e no [[managerService]]. O `data.json` ganhou `"schema": 2`, e contas salvas antes continuam nas mesmas abas.
+- Testes novos em `cardList.test.js` (`toggleGame` e as cinco abas), `store.rs` (dados antigos) e `manager_service.rs`. Conferido na prévia, em capturas do Edge sem janela.
+- Versão 2.11.0, gerada e instalada por cima nesta máquina.
+
 ## 2026-11-20 · Memória do agente no vault
 
 - A memória do Claude Code saiu de `~/.claude/` e passou para [[Memória]], em `docs/07 Memória/`, com o template [[Nota de memória]]. O `CLAUDE.md` manda ler o índice no começo de toda tarefa e salvar ali o que for preciso lembrar ([[Trabalhando com agentes]]).

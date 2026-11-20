@@ -15,7 +15,8 @@ use crate::platform::windows::safe_storage::Cipher;
 
 pub const RETIRED_SETTINGS: [&str; 4] = ["minimizeOnLaunch", "hideRiotClient", "closeRiotClient", "streamerMode"];
 const BACKUP_ACCOUNT_FIELDS: [&str; 13] = ["id", "createdAt", "gameName", "tagLine", "region", "valRegion", "username", "password", "note", "lastSeason", "ban", "pinned", "games"];
-pub const ACCOUNT_GAMES: [&str; 2] = ["lol", "val"];
+pub const ACCOUNT_GAMES: [&str; 5] = ["lol", "val", "tft", "2xko", "lor"];
+const SCHEMA: u64 = 2;
 const BACKUP_LIMIT: usize = 30;
 const LOG_LIMIT: u64 = 200 * 1024;
 
@@ -51,6 +52,7 @@ pub struct SettingsInput {
     pub language: Option<String>,
     pub card_layout: Option<String>,
     pub card_sort: Option<String>,
+    pub ui_sounds: Option<bool>,
     pub riot_api_key: Option<String>,
     pub riot_tft_api_key: Option<String>,
     pub henrik_api_key: Option<String>,
@@ -112,6 +114,20 @@ fn session_id_valid(id: &str) -> bool {
 
 fn text_of(value: Option<&Value>) -> String {
     value.and_then(Value::as_str).unwrap_or_default().to_string()
+}
+
+fn games_before_five(account: &mut Map<String, Value>) {
+    let Some(Value::Array(list)) = account.get("games") else {
+        return;
+    };
+    let has = |game: &str| list.iter().any(|item| item.as_str() == Some(game));
+    let games: &[&str] = match (has("lol"), has("val")) {
+        (true, true) => &ACCOUNT_GAMES,
+        (true, false) => &["lol", "tft", "2xko", "lor"],
+        (false, true) => &["val", "2xko", "lor"],
+        (false, false) => return,
+    };
+    account.insert("games".into(), json!(games));
 }
 
 pub struct Store {
@@ -183,7 +199,11 @@ impl Store {
     }
 
     fn to_json(&self) -> String {
-        serde_json::to_string_pretty(&self.data).unwrap_or_default()
+        let mut value = serde_json::to_value(&self.data).unwrap_or_default();
+        if let Value::Object(map) = &mut value {
+            map.insert("schema".into(), json!(SCHEMA));
+        }
+        serde_json::to_string_pretty(&value).unwrap_or_default()
     }
 
     fn backup_snapshot(&self) -> String {
@@ -210,10 +230,14 @@ impl Store {
             .and_then(Value::as_array)
             .map(|list| list.iter().filter_map(|item| item.as_object().cloned()).collect())
             .unwrap_or_default();
+        let old_games = raw.get("schema").and_then(Value::as_u64).unwrap_or(1) < SCHEMA;
         for account in &mut accounts {
             for key in ["gameName", "tagLine"] {
                 let cleaned = clean_name(&text_of(account.get(key)));
                 account.insert(key.into(), Value::String(cleaned));
+            }
+            if old_games {
+                games_before_five(account);
             }
         }
         let mut settings = default_settings();
@@ -531,6 +555,7 @@ impl Store {
         public.insert("cardLayout".into(), Value::String(layout.into()));
         let sort = settings.get("cardSort").and_then(Value::as_str).filter(|sort| ["rank", "name", "recent"].contains(sort)).unwrap_or("manual");
         public.insert("cardSort".into(), Value::String(sort.into()));
+        public.insert("uiSounds".into(), Value::Bool(settings.get("uiSounds") != Some(&Value::Bool(false))));
         public.insert("riotApiKeyMasked".into(), Value::String(mask(settings.get("riotApiKey"))));
         public.insert("riotTftApiKeyMasked".into(), Value::String(mask(settings.get("riotTftApiKey"))));
         public.insert("henrikApiKeyMasked".into(), Value::String(mask(settings.get("henrikApiKey"))));
@@ -555,6 +580,9 @@ impl Store {
         }
         if let Some(sort) = input.card_sort {
             self.data.settings.insert("cardSort".into(), Value::String(sort));
+        }
+        if let Some(sounds) = input.ui_sounds {
+            self.data.settings.insert("uiSounds".into(), Value::Bool(sounds));
         }
         for (name, value) in [("riotApiKey", input.riot_api_key), ("riotTftApiKey", input.riot_tft_api_key), ("henrikApiKey", input.henrik_api_key)] {
             if let Some(value) = value {

@@ -57,6 +57,13 @@ pub fn regions_json() -> Value {
     Value::Object(REGIONS.iter().map(|region| (region.id.to_string(), json!({ "label": region.label, "routing": region.routing, "val": region.val }))).collect())
 }
 
+pub fn keep_border(mut fresh: Value, old: Option<&Value>) -> Value {
+    if let (Some(map), Some(border)) = (fresh.as_object_mut(), old.and_then(|old| old.get("border"))) {
+        map.entry("border").or_insert_with(|| border.clone());
+    }
+    fresh
+}
+
 fn find_region(id: &str) -> Option<&'static Region> {
     REGIONS.iter().find(|region| region.id == id)
 }
@@ -588,7 +595,7 @@ impl RankApi {
         if !keys.riot.is_empty() {
             match self.fetch_lol(&mut lookup, &keys.riot) {
                 Ok(lol) => {
-                    stats.insert("lol".into(), lol);
+                    stats.insert("lol".into(), keep_border(lol, stats.get("lol")));
                 }
                 Err(error) => {
                     lol_failed = true;
@@ -602,7 +609,7 @@ impl RankApi {
             match self.fetch_opgg(&lookup.game_name, &lookup.tag_line, &region) {
                 Ok(lol) => {
                     if opgg::is_newer(&lol, stats.get("lol")) {
-                        stats.insert("lol".into(), lol);
+                        stats.insert("lol".into(), keep_border(lol, stats.get("lol")));
                     }
                     lol_error = None;
                 }
@@ -636,7 +643,7 @@ impl RankApi {
         if !keys.henrik.is_empty() {
             match self.fetch_valorant(account, &lookup.game_name, &lookup.tag_line, &keys.henrik) {
                 Ok(val) => {
-                    stats.insert("val".into(), val);
+                    stats.insert("val".into(), keep_border(val, stats.get("val")));
                 }
                 Err(error) => {
                     let message = if error.denied() { "HenrikDev API key is invalid".to_string() } else { error.message };

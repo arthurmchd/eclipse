@@ -48,6 +48,33 @@ export const valGroupIcon = (group) => valIcon(group.id === 'UNRATED' ? 0 : grou
 export const profileIcon = (id) =>
   `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${id}.jpg`;
 
+const ARMOR = 'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default';
+const LEVEL_BORDERS = 'https://media.valorant-api.com/levelborders';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const VAL_LEVEL_BORDERS = [
+  [1, 'ebc736cd-4b6a-137b-e2b0-1486e31312c9'], [20, '5156a90d-4d65-58d0-f6a8-48a0c003878a'], [40, '9c4afb15-40d7-3557-062a-4bb198cb9958'],
+  [60, 'e6238102-425c-a647-6685-e6af7f8982d9'], [80, '49413ac2-4ed5-6953-5791-db838ccb58f3'], [100, 'e05371e3-4ec4-a53e-168a-c49346a75c19'],
+  [120, '7e7feff1-44c2-301e-767d-d9b2b1cd9051'], [140, '53d4ed03-4b29-5913-aeda-80a41afcef3a'], [160, '6f610ab6-4a21-63fd-ac19-4a9204bc2721'],
+  [180, '547ac9dd-495d-f11d-d921-3fbd14604ae0'], [200, 'bd1082ab-462c-3fb8-e049-28a9750acf0f'], [220, '37a36996-41f3-6e26-c00b-46bf7c037482'],
+  [240, '5d0d6c6c-4f0a-dc65-e506-b786cc27dbe1'], [260, '3635b061-4bf9-b937-55fe-44a4dd0ed3dc'], [280, 'ae5eda0d-476b-a159-959c-df93374f4a69'],
+  [300, '3d90bc3a-4626-71d6-a17c-93ae14d05fb0'], [320, '674bbd9e-4a4f-208a-75fa-1d9dd7d7008f'], [340, 'd84cf377-4c21-1cdf-0260-4e8ebd9825f5'],
+  [360, '6c1fb61e-46e5-2908-5048-d4866cb64c3d'], [380, 'af1852a5-4e66-02a6-2ae3-ab8c885efb80'], [400, 'cbd1914e-43f8-7ae5-38c4-228bcbe58756'],
+  [420, 'c8a4abff-4ace-f0a3-c9f3-db936791a697'], [440, '086dd1ab-4889-793a-4b33-0a99e311fa25'], [460, '08ab72f1-4fce-ddb5-5fd5-22abd3bc9d49'],
+  [480, '6694d7f7-4ab9-8545-5921-35a9ea8cec24'],
+];
+
+export function lolBorder(border) {
+  if (border?.kind === 'level' && Number.isInteger(border.theme) && border.theme >= 1 && border.theme <= 21) return { kind: 'level', src: `${CD}/uikit/themed-borders/theme-${border.theme}-border.png` };
+  if (border?.kind === 'ranked' && LOCAL_CRESTS.has(border.tier)) return { kind: 'ranked', src: `${ARMOR}/${border.tier.toLowerCase()}.png` };
+  return null;
+}
+
+export function valBorder(border, level) {
+  const byLevel = Number.isInteger(level) && level >= 1 ? VAL_LEVEL_BORDERS.filter(([start]) => start <= level).at(-1)?.[1] : null;
+  const id = border === 'level' ? byLevel : typeof border === 'string' && UUID.test(border) ? border.toLowerCase() : null;
+  return id ? { kind: 'val', src: `${LEVEL_BORDERS}/${id}/smallplayercardappearance.png`, badge: `${LEVEL_BORDERS}/${id}/levelnumberappearance.png` } : null;
+}
+
 const PLAYER_CARDS = 'https://media.valorant-api.com/playercards';
 const DEFAULT_CARD = '9fb348bc-41a0-91ad-8a3e-818035c4e561';
 

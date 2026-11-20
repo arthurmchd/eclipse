@@ -35,7 +35,7 @@ Um modo só desde 2026-11-07 ([[ADR-028 Modo antigo removido]]): os [[cards]] so
 | Riot | [[riotClient]] · [[riotState]] · [[gameRanks]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
 | Windows | [[safeStorage]] (Tauri) · [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[riotWindowObserver]] · [[startWithWindows]] · [[toasts]] · [[electronInstance]] (Tauri) |
 | Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[overlayDrag]] (Tauri) · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] · [[assetProtocol]] (Tauri) |
-| Interface | [[cards]] |
+| Interface | [[cards]] · [[sounds]] |
 
 Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como histórico.
 
@@ -71,6 +71,8 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-036 Arraste da Riot assumido pelo Eclipse]]
 - [[ADR-037 Elo do League pelo OP.GG]]
 - [[ADR-038 TFT, 2XKO e Runeterra no Eclipse]]
+- [[ADR-039 Aparecer offline pelo chat da Riot]]
+- [[ADR-040 Visual da Riot e sons da interface]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]
@@ -81,6 +83,8 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-007 Interface completa dentro do Riot Client]] (substituída)
 - [[ADR-008 Recuperação visual sem reexibir o Riot]] (substituída)
 - [[Estudo - Comparação com o Rose]]
+- [[Estudo - Gerenciadores no GitHub]]
+- [[Estudo - Visual da Riot]]
 
 ## Guias
 
