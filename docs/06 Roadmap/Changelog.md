@@ -10,6 +10,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 ## 2026-11-20 · README novo
 
 - Pedido do usuário: "arrume o readme como algo bem profissional", sem o nome antigo. Logo, frase de apresentação, selos de versão e downloads, capturas com contas fictícias da prévia (`.github/assets/`), recursos, instalação, como funciona, segurança, perguntas frequentes, seção para desenvolvedores e aviso legal da Riot. Os detalhes técnicos continuam no vault.
+- README todo em inglês, a pedido do usuário, com capturas do Eclipse dentro da janela inteira do Riot Client, para mostrar a integração. Saíram de uma cópia de teste (`cargo run` com `ECLIPSE_DATA_DIR`) com as contas fictícias da prévia, sobre a Riot na tela de login, autorizada pelo usuário só desta vez. O painel do VALORANT foi gerado pela prévia e colado sobre a mesma captura, porque o app sempre abre na aba do League. Passo a passo em [[Publicar no GitHub#Capturas do README]].
 - Repositório renomeado de `riot-account-manager` para `eclipse` (`github.com/arthurmchd/eclipse`), também a pedido do usuário. A pasta do projeto e a de dados continuam com o nome antigo.
 
 ## 2026-11-20 · Repositório público e primeiro release
