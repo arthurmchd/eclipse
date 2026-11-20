@@ -7,6 +7,10 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-20 · Repositório público e primeiro release
+
+- Pedido do usuário: "consegue colocar no github? e um release para qualquer um poder baixar". O repositório passa a público, e cada versão sai como release com o Setup e o SHA-256. O README ganhou "Baixar", o aviso do SmartScreen e o aviso de projeto de fã da Riot ([[Estudo - Visual da Riot]]).
+
 ## 2026-11-20 · Eclipse 2.15.1: sons ligados por padrão
 
 - Pedido do usuário: "pode deixar o som como ligado como padrão?". "Sons da interface" vem ligado; só quem desmarcar nas configurações fica sem som ([[sounds]], [[store]], [[ADR-040 Visual da Riot e sons da interface]]).

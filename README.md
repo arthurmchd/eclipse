@@ -12,7 +12,15 @@ Cada cartão mostra nome, nível e, para Solo/Duo e Flex lado a lado (Competitiv
 - A Riot sempre abre desconectada, na tela de login com os cartões
 - Não altera a instalação da Riot, não contorna CAPTCHA nem 2FA e não mexe nos jogos nem no Vanguard
 
-## Instalar
+## Baixar
+
+Baixe o `Eclipse_<versão>_x64-setup.exe` da [versão mais recente](https://github.com/arthurmchd/riot-account-manager/releases/latest) e rode. Só Windows 10 ou 11, sem pedir administrador.
+
+O Setup não é assinado, então o Windows mostra "O Windows protegeu o computador": clique em **Mais informações** → **Executar assim mesmo**. Cada versão traz o SHA-256 do Setup nas notas, para conferir o arquivo com `Get-FileHash Eclipse_<versão>_x64-setup.exe`.
+
+O Eclipse não é endossado pela Riot Games e não reflete as opiniões da Riot Games nem de ninguém envolvido oficialmente na produção ou no gerenciamento das propriedades da Riot Games. Riot Games, League of Legends, VALORANT, Teamfight Tactics, 2XKO e Legends of Runeterra são marcas da Riot Games, Inc.
+
+## Instalar a partir do código
 
 ```powershell
 npm ci
