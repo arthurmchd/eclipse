@@ -40,6 +40,8 @@ As chaves são `ApiKeys { riot, tft, henrik }` do [[store]]. `fields` pode ter `
 
 ## Invariantes e decisões
 
+- **Borda fica.** 2026-11-20: a chave e o OP.GG trocam o `stats.lol` e o `stats.val` inteiros, então `keep_border` copia o `border` lido do jogo ([[gameRanks]]) para o objeto novo. A chave nunca dá borda.
+
 - **Chaves opcionais.** Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]), o elo também vem do jogo aberto, sem chave ([[rankWatcher]], [[gameRanks]]). Com chave, este módulo continua escrevendo os `stats` inteiros, e uma leitura do jogo depois escreve por cima: vale a mais recente.
 - **League pelo OP.GG.** Desde 2026-11-15 ([[ADR-037 Elo do League pelo OP.GG]]), o [[refresher]] chama este módulo também sem chave. Para o League, a ordem é: a API oficial, se houver chave da Riot; o [[opgg]], se não houver chave ou se a API oficial falhar. O bloco do OP.GG só substitui o `stats.lol` salvo se for mais novo (`is_newer`), e um erro da API oficial fica em `errors.lol` só se o OP.GG também falhar. O pedido é um `POST` a `mcp-api.op.gg`, com o servidor pelo rótulo (`BR`, `EUW`…), 1 s entre contas (separado dos 80 ms da Riot) e sem nova tentativa: 429 e erro 5xx viram "OP.GG is busy, try again later", e o prazo estourado vira "OP.GG took too long to answer". O TFT e o VALORANT continuam como antes, com os erros de falta de chave guardados (os cartões não mostram `stats.errors`).
 - **Cliente HTTP.** `RankHttp` ganhou `post`, com uma versão padrão que recusa, para as redes falsas dos testes. O `UreqHttp` usa o mesmo agente e a mesma leitura de resposta no `get` e no `post`, e aceita corpo em `text/event-stream` (junta as linhas `data:`).

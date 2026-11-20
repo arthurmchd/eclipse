@@ -16,7 +16,7 @@
       stats: { lol: lol(301, 4568, e('CHALLENGER', '', 1124, 412, 340, true, { challenger: 1050, grandmaster: 520 }), e('MASTER', '', 88, 40, 31, false, { challenger: 610, grandmaster: 240 })), tft: { ranked: e('DIAMOND', 'I', 75, 60, 50) }, val: val(24, 'Immortal 1', 61, { peak: { tier: 25, name: 'Immortal 2', season: 'e9a3' }, lastSeason: { tier: 23, name: 'Ascendant 3', season: 'e9a3' }, lastChange: 18, ...card('cec2424b-483e-da2e-4369-f0a8822f96b5') }) } },
     { id: '2', gameName: 'Lux Main', tagLine: 'EUW', region: 'euw1', username: 'gm_lux', note: '', signInCount: 12, lastPlayed: iso(26 * 3600e3), hasPassword: true, lastSeason: { lol: 'Master 210 LP' },
       stats: { lol: lol(520, 5367, e('GRANDMASTER', '', 512, 290, 251, false, { challenger: 1180, grandmaster: 470 }), null, 'hextech_banner'), tft: { ranked: null }, val: val(21, 'Ascendant 1', 12, { lastChange: -15, ...card('70cecca0-4b4b-9ad4-1652-bebe785ef8e8') }) } },
-    { id: '3', gameName: 'Arcane Scholar', tagLine: 'EUNE', region: 'eun1', username: 'scholarly', note: 'TFT main', games: ['lol'], signInCount: 7, lastPlayed: iso(3 * 86400e3), hasPassword: true, lastSeason: { lol: 'Diamond I', tft: 'Grandmaster' },
+    { id: '3', gameName: 'Arcane Scholar', tagLine: 'EUNE', region: 'eun1', username: 'scholarly', note: 'TFT main', games: ['lol', 'tft'], signInCount: 7, lastPlayed: iso(3 * 86400e3), hasPassword: true, lastSeason: { lol: 'Diamond I', tft: 'Grandmaster' },
       stats: { lol: lol(380, 6006, e('MASTER', '', 210, 150, 131, false, { challenger: 990, grandmaster: 205 }), null, 'arcanefracturedjinxbanner'), tft: { ranked: e('GRANDMASTER', '', 640, 120, 98) }, val: val(0, 'Unrated', 0) } },
     { id: '4', gameName: 'Hextech Fox', tagLine: 'EUW', region: 'euw1', username: 'mainacc01', note: 'main', lastPlayed: iso(40 * 60000), hasPassword: true, lastSeason: { lol: 'Diamond IV 12 LP' },
       stats: { lol: lol(412, 4895, e('DIAMOND', 'II', 57, 98, 87), e('EMERALD', 'I', 20, 12, 9)), tft: { ranked: e('PLATINUM', 'III', 40, 20, 22) }, val: val(18, 'Diamond 1', 45, { lastChange: 21, ...card('e9c8d760-4d06-4037-4882-6bab3610d9ea') }) } },
@@ -35,7 +35,13 @@
       stats: { lol: lol(30, 1, null, null), tft: { ranked: null }, val: val(27, 'Radiant', 412, card('f31491e7-4642-ea8b-87fa-ed8fd73e44cf')) } },
   ];
 
-  let settings = { refreshMinutes: 30, staySignedIn: true, riotClientPath: '', language: 'pt', cardLayout: 'plates', cardSort: 'manual', riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
+  const border = (id, lol, val) => { const account = accounts.find(item => item.id === id); account.stats.lol.border = lol; if (val !== undefined) account.stats.val.border = val; };
+  border('1', { kind: 'level', theme: 13 }, '3d90bc3a-4626-71d6-a17c-93ae14d05fb0');
+  border('2', { kind: 'ranked', tier: 'MASTER' });
+  border('6', { kind: 'level', theme: 6 }, 'level');
+  border('10', { kind: 'level', theme: 2 }, 'level');
+
+  let settings = { refreshMinutes: 30, staySignedIn: true, riotClientPath: '', language: 'pt', cardLayout: 'plates', cardSort: 'manual', uiSounds: true, riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
   let lastRefresh = iso(7 * 60000);
   let activeSignIn = null;
   const listeners = {};

@@ -296,3 +296,17 @@ fn the_league_client_never_sends_a_hot_streak_so_the_one_from_a_key_stays_until_
     assert_eq!(streaks, [&json!(true), &json!(false), &json!(true), &json!(false)]);
     assert_eq!(merge_reading(Some(&next), &read, AT)["lol"]["solo"]["hotStreak"], true);
 }
+
+#[test]
+fn a_reading_with_a_border_replaces_the_saved_one_and_a_reading_without_it_keeps_it() {
+    let riot_id = RiotId { game_name: "Synthetic".into(), tag_line: "BR1".into() };
+    let before = json!({ "lol": { "level": 1, "border": { "kind": "level", "theme": 3 } }, "val": { "tier": 9, "border": "level" } });
+    let without = Reading { riot_id: riot_id.clone(), lol: Some(json!({ "level": 2 })), tft: None, val: Some(json!({ "tier": 9 })) };
+    let kept = merge_reading(Some(&before), &without, AT);
+    assert_eq!(kept["lol"]["border"], json!({ "kind": "level", "theme": 3 }));
+    assert_eq!(kept["val"]["border"], "level");
+    let with = Reading { riot_id, lol: Some(json!({ "level": 2, "border": null })), tft: None, val: Some(json!({ "tier": 9, "border": "aabbccdd-0000-1111-2222-333344445555" })) };
+    let replaced = merge_reading(Some(&before), &with, AT);
+    assert_eq!(replaced["lol"]["border"], Value::Null);
+    assert_eq!(replaced["val"]["border"], "aabbccdd-0000-1111-2222-333344445555");
+}

@@ -26,5 +26,15 @@ test('the filter and sort labels stay short so the toolbar fits a 636 px Riot', 
   assert.equal(TEXT.pt.sorts.manual, 'Ordem manual');
   assert.equal(TEXT.en.sorts.manual, 'Manual order');
   assert.match(TEXT.pt.dragHint, /^Em Ordem manual/);
-  assert.equal(TEXT.pt.selected, 'Selecionada');
+  for (const text of [TEXT.pt, TEXT.en]) assert.equal(text.selected, undefined);
+});
+
+test('the sounds option and the footer label are translated', async () => {
+  const { TEXT } = await import(pathToFileURL(path.join(RENDERER_DIR, 'cardsText.js')).href);
+  assert.equal(TEXT.pt.uiSounds, 'Sons da interface');
+  assert.equal(TEXT.en.uiSounds, 'Interface sounds');
+  assert.match(TEXT.pt.uiSoundsHelp, /CommunityDragon/);
+  assert.match(TEXT.en.uiSoundsHelp, /CommunityDragon/);
+  assert.equal(TEXT.pt.selectionLabel, 'Selecionada');
+  assert.equal(TEXT.en.selectionLabel, 'Selected');
 });

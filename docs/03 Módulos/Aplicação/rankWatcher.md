@@ -35,6 +35,8 @@ tags: [módulo]
 
 ## Invariantes e decisões
 
+- **Borda só do jogo.** 2026-11-20: uma leitura com `border` (inclusive `null`, que é "nenhuma borda equipada") troca a salva em `lol` ou `val`; uma leitura sem o campo (o `lol-regalia` não respondeu, ou a presença não disse) mantém a anterior ([[gameRanks]]).
+
 - **Conta não salva vira sugestão.** Desde 2026-11-15, quando o jogo aberto está numa conta que não existe no Eclipse (ou existe duas vezes), `on_unsaved` recebe o Riot ID. O [[main]] guarda só o último na memória, sem gravar em disco, e os [[cards]] o oferecem ao adicionar conta.
 - **A leitura do jogo apaga a marca do OP.GG.** Desde 2026-11-15 ([[ADR-037 Elo do League pelo OP.GG]]), `merge_reading` remove o `source` do `stats.lol`: o bloco passa a ser do jogo, com a hora da leitura, e um perfil mais antigo do [[opgg]] não o substitui.
 

@@ -227,6 +227,7 @@ fn a_data_file_written_by_the_electron_version_loads_and_keeps_every_field() {
     let saved: Value = serde_json::from_slice(&fs::read(&store.file).unwrap()).unwrap();
     let mut expected = original.clone();
     expected["accounts"][0]["gameName"] = json!("Exemplo");
+    expected["schema"] = json!(2);
     assert_eq!(saved, expected);
     let keys: Vec<&String> = saved["accounts"][0].as_object().unwrap().keys().collect();
     let original_keys: Vec<&String> = original["accounts"][0].as_object().unwrap().keys().collect();
@@ -350,7 +351,7 @@ fn sign_in_lines_go_to_their_own_log_which_rolls_over_past_its_limit() {
 }
 
 #[test]
-fn games_are_saved_a_missing_game_list_means_both_games_and_an_old_color_or_tags_are_dropped() {
+fn games_are_saved_a_missing_game_list_means_all_five_games_and_an_old_color_or_tags_are_dropped() {
     let (_dir, mut store) = temporary_store();
     let saved = store
         .upsert_account(AccountInput {
@@ -371,7 +372,31 @@ fn games_are_saved_a_missing_game_list_means_both_games_and_an_old_color_or_tags
     let edited = store.upsert_account(AccountInput { id: Some(id), game_name: "Tagged".into(), tag_line: "BR1".into(), username: "fictional-tagged".into(), ..AccountInput::default() }).unwrap();
     assert!(!edited.contains_key("tags"));
     assert!(!edited.contains_key("color"));
-    assert_eq!(edited["games"], json!(["lol", "val"]));
+    assert_eq!(edited["games"], json!(["lol", "val", "tft", "2xko", "lor"]));
+    let id = edited["id"].as_str().unwrap().to_string();
+    let picked = store.upsert_account(AccountInput { id: Some(id), game_name: "Tagged".into(), tag_line: "BR1".into(), username: "fictional-tagged".into(), games: vec!["lor".into(), "riot".into(), "tft".into()], ..AccountInput::default() }).unwrap();
+    assert_eq!(picked["games"], json!(["tft", "lor"]));
+}
+
+#[test]
+fn game_lists_saved_before_the_five_games_keep_showing_in_the_same_tabs() {
+    let dir = tempfile::Builder::new().prefix("eclipse-store-test-").tempdir().unwrap();
+    let account = |id: &str, games: Value| json!({ "id": id, "gameName": id, "tagLine": "BR1", "region": "br1", "username": format!("fictional-{id}"), "games": games });
+    let old = json!({
+        "accounts": [account("both", json!(["lol", "val"])), account("league", json!(["lol"])), account("valorant", json!(["val"])), account("none", Value::Null)],
+        "settings": {}
+    });
+    fs::write(dir.path().join("data.json"), serde_json::to_string_pretty(&old).unwrap()).unwrap();
+    let mut store = Store::open(dir.path(), Arc::new(FakeCipher));
+    let games: Vec<Value> = store.data.accounts.iter().map(|account| account["games"].clone()).collect();
+    assert_eq!(games, vec![json!(["lol", "val", "tft", "2xko", "lor"]), json!(["lol", "tft", "2xko", "lor"]), json!(["val", "2xko", "lor"]), Value::Null]);
+    store.data.accounts[0]["games"] = json!(["lol", "val"]);
+    store.save().unwrap();
+    let saved: Value = serde_json::from_slice(&fs::read(&store.file).unwrap()).unwrap();
+    assert_eq!(saved["schema"], 2);
+    let reopened = Store::open(dir.path(), Arc::new(FakeCipher));
+    assert_eq!(reopened.data.accounts[0]["games"], json!(["lol", "val"]));
+    assert_eq!(reopened.data.accounts[1]["games"], json!(["lol", "tft", "2xko", "lor"]));
 }
 
 #[test]
@@ -411,4 +436,17 @@ fn the_card_sort_is_manual_by_default_and_only_known_values_are_shown() {
     assert_eq!(store.public_settings()["cardSort"], "rank");
     store.data.settings.insert("cardSort".into(), json!("strange"));
     assert_eq!(store.public_settings()["cardSort"], "manual");
+}
+
+#[test]
+fn interface_sounds_are_on_unless_turned_off() {
+    let (_dir, mut store) = temporary_store();
+    assert_eq!(store.public_settings()["uiSounds"], true);
+    store.update_settings(SettingsInput { ui_sounds: Some(false), ..SettingsInput::default() }).unwrap();
+    assert_eq!(store.public_settings()["uiSounds"], false);
+    assert_eq!(store.data.settings["uiSounds"], false);
+    store.update_settings(SettingsInput { ui_sounds: Some(true), ..SettingsInput::default() }).unwrap();
+    assert_eq!(store.public_settings()["uiSounds"], true);
+    store.data.settings.insert("uiSounds".into(), json!("no"));
+    assert_eq!(store.public_settings()["uiSounds"], true);
 }

@@ -1,10 +1,14 @@
-import { GAME_QUEUES, GAME_NAMES, LAYOUTS, layoutOf, accountView, selectionView } from './cardView.js';
-import { SORTS, sortOf, gamesOf, tierOptions, visibleAccounts, canReorder, moveId, usage, parseBatch } from './cardList.js';
+import { GAME_QUEUES, GAME_NAMES, LAYOUTS, layoutOf, accountView, selectionView, queueLabel } from './cardView.js';
+import { SORTS, ACCOUNT_GAMES, sortOf, gamesOf, toggleGame, tierOptions, visibleAccounts, canReorder, moveId, usage, parseBatch, countLabel, startsSearch, toggleSelection, keptSelection } from './cardList.js';
 import { VAL_GROUPS } from './ranks.js';
 import { textFor, translatePage } from './cardsText.js';
+import { createSounds, hoverSound, clickSound, changeSound } from './sounds.js';
 
 const api = window.api;
 const $ = selector => document.querySelector(selector);
+const sounds = createSounds();
+let entered = '';
+let hovered = null;
 const state = { accounts: [], selectedId: null, game: 'lol', stats: 'lol', operation: null, regions: {}, settings: {}, editing: null, submitting: false, lastRefresh: null, refreshing: false, seenAccount: null, filters: { query: '', region: '', tier: '' }, addMode: 'single' };
 const drag = { id: null, pointer: null, startX: 0, startY: 0, active: false, target: null, after: false, ended: false };
 const t = () => textFor(state.settings.language);
@@ -63,9 +67,9 @@ function render() {
   const focused = document.activeElement?.dataset.account;
   const layout = layoutOf(state.settings);
   const shown = visibleAccounts(state.accounts, { game: state.game, stats: state.stats, ...state.filters, sort: sortOf(state.settings) });
-  if (!shown.some(account => account.id === state.selectedId)) state.selectedId = (shown.find(account => account.hasPassword) || shown[0])?.id || null;
+  state.selectedId = keptSelection(state.selectedId, shown);
   const selected = state.accounts.find(account => account.id === state.selectedId);
-  $('#count').textContent = shown.length === state.accounts.length ? text.accounts(state.accounts.length) : text.accountsShown(shown.length, state.accounts.length);
+  $('#count').textContent = countLabel({ shown: shown.length, total: state.accounts.length, inGame: visibleAccounts(state.accounts, { game: state.game, stats: state.stats }).length }, text);
   $('#updated').textContent = updatedText();
   const running = state.operation?.status === 'running';
   $('#status').hidden = !running || !state.operation.needsAttention;
@@ -74,6 +78,8 @@ function render() {
   $('#play').disabled = running ? false : busy() || !selected?.hasPassword;
   $('#play').classList.toggle('is-cancel', running);
   $('#play').innerHTML = running ? esc(text.cancel) : busy() ? esc(text.signingIn) : `${esc(state.game === 'riot' ? text.enter : text.play)} <span aria-hidden="true">→</span>`;
+  sounds.setEnabled(state.settings.uiSounds !== false);
+  $('#selected-label').hidden = !selected;
   const chosen = selectionView(selected, state.game, state.regions, text);
   $('#selected-name').textContent = chosen.name;
   $('#selected-detail').textContent = chosen.detail;
@@ -88,12 +94,11 @@ function render() {
   cards.classList.toggle('can-reorder', reorderable() && !busy());
   const now = Date.now();
   const body = shown.map((account, index) => {
-    const view = { ...accountView(account, state.stats, text), pinned: account.pinned === true, usage: usage(account, text, now) };
+    const view = { ...accountView(account, state.stats, text), pinned: account.pinned === true, usage: usage(account, text, now), recent: usage(account, text, now, false) };
     const playing = state.operation?.accountId === view.id && busy();
     return `<article class="account ${layout === 'list' ? 'list-card' : 'plate-card'} ${view.id === state.selectedId ? 'is-selected' : ''} ${playing ? 'is-playing' : ''}" data-id="${esc(view.id)}" data-tier="${esc(view.accent)}">
       <input class="account-radio" type="radio" name="account" id="account-${index}" data-account="${esc(view.id)}" ${view.id === state.selectedId ? 'checked' : ''} ${busy() ? 'disabled' : ''}>
-      ${layout === 'list' ? '' : `<span class="selected-mark" aria-hidden="true">${esc(text.selected)}</span>`}
-      <label class="account-content" for="account-${index}">${layout === 'list' ? row(view, text) : plate(view, text)}</label>
+      <label class="account-content" for="account-${index}" title="${esc(text.playHint)}">${layout === 'list' ? row(view, text) : plate(view, text)}</label>
       <button class="pin" data-action="pin" aria-pressed="${view.pinned}" aria-label="${esc(text.pinNamed(view.name, view.pinned))}" title="${esc(view.pinned ? text.unpin : text.pin)}" ${busy() ? 'disabled' : ''}>${view.pinned ? '★' : '☆'}</button>
       <button class="edit" data-action="edit" aria-label="${esc(text.editNamed(view.name))}" title="${esc(text.editAccount)}" ${busy() ? 'disabled' : ''}>···</button>
     </article>`;
@@ -102,6 +107,10 @@ function render() {
   const empty = `<div class="empty"><h2>${esc(text.emptyTitle)}</h2><p>${esc(text.emptyText)}</p><button type="button" class="primary" data-action="add">${esc(text.addAccount)}</button></div>`;
   cards.innerHTML = shown.length ? (layout === 'list' ? listHead(text) : '') + body : state.accounts.length ? filtered : empty;
   for (const card of cards.querySelectorAll('[data-tier]')) if (hex(card.dataset.tier)) card.style.setProperty('--tier', card.dataset.tier);
+  for (const badge of cards.querySelectorAll('[data-badge]')) if (badge.dataset.badge.startsWith('https://media.valorant-api.com/levelborders/')) badge.style.setProperty('--badge', `url("${badge.dataset.badge}")`);
+  const scene = shown.length ? `${state.game}|${layout}` : '';
+  if (scene && scene !== entered) cards.querySelectorAll('.account').forEach((card, index) => { card.style.setProperty('--i', String(Math.min(index, 12))); card.classList.add('enter'); });
+  entered = scene;
   if (focused) Array.from(document.querySelectorAll('[data-account]')).find(element => element.dataset.account === focused)?.focus({ preventScroll: true });
 }
 
@@ -127,24 +136,25 @@ function climb(queue) {
 function plate(view, text) {
   const { main } = view;
   const level = view.level === null ? '' : `<span class="level"><span class="sr-only">${esc(text.level)} </span>${view.level}</span>`;
-  const others = view.others.map(queue => `<span class="other">${esc(queue.name)} · <strong>${esc(queue.tier)}</strong>${queue.ranked ? ` ${esc(queue.points)}` : ''}</span>`).join('');
+  const label = queueLabel(state.game, state.stats, GAME_QUEUES[state.stats][0], text);
+  const crest = main.ranked ? `<img class="crest" src="${esc(main.crest)}" alt="" loading="lazy">` : '';
+  const points = main.ranked ? ` · <span class="points">${esc(main.points)}</span>` : '';
   return `<span class="plate">
-      <span class="avatar">${avatar(view, 'portrait')}${level}</span>
-      ${who(view)}
-      <span class="usage">${esc(view.usage)}</span>
-      <img class="crest" src="${esc(main.crest)}" alt="" loading="lazy">
-      <span class="main"><small class="queue-name">${esc(main.name)}</small><strong class="tier${main.ranked ? '' : ' none'}">${esc(main.tier)}</strong><span class="points">${esc(main.points)}</span></span>
-      ${main.played ? `<span class="played">${esc(main.played)}</span>` : ''}${climb(main)}${rr(main)}${others}
+      <span class="avatar${view.border ? ` has-border border-${view.border.kind}` : ''}"${view.border?.badge ? ` data-badge="${esc(view.border.badge)}"` : ''}>${avatar(view, 'portrait')}${view.border ? `<img class="frame" src="${esc(view.border.src)}" alt="" loading="lazy">` : ''}${level}</span>
+      <strong class="name">${esc(view.name)}</strong>
+      <span class="usage" title="${esc(view.usage)}">#${esc(view.tag)} · ${esc(view.recent)}</span>
+      <span class="rank${main.ranked ? '' : ' none'}">${crest}<strong class="tier">${esc(main.tier)}</strong><span class="rank-line"><small class="queue-name"${label.title ? ` title="${esc(label.title)}"` : ''}>${esc(label.label)}</small>${points}</span></span>
+      ${main.played ? `<span class="played">${esc(main.played)}</span>` : ''}${climb(main)}${rr(main)}
     </span>`;
 }
 
 function listHead(text) {
-  const columns = [text.listAccount, ...GAME_QUEUES[state.stats].map(queue => text.queues[queue]), state.stats === 'val' ? text.listProgress : text.listWins];
+  const columns = [text.listAccount, ...GAME_QUEUES[state.stats].map(queue => queueLabel(state.game, state.stats, queue, text).column), state.stats === 'val' ? text.listProgress : text.listWins];
   return `<div class="list-head" aria-hidden="true"><span class="row">${columns.map(name => `<span>${esc(name)}</span>`).join('')}</span><span></span><span></span></div>`;
 }
 
 function row(view, text) {
-  const queues = [view.main, ...view.others].map(queue => `<span class="queue-cell"><img src="${esc(queue.crest)}" alt="" loading="lazy"><span><strong>${esc(queue.tier)}</strong><small>${esc([queue.ranked ? queue.points : text.noGames, queue.played].filter(Boolean).join(' · '))}</small></span></span>`).join('');
+  const queues = [view.main, ...view.others].map(queue => `<span class="queue-cell${queue.ranked ? '' : ' none'}"><img src="${esc(queue.crest)}" alt="" loading="lazy"><span><strong>${esc(queue.tier)}</strong><small>${esc([queue.ranked ? queue.points : text.noGames, queue.played].filter(Boolean).join(' · '))}</small></span></span>`).join('');
   const details = [view.level === null ? '' : `${text.level} ${view.level}`, view.usage].filter(Boolean).join(' · ');
   const head = `<span class="who-cell">${avatar(view, 'portrait')}<span><span class="who-line">${who(view)}</span><small>${esc(details)}</small></span></span>`;
   if (state.stats === 'val') return `<span class="row">${head}${queues}<span class="progress-cell">${rr(view.main) || '—'}</span></span>`;
@@ -171,14 +181,14 @@ function confirmAction(title, text) {
   });
 }
 
-function gamesChoice(account) {
-  const chosen = gamesOf(account);
-  return chosen.length === 1 ? chosen[0] : 'all';
+function setGames(form, games) {
+  for (const input of form.querySelectorAll('input[name=games]')) input.checked = games.includes(input.value);
+  form.elements.gamesAll.checked = ACCOUNT_GAMES.every((game) => games.includes(game));
 }
 
 function chosenGames(form) {
-  const value = form.querySelector('input[name=games]:checked')?.value;
-  return value === 'lol' || value === 'val' ? [value] : ['lol', 'val'];
+  const games = [...form.querySelectorAll('input[name=games]:checked')].map((input) => input.value);
+  return games.length ? games : ACCOUNT_GAMES.slice();
 }
 
 function setAddMode(mode) {
@@ -203,12 +213,11 @@ function editAccount(account = null) {
   form.elements.username.value = account?.username || '';
   form.elements.region.innerHTML = Object.entries(state.regions).map(([id, region]) => `<option value="${esc(id)}">${esc(region.label)}</option>`).join('');
   form.elements.region.value = account?.region || 'br1';
-  const choice = gamesChoice(account);
-  for (const input of form.querySelectorAll('input[name=games]')) input.checked = input.value === choice;
+  setGames(form, gamesOf(account));
   $('#account-title').textContent = account ? t().editAccount : t().addAccount;
   $('#delete-account').hidden = !account;
   $('#add-mode').hidden = Boolean(account);
-  if (state.seenAccount) $('#use-seen').textContent = t().useSeen(`${state.seenAccount.gameName}#${state.seenAccount.tagLine}`);
+  if (state.seenAccount) $('#use-seen-text').textContent = t().useSeen(`${state.seenAccount.gameName}#${state.seenAccount.tagLine}`);
   setAddMode('single');
   $('#account-dialog').showModal();
 }
@@ -274,6 +283,15 @@ $('#cards').addEventListener('pointercancel', event => endDrag(event, true));
 $('#cards').addEventListener('lostpointercapture', event => { if (drag.active) endDrag(event, true); });
 $('#cards').addEventListener('click', event => { if (drag.ended) { event.preventDefault(); event.stopPropagation(); } }, true);
 $('#cards').addEventListener('keydown', event => {
+  if (event.key === 'Enter' && !event.altKey && event.target.matches('[data-account]')) {
+    event.preventDefault();
+    return playAccount(event.target.dataset.account);
+  }
+  if (event.key === ' ' && event.target.matches('[data-account]') && event.target.dataset.account === state.selectedId && !busy()) {
+    event.preventDefault();
+    state.selectedId = toggleSelection(state.selectedId, event.target.dataset.account);
+    return render();
+  }
   if (!event.altKey || !event.target.matches('[data-account]') || busy() || !reorderable()) return;
   const step = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 }[event.key];
   if (!step) return;
@@ -286,6 +304,20 @@ $('#cards').addEventListener('keydown', event => {
   saveOrder(moveId(ids, id, ids.indexOf(neighbour) + (step > 0 ? 1 : 0)));
 });
 
+$('#cards').addEventListener('click', event => {
+  const label = event.target.closest('.account-content');
+  const id = label?.closest('.account')?.dataset.id;
+  if (!id || busy()) return;
+  if (event.detail === 2) {
+    event.preventDefault();
+    return playAccount(id);
+  }
+  if (event.detail > 2) return event.preventDefault();
+  if (id !== state.selectedId) return;
+  event.preventDefault();
+  state.selectedId = toggleSelection(state.selectedId, id);
+  render();
+});
 $('#cards').addEventListener('change', event => {
   if (!event.target.matches('[data-account]') || busy()) return;
   state.selectedId = event.target.dataset.account;
@@ -314,8 +346,19 @@ $('#delete-account').addEventListener('click', async () => {
   try { await api.deleteAccount(account.id); $('#account-dialog').close(); await reload(); }
   catch { $('#account-form .form-error').textContent = t().removeFailed; }
 });
-$('#play').addEventListener('click', async () => {
+function playAccount(id) {
+  if (busy() || !state.accounts.some(account => account.id === id)) return;
+  state.selectedId = id;
+  render();
+  play();
+}
+
+$('#play').addEventListener('click', () => {
   if (state.operation?.status === 'running') return api.cancelSignIn().catch(() => notice(t().cancelFailed));
+  play();
+});
+
+async function play() {
   const account = state.accounts.find(item => item.id === state.selectedId);
   if (busy() || !account?.hasPassword) return;
   const game = state.game;
@@ -328,8 +371,13 @@ $('#play').addEventListener('click', async () => {
     await reload();
   } catch { notice(t().actionFailed); }
   finally { state.submitting = false; render(); }
-});
+}
 
+$('#game-picks').addEventListener('change', event => {
+  const form = $('#account-form');
+  const before = [...form.querySelectorAll('input[name=games]')].filter(input => input === event.target ? !input.checked : input.checked).map(input => input.value);
+  setGames(form, toggleGame(before, event.target.name === 'games' ? event.target.value : 'all'));
+});
 $('#add-mode').addEventListener('click', event => { const button = event.target.closest('[data-mode]'); if (button) setAddMode(button.dataset.mode); });
 $('#use-seen').addEventListener('click', () => {
   if (!state.seenAccount) return;
@@ -381,7 +429,7 @@ $('#settings-form').addEventListener('submit', async event => {
   const form = event.currentTarget, submit = form.querySelector('[type=submit]');
   submit.disabled = true;
   try {
-    const input = { refreshMinutes: Number(form.elements.refreshMinutes.value), staySignedIn: form.elements.staySignedIn.checked, language: form.elements.language.value === 'en' ? 'en' : 'pt' };
+    const input = { refreshMinutes: Number(form.elements.refreshMinutes.value), staySignedIn: form.elements.staySignedIn.checked, uiSounds: form.elements.uiSounds.checked, language: form.elements.language.value === 'en' ? 'en' : 'pt' };
     const saved = await api.saveSettings(input); state.settings = { ...state.settings, ...saved }; $('#settings-dialog').close(); render(); await api.refresh(); await reload();
   } catch { form.querySelector('.form-error').textContent = t().saveSettingsFailed; }
   finally { submit.disabled = false; }
@@ -401,7 +449,7 @@ $('#filter-region').addEventListener('change', event => { state.filters.region =
 $('#filter-tier').addEventListener('change', event => { state.filters.tier = event.target.value; render(); });
 $('#sort').addEventListener('change', event => { if (SORTS.includes(event.target.value) && !busy()) saveView('cardSort', event.target.value); });
 $('#add-account').addEventListener('click', () => { if (!busy()) editAccount(); });
-$('#settings').addEventListener('click', () => { const form = $('#settings-form'); form.reset(); form.querySelector('.form-error').textContent = ''; form.elements.refreshMinutes.value = state.settings.refreshMinutes ?? 30; form.elements.staySignedIn.checked = state.settings.staySignedIn !== false; form.elements.language.value = state.settings.language === 'en' ? 'en' : 'pt'; $('#settings-dialog').showModal(); });
+$('#settings').addEventListener('click', () => { const form = $('#settings-form'); form.reset(); form.querySelector('.form-error').textContent = ''; form.elements.refreshMinutes.value = state.settings.refreshMinutes ?? 30; form.elements.staySignedIn.checked = state.settings.staySignedIn !== false; form.elements.uiSounds.checked = state.settings.uiSounds !== false; form.elements.language.value = state.settings.language === 'en' ? 'en' : 'pt'; $('#settings-dialog').showModal(); });
 $('#refresh').addEventListener('click', () => { if (state.refreshing) return; state.refreshing = true; notice(); render(); api.refresh().catch(() => { state.refreshing = false; notice(t().refreshFailed); render(); }); });
 $('#games').addEventListener('click', event => {
   const button = event.target.closest('[data-game]');
@@ -419,9 +467,22 @@ for (const button of document.querySelectorAll('[data-close]')) button.addEventL
 for (const dialog of document.querySelectorAll('dialog')) dialog.addEventListener('close', () => { for (const input of dialog.querySelectorAll('input[type=password], textarea[name=batch]')) input.value = ''; });
 $('#riot-minimize').addEventListener('click', () => { api.minimizeRiot().catch(() => {}); });
 $('#riot-close').addEventListener('click', () => { api.closeRiot().catch(() => {}); });
+document.addEventListener('keydown', event => {
+  if (event.defaultPrevented || $('#toolbar').hidden || document.querySelector('dialog[open]')) return;
+  if (startsSearch(event, Boolean(event.target.closest?.('input:not([type=radio]):not([type=checkbox]), select, textarea')))) $('#search').focus();
+});
 document.addEventListener('visibilitychange', () => { if (document.hidden) for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close(); });
 api.onAccountUpdated(account => { const index = state.accounts.findIndex(item => item.id === account.id); if (index >= 0) state.accounts[index] = account; else state.accounts.push(account); notice(); render(); });
 api.onSignInOperation(operation => { state.operation = operation; render(); });
 api.onRefreshProgress(progress => { state.refreshing = progress.done < progress.total; if (state.refreshing) return render(); reload().catch(() => render()); });
 setInterval(() => { $('#updated').textContent = updatedText(); }, 30000);
 reload().catch(() => { render(); notice(t().loadFailed); });
+
+document.addEventListener('mouseover', event => {
+  const sound = hoverSound(event.target);
+  const key = sound ? sound.host.dataset?.id || sound.host : null;
+  if (sound && key !== hovered) sounds.play(sound.name);
+  hovered = key;
+});
+document.addEventListener('click', event => { const name = clickSound(event.target); if (name) sounds.play(name); }, true);
+document.addEventListener('change', event => { const name = changeSound(event.target); if (name) sounds.play(name); }, true);

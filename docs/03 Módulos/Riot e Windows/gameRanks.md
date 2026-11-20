@@ -24,8 +24,9 @@ tags: [módulo]
 | Item | Tipo | Descrição |
 |---|---|---|
 | `GameRanks::new(league_api, riot_api)` | construtor | Dois transportes do [[riotTransport]]: um para o cliente do LoL, outro para o Riot Client |
-| `league()` | método | `GET /lol-summoner/v1/current-summoner` e `GET /lol-ranked/v1/current-ranked-stats`. Devolve um `Reading` com o Riot ID e `lol` (`level`, `iconId`, `solo`, `flex`) e `tft` (`ranked`, `doubleUp`), ou `None` |
-| `valorant()` | método | `GET /chat/v1/session` e `GET /chat/v4/presences`. Devolve um `Reading` com o Riot ID e `val` (`tier`, `tierName`, `level`, `card`), ou `None` |
+| `league()` | método | `GET /lol-summoner/v1/current-summoner`, `GET /lol-ranked/v1/current-ranked-stats` e `GET /lol-regalia/v2/current-summoner/regalia`. Devolve um `Reading` com o Riot ID e `lol` (`level`, `iconId`, `solo`, `flex` e, se a terceira respondeu, `border`) e `tft` (`ranked`, `doubleUp`), ou `None` |
+| `valorant()` | método | `GET /chat/v1/session` e `GET /chat/v4/presences`. Devolve um `Reading` com o Riot ID e `val` (`tier`, `tierName`, `level`, `card` e, se a presença disser, `border`), ou `None` |
+| `league_border(regalia, nível)`, `prestige_theme(nível)` | funções | A borda equipada no League a partir da resposta do `lol-regalia`, e o tema da borda de nível (1 a 21) pelas faixas do jogo |
 | `league_folders_with(leitura, arquivo)` | função | As pastas do League of Legends e do Teamfight Tactics em `associated_client` do `RiotClientInstalls.json` (`INSTALLS_FILE`), só caminhos absolutos |
 | `read_league_lockfile()` | função | O `Backend` do primeiro `lockfile` dessas pastas, pelo `parse_backend_lockfile` do [[backend]]. Sem nenhum, falha com "The League client is not running". `read_league_lockfile_with` troca a leitura para os testes |
 | `parse_league`, `parse_valorant`, `val_tier_name`, `reading_to_map` | funções | Conferência das respostas e conversão, públicas para os testes |
@@ -36,6 +37,8 @@ tags: [módulo]
 - Usado por: [[riotClient]], que entrega as leituras ao [[rankWatcher]].
 
 ## Invariantes e decisões
+
+- **Borda equipada.** 2026-11-20, pedido do usuário: "por padrão fique sem borda nenhuma, após eu entrar na conta você pega a borda que estou usando". No League, uma terceira leitura (`lol-regalia`, só `GET`) dá `lol.border`: `{ kind: "level", theme }` quando `crestType` é `prestige` (`selectedPrestigeCrest` de 1 a 21; fora disso, o tema do nível pelas faixas 1, 30, 50, 75 … 500), `{ kind: "ranked", tier }` quando é `ranked` (`lastSeasonHighestRank`, senão `highestRankedEntry.tier`, só elos conhecidos) e `null` para qualquer outro tipo. Se o `lol-regalia` não responde, a leitura sai sem `border` e o elo continua valendo. No VALORANT, `preferredLevelBorderId` da presença vira `val.border`: o UUID em minúsculas, ou `"level"` (borda do nível) quando vem vazio, zerado ou estranho; sem o campo, nada.
 
 - **Elo sem chave.** Criado em 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]), para um amigo usar o Eclipse sem criar chave de API.
 - **Mesmo certificado, validação ligada.** O cliente do LoL usa a mesma raiz da Riot que o Riot Client ("LoL Game Engineering Certificate Authority", conferida em 2026-11-08 no `app.asar` oficial). O transporte do LoL só troca a conexão (`read_league_lockfile`); o certificado e a validação são os do [[riotTransport]].
@@ -55,5 +58,7 @@ tags: [módulo]
 
 ## Pontos de atenção
 
+- **Borda de nível conferida no LoL real em 2026-11-20.** Uma conta do usuário gravou `{ kind: "level", theme: 15 }` cerca de 4 minutos depois de o jogo abrir, e a placa mostrou a borda; o usuário confirmou ("funcionou"). Faltam a borda de elo e o VALORANT.
+- **Borda não conferida por inteiro.** Os campos do `lol-regalia` (`crestType`, `selectedPrestigeCrest`, `lastSeasonHighestRank`, `highestRankedEntry`) e o `preferredLevelBorderId` do VALORANT vêm da documentação da comunidade, não de uma resposta real. Conferir na primeira entrada do usuário com o jogo aberto, principalmente se `selectedPrestigeCrest` é o tema de 1 a 21 ([[Backlog]]).
 - **O VALORANT ainda não foi conferido.** O LoL foi conferido em 2026-11-08 (acima). Do chat, `/chat/v1/session` e `/chat/v4/presences` responderam no formato esperado, mas só com o LoL aberto: a presença do LoL tem outro conteúdo no `private`, e a do VALORANT só aparece com ele aberto. As presenças também têm os campos `privateJwt` e `packedData`. Se o VALORANT passar a mandar o elo por um deles, a leitura não dá nada e o `data.log` mostra "could not read the ranks from the Riot Client" ([[Backlog]]).
 - Uma atualização da Riot pode mudar essas rotas ([[Atualização do Riot Client]]).

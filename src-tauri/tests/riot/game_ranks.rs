@@ -6,7 +6,7 @@ use std::sync::Arc;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use eclipse::integration::backend::Backend;
-use eclipse::riot::game_ranks::{league_folders_with, parse_league, parse_valorant, read_league_lockfile_with, val_tier_name, GameRanks};
+use eclipse::riot::game_ranks::{league_border, league_folders_with, parse_league, parse_valorant, prestige_theme, read_league_lockfile_with, val_tier_name, GameRanks};
 use eclipse::riot::{RiotError, RiotId};
 use serde_json::{json, Map, Value};
 
@@ -165,7 +165,8 @@ fn the_reader_only_sends_get_requests_stops_at_the_first_failing_answer_and_read
     assert_eq!(ranks.league().unwrap().lol.unwrap()["solo"]["tier"], "GOLD");
     assert_eq!(ranks.valorant().unwrap().val.unwrap()["tierName"], "Silver 1");
     assert!(league.routes().iter().chain(riot.routes().iter()).all(|(method, _)| method == "GET"));
-    assert_eq!(league.routes().len() + riot.routes().len(), 4);
+    assert_eq!(league.routes().len() + riot.routes().len(), 5);
+    assert!(ranks.league().unwrap().lol.unwrap().get("border").is_none());
 
     let league = answering(map(json!({ "/lol-summoner/v1/current-summoner": { "status": 404, "json": { "message": "nope" } } })));
     let riot = answering(map(json!({ "/chat/v1/session": "not ready" })));
@@ -206,4 +207,47 @@ fn the_league_answer_in_the_shape_the_client_sent_on_2026_11_08_with_queues_and_
         }))
     );
     assert_eq!(reading.tft, Some(json!({ "ranked": { "tier": "BRONZE", "division": "I", "lp": 35, "wins": 3, "losses": 1, "hotStreak": false }, "doubleUp": null })));
+}
+
+#[test]
+fn the_level_border_follows_the_league_thresholds() {
+    let themes: Vec<i64> = [1, 29, 30, 49, 50, 74, 75, 143, 301, 499, 500, 2000].into_iter().map(prestige_theme).collect();
+    assert_eq!(themes, vec![1, 1, 2, 2, 3, 3, 4, 6, 13, 20, 21, 21]);
+}
+
+#[test]
+fn the_equipped_league_border_is_the_chosen_level_border_or_the_ranked_one_and_anything_else_is_no_border() {
+    let level = json!(301);
+    assert_eq!(league_border(&json!({ "crestType": "prestige", "selectedPrestigeCrest": 6 }), &level), json!({ "kind": "level", "theme": 6 }));
+    assert_eq!(league_border(&json!({ "crestType": "prestige", "selectedPrestigeCrest": 0 }), &level), json!({ "kind": "level", "theme": 13 }));
+    assert_eq!(league_border(&json!({ "crestType": "prestige", "selectedPrestigeCrest": 99, "summonerLevel": 40 }), &Value::Null), json!({ "kind": "level", "theme": 2 }));
+    assert_eq!(league_border(&json!({ "crestType": "ranked", "lastSeasonHighestRank": "gold", "highestRankedEntry": { "tier": "DIAMOND" } }), &level), json!({ "kind": "ranked", "tier": "GOLD" }));
+    assert_eq!(league_border(&json!({ "crestType": "ranked", "lastSeasonHighestRank": "", "highestRankedEntry": { "tier": "EMERALD" } }), &level), json!({ "kind": "ranked", "tier": "EMERALD" }));
+    assert_eq!(league_border(&json!({ "crestType": "ranked", "lastSeasonHighestRank": "../x" }), &level), Value::Null);
+    assert_eq!(league_border(&json!({ "crestType": "none" }), &level), Value::Null);
+    assert_eq!(league_border(&json!({}), &level), Value::Null);
+}
+
+#[test]
+fn the_league_reading_carries_the_equipped_border_with_one_more_get() {
+    let league = answering(map(json!({
+        "/lol-summoner/v1/current-summoner": { "status": 200, "json": summoner() },
+        "/lol-ranked/v1/current-ranked-stats": { "status": 200, "json": ranked() },
+        "/lol-regalia/v2/current-summoner/regalia": { "status": 200, "json": { "crestType": "prestige", "selectedPrestigeCrest": 9 } },
+    })));
+    let ranks = GameRanks::new(league.clone(), answering(Map::new()));
+    assert_eq!(ranks.league().unwrap().lol.unwrap()["border"], json!({ "kind": "level", "theme": 9 }));
+    assert!(league.routes().iter().all(|(method, _)| method == "GET"));
+    assert_eq!(league.routes().len(), 3);
+}
+
+#[test]
+fn the_valorant_border_is_the_chosen_one_or_the_level_one_and_absent_when_the_presence_does_not_say() {
+    let border = "AABBCCDD-0000-1111-2222-333344445555";
+    let read = |data: Value| parse_valorant(&session(), &json!({ "presences": [presence(data, json!({}))] })).unwrap().val.unwrap();
+    assert_eq!(read(json!({ "competitiveTier": 9, "preferredLevelBorderId": border }))["border"], "aabbccdd-0000-1111-2222-333344445555");
+    assert_eq!(read(json!({ "playerPresenceData": { "competitiveTier": 9, "preferredLevelBorderId": "" } }))["border"], "level");
+    assert_eq!(read(json!({ "competitiveTier": 9, "preferredLevelBorderId": "00000000-0000-0000-0000-000000000000" }))["border"], "level");
+    assert_eq!(read(json!({ "competitiveTier": 9, "preferredLevelBorderId": "../../x" }))["border"], "level");
+    assert!(read(json!({ "competitiveTier": 9 })).get("border").is_none());
 }

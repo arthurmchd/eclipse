@@ -338,10 +338,12 @@ fn games_are_validated_before_they_are_saved_and_tags_or_a_color_are_refused() {
     };
     let saved = f.service.dispatch("saveAccount", &[base.clone()]).unwrap();
     assert!(saved.get("tags").is_none());
-    assert_eq!(saved["games"], json!(["lol", "val"]));
-    let saved = f.service.dispatch("saveAccount", &[with("games", json!(["val", "lol"]))]).unwrap();
-    assert_eq!(saved["games"], json!(["lol", "val"]));
-    for (key, value) in [("tags", json!(["Main"])), ("tags", json!([])), ("color", json!("#e8505b")), ("games", json!([])), ("games", json!(["tft"])), ("games", json!("lol"))] {
+    assert_eq!(saved["games"], json!(["lol", "val", "tft", "2xko", "lor"]));
+    let saved = f.service.dispatch("saveAccount", &[with("games", json!(["lor", "val", "lol"]))]).unwrap();
+    assert_eq!(saved["games"], json!(["lol", "val", "lor"]));
+    let saved = f.service.dispatch("saveAccount", &[with("games", json!(["2xko"]))]).unwrap();
+    assert_eq!(saved["games"], json!(["2xko"]));
+    for (key, value) in [("tags", json!(["Main"])), ("tags", json!([])), ("color", json!("#e8505b")), ("games", json!([])), ("games", json!(["riot"])), ("games", json!(["lol", "lol", "val", "tft", "2xko", "lor"])), ("games", json!("lol"))] {
         assert_eq!(status(f.service.dispatch("saveAccount", &[with(key, value.clone())])), 400, "{key} {value}");
     }
 }
@@ -400,4 +402,11 @@ fn the_account_seen_in_the_game_is_offered_only_while_it_is_not_saved() {
     assert_eq!(seen("Unsaved"), json!({ "gameName": "Unsaved", "tagLine": "br1" }));
     assert_eq!(seen("EXAMPLE"), Value::Null);
     assert_eq!(fixture().service.dispatch("init", &[]).unwrap()["seenAccount"], Value::Null);
+}
+
+#[test]
+fn interface_sounds_are_saved_only_as_true_or_false() {
+    let f = fixture();
+    assert_eq!(f.service.dispatch("saveSettings", &[json!({ "uiSounds": true })]).unwrap()["uiSounds"], true);
+    assert_eq!(status(f.service.dispatch("saveSettings", &[json!({ "uiSounds": "on" })])), 400);
 }

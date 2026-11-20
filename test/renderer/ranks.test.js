@@ -53,3 +53,20 @@ test('every League tier uses its icon shipped with the app, and only Unranked ke
   assert.match(lolCrest('UNRANKED'), /ranked-mini-crests\/unranked\.svg$/);
   assert.match(lolCrest('NOT_A_TIER'), /ranked-mini-crests\/unranked\.svg$/);
 });
+
+test('the League border is the chosen level border or the ranked armor, and anything odd is no border', async () => {
+  const { lolBorder } = await load('ranks.js');
+  assert.deepEqual(lolBorder({ kind: 'level', theme: 13 }), { kind: 'level', src: 'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/uikit/themed-borders/theme-13-border.png' });
+  assert.deepEqual(lolBorder({ kind: 'ranked', tier: 'MASTER' }), { kind: 'ranked', src: 'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/master.png' });
+  for (const odd of [undefined, null, {}, { kind: 'level', theme: 0 }, { kind: 'level', theme: 22 }, { kind: 'level', theme: '3' }, { kind: 'ranked', tier: '../x' }, { kind: 'ranked', tier: 'UNRANKED' }]) assert.equal(lolBorder(odd), null);
+});
+
+test('the VALORANT border is the chosen one or the one of the account level, with the badge for the level number', async () => {
+  const { valBorder } = await load('ranks.js');
+  const at = (id) => ({ kind: 'val', src: `https://media.valorant-api.com/levelborders/${id}/smallplayercardappearance.png`, badge: `https://media.valorant-api.com/levelborders/${id}/levelnumberappearance.png` });
+  assert.deepEqual(valBorder('3D90BC3A-4626-71D6-A17C-93AE14D05FB0', 5), at('3d90bc3a-4626-71d6-a17c-93ae14d05fb0'));
+  assert.deepEqual(valBorder('level', 1), at('ebc736cd-4b6a-137b-e2b0-1486e31312c9'));
+  assert.deepEqual(valBorder('level', 39), at('5156a90d-4d65-58d0-f6a8-48a0c003878a'));
+  assert.deepEqual(valBorder('level', 40), at('9c4afb15-40d7-3557-062a-4bb198cb9958'));
+  for (const [border, level] of [[undefined, 50], [null, 50], ['level', null], ['level', 0], ['../../x', 50], [{}, 50]]) assert.equal(valBorder(border, level), null);
+});

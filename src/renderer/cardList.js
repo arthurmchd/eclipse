@@ -2,7 +2,7 @@ import { GAME_QUEUES } from './cardView.js';
 import { rankOf, LOL_TIERS, VAL_GROUPS } from './ranks.js';
 
 export const SORTS = ['manual', 'rank', 'name', 'recent'];
-export const ACCOUNT_GAMES = ['lol', 'val'];
+export const ACCOUNT_GAMES = ['lol', 'val', 'tft', '2xko', 'lor'];
 export const BATCH_LIMIT = 50;
 
 export const sortOf = (settings) => SORTS.includes(settings?.cardSort) ? settings.cardSort : 'manual';
@@ -10,6 +10,14 @@ export const gamesOf = (account) => {
   const games = Array.isArray(account?.games) ? ACCOUNT_GAMES.filter((game) => account.games.includes(game)) : [];
   return games.length ? games : ACCOUNT_GAMES;
 };
+
+export function toggleGame(games, game) {
+  if (!ACCOUNT_GAMES.includes(game)) return ACCOUNT_GAMES.slice();
+  const current = ACCOUNT_GAMES.filter((item) => games.includes(item));
+  if (!current.length || current.length === ACCOUNT_GAMES.length) return [game];
+  const next = current.includes(game) ? current.filter((item) => item !== game) : [...current, game];
+  return next.length ? ACCOUNT_GAMES.filter((item) => next.includes(item)) : current;
+}
 
 const fold = (value) => String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -36,7 +44,7 @@ const time = (value) => {
 export function visibleAccounts(accounts, { game = 'lol', stats = 'lol', query = '', region = '', tier = '', sort = 'manual' } = {}) {
   const order = new Map(accounts.map((account, index) => [account.id, index]));
   const list = accounts.filter((account) =>
-    (!ACCOUNT_GAMES.includes(game === 'tft' ? 'lol' : game) || gamesOf(account).includes(game === 'tft' ? 'lol' : game))
+    (!ACCOUNT_GAMES.includes(game) || gamesOf(account).includes(game))
     && matches(account, query)
     && (!region || account.region === region)
     && (!tier || tierOf(account, stats) === tier));
@@ -49,6 +57,10 @@ export function visibleAccounts(accounts, { game = 'lol', stats = 'lol', query =
   }[SORTS.includes(sort) ? sort : 'manual'];
   return list.sort((a, b) => (Number(b.pinned === true) - Number(a.pinned === true)) || compare(a, b) || order.get(a.id) - order.get(b.id));
 }
+
+export const toggleSelection = (selectedId, id) => selectedId === id ? null : id;
+
+export const keptSelection = (selectedId, shown) => shown.some(account => account.id === selectedId) ? selectedId : null;
 
 export function canReorder({ query = '', region = '', tier = '', sort = 'manual' } = {}) {
   return sort === 'manual' && !query.trim() && !region && !tier;
@@ -63,7 +75,7 @@ export function moveId(ids, id, target) {
   return next;
 }
 
-export function usage(account, text, now = Date.now()) {
+export function usage(account, text, now = Date.now(), withCount = true) {
   const parts = [];
   const played = Date.parse(account.lastPlayed);
   if (Number.isFinite(played)) {
@@ -71,8 +83,18 @@ export function usage(account, text, now = Date.now()) {
     parts.push(minutes < 60 ? text.playedMinutes(Math.max(1, minutes)) : minutes < 1440 ? text.playedHours(Math.floor(minutes / 60)) : text.playedDays(Math.floor(minutes / 1440)));
   } else parts.push(text.neverPlayed);
   const count = Number.isSafeInteger(account.signInCount) && account.signInCount > 0 ? account.signInCount : 0;
-  if (count) parts.push(text.signIns(count));
+  if (count && withCount) parts.push(text.signIns(count));
   return parts.join(' · ');
+}
+
+export function countLabel({ shown, total, inGame }, text) {
+  const base = shown === total ? text.accounts(total) : text.accountsShown(shown, total);
+  const outside = total - inGame;
+  return outside > 0 ? `${base} · ${text.otherGames(outside)}` : base;
+}
+
+export function startsSearch(event, typing) {
+  return typeof event.key === 'string' && event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.altKey && !event.metaKey && !typing;
 }
 
 export function parseBatch(value, defaults = {}) {

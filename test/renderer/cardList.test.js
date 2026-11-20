@@ -30,9 +30,24 @@ test('the game tab hides accounts saved for the other game only', async () => {
   const { visibleAccounts, gamesOf } = await load('cardList.js');
   assert.deepEqual(ids(visibleAccounts(accounts, { game: 'lol' })), ['c', 'a', 'd']);
   assert.deepEqual(ids(visibleAccounts(accounts, { game: 'val', stats: 'val' })), ['c', 'a', 'b']);
-  assert.deepEqual(gamesOf({}), ['lol', 'val']);
-  assert.deepEqual(gamesOf({ games: ['val', 'tft'] }), ['val']);
-  assert.deepEqual(gamesOf({ games: [] }), ['lol', 'val']);
+  const all = ['lol', 'val', 'tft', '2xko', 'lor'];
+  assert.deepEqual(gamesOf({}), all);
+  assert.deepEqual(gamesOf({ games: ['lor', 'val', 'tft', 'other'] }), ['val', 'tft', 'lor']);
+  assert.deepEqual(gamesOf({ games: ['other'] }), all);
+  assert.deepEqual(gamesOf({ games: [] }), all);
+});
+
+test('picking games starts from one game, adds and removes games and never ends empty', async () => {
+  const { toggleGame } = await load('cardList.js');
+  const all = ['lol', 'val', 'tft', '2xko', 'lor'];
+  assert.deepEqual(toggleGame(all, 'val'), ['val']);
+  assert.deepEqual(toggleGame(['val'], 'lol'), ['lol', 'val']);
+  assert.deepEqual(toggleGame(['lol', 'val'], 'val'), ['lol']);
+  assert.deepEqual(toggleGame(['lol'], 'lol'), ['lol']);
+  assert.deepEqual(toggleGame(['lol', 'val', 'tft', '2xko'], 'lor'), all);
+  assert.deepEqual(toggleGame(['val'], 'all'), all);
+  assert.deepEqual(toggleGame(all, 'all'), all);
+  assert.deepEqual(toggleGame([], 'tft'), ['tft']);
 });
 
 test('search ignores case and accents and also looks at the login but not at old notes or old tags', async () => {
@@ -107,9 +122,48 @@ test('the card sort falls back to the manual order', async () => {
   for (const settings of [{}, { cardSort: 'random' }, null]) assert.equal(sortOf(settings), 'manual');
 });
 
-test('TFT follows the League choice of each account and 2XKO and Runeterra show every account', async () => {
+test('each of the five game tabs shows only the accounts saved for that game', async () => {
   const { visibleAccounts } = await load('cardList.js');
-  assert.deepEqual(ids(visibleAccounts(accounts, { game: 'tft', stats: 'tft' })), ['c', 'a', 'd']);
-  assert.deepEqual(ids(visibleAccounts(accounts, { game: '2xko', stats: 'lol' })), ['c', 'a', 'b', 'd']);
-  assert.deepEqual(ids(visibleAccounts(accounts, { game: 'lor', stats: 'val' })), ['c', 'a', 'b', 'd']);
+  const list = [...accounts, { id: 'e', gameName: 'eco', tagLine: 'BR1', region: 'br1', username: 'login-e', lastPlayed: null, games: ['tft', 'lor'], stats: {} }];
+  assert.deepEqual(ids(visibleAccounts(list, { game: 'lol' })), ['c', 'a', 'd']);
+  assert.deepEqual(ids(visibleAccounts(list, { game: 'tft', stats: 'tft' })), ['c', 'a', 'e']);
+  assert.deepEqual(ids(visibleAccounts(list, { game: '2xko', stats: 'lol' })), ['c', 'a']);
+  assert.deepEqual(ids(visibleAccounts(list, { game: 'lor', stats: 'val' })), ['c', 'a', 'e']);
+  assert.deepEqual(ids(visibleAccounts(list, { game: 'riot' })), ['c', 'a', 'b', 'd', 'e']);
+});
+
+test('the plate usage line can leave out the sign-in count', async () => {
+  const { usage } = await load('cardList.js');
+  const { TEXT } = await load('cardsText.js');
+  assert.equal(usage({ lastPlayed: ago(2 * 86400e3), signInCount: 17 }, TEXT.pt, NOW, false), 'Jogada há 2 dias');
+  assert.equal(usage({ lastPlayed: null, signInCount: 4 }, TEXT.en, NOW, false), 'Never played');
+});
+
+test('the counter says how many accounts belong only to other games', async () => {
+  const { countLabel } = await load('cardList.js');
+  const { TEXT } = await load('cardsText.js');
+  assert.equal(countLabel({ shown: 10, total: 10, inGame: 10 }, TEXT.pt), '10 contas');
+  assert.equal(countLabel({ shown: 9, total: 10, inGame: 9 }, TEXT.pt), '9 de 10 contas · 1 em outros jogos');
+  assert.equal(countLabel({ shown: 2, total: 10, inGame: 10 }, TEXT.pt), '2 de 10 contas');
+  assert.equal(countLabel({ shown: 1, total: 4, inGame: 2 }, TEXT.en), '1 of 4 accounts · 2 in other games');
+});
+
+test('typing a letter outside a text field starts the search', async () => {
+  const { startsSearch } = await load('cardList.js');
+  assert.equal(startsSearch({ key: 'a' }, false), true);
+  assert.equal(startsSearch({ key: '#' }, false), true);
+  for (const event of [{ key: 'a', ctrlKey: true }, { key: 'a', altKey: true }, { key: 'a', metaKey: true }, { key: ' ' }, { key: 'Enter' }, { key: 'ArrowDown' }]) assert.equal(startsSearch(event, false), false, JSON.stringify(event));
+  assert.equal(startsSearch({ key: 'a' }, true), false);
+});
+
+test('no account starts selected, a second click on the selected one clears it, and a hidden one is dropped', async () => {
+  const { toggleSelection, keptSelection } = await load('cardList.js');
+  const shown = [{ id: 'a' }, { id: 'b' }];
+  assert.equal(keptSelection(null, shown), null);
+  assert.equal(toggleSelection(null, 'a'), 'a');
+  assert.equal(toggleSelection('a', 'b'), 'b');
+  assert.equal(toggleSelection('a', 'a'), null);
+  assert.equal(keptSelection('a', shown), 'a');
+  assert.equal(keptSelection('z', shown), null);
+  assert.equal(keptSelection('a', []), null);
 });

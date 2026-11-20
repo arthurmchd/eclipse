@@ -425,7 +425,7 @@ impl ManagerService {
     }
 
     fn save_settings(&self, input: &Value) -> Result<Value, Failure> {
-        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "cardLayout", "cardSort", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
+        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "cardLayout", "cardSort", "uiSounds", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
         let mut clean = SettingsInput::default();
         for (key, value) in input.as_object().unwrap() {
             match key.as_str() {
@@ -434,6 +434,7 @@ impl ManagerService {
                     clean.refresh_minutes = Some(minutes);
                 }
                 "staySignedIn" => clean.stay_signed_in = Some(value.as_bool().ok_or_else(|| Failure::new("Invalid setting", 400))?),
+                "uiSounds" => clean.ui_sounds = Some(value.as_bool().ok_or_else(|| Failure::new("Invalid setting", 400))?),
                 "language" => {
                     let language = value.as_str().filter(|language| LANGUAGES.contains(language)).ok_or_else(|| Failure::new("Invalid setting", 400))?;
                     clean.language = Some(language.to_string());

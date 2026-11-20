@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Eclipse",
-  "version": "2.10.3",
+  "version": "2.15.1",
   "identifier": "Eclipse.AccountManager",
   "build": {
     "frontendDist": "../src/renderer"
@@ -33,6 +33,15 @@
       "../node_modules/@fontsource/inter/400.css": "node_modules/@fontsource/inter/400.css",
       "../node_modules/@fontsource/inter/files/inter-*-400-normal.woff2": "node_modules/@fontsource/inter/files/",
       "../node_modules/@fontsource/inter/files/inter-*-400-normal.woff": "node_modules/@fontsource/inter/files/",
+      "../node_modules/@fontsource/inter/500.css": "node_modules/@fontsource/inter/500.css",
+      "../node_modules/@fontsource/inter/files/inter-*-500-normal.woff2": "node_modules/@fontsource/inter/files/",
+      "../node_modules/@fontsource/inter/files/inter-*-500-normal.woff": "node_modules/@fontsource/inter/files/",
+      "../node_modules/@fontsource/inter/600.css": "node_modules/@fontsource/inter/600.css",
+      "../node_modules/@fontsource/inter/files/inter-*-600-normal.woff2": "node_modules/@fontsource/inter/files/",
+      "../node_modules/@fontsource/inter/files/inter-*-600-normal.woff": "node_modules/@fontsource/inter/files/",
+      "../node_modules/@fontsource/inter/700.css": "node_modules/@fontsource/inter/700.css",
+      "../node_modules/@fontsource/inter/files/inter-*-700-normal.woff2": "node_modules/@fontsource/inter/files/",
+      "../node_modules/@fontsource/inter/files/inter-*-700-normal.woff": "node_modules/@fontsource/inter/files/",
       "../node_modules/@fontsource/teko/500.css": "node_modules/@fontsource/teko/500.css",
       "../node_modules/@fontsource/teko/600.css": "node_modules/@fontsource/teko/600.css",
       "../node_modules/@fontsource/teko/files/teko-*-500-normal.woff2": "node_modules/@fontsource/teko/files/",

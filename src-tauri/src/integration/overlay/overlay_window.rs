@@ -80,7 +80,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, host: Arc<ManagerHost>, log: Arc<d
     let cards = window.add_child(
         sealed(WebviewBuilder::new(CARDS_LABEL, WebviewUrl::CustomProtocol(url(CARDS_PAGE))), CARDS_PAGE)
             .initialization_script(bridge_script())
-            .background_color(Color(0xf2, 0xf2, 0xf2, 0xff))
+            .background_color(Color(0x0a, 0x0a, 0x0a, 0xff))
             .on_new_window(move |target, _| {
                 if target.scheme() == "https" {
                     let host = host.clone();
