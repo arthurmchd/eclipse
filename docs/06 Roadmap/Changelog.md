@@ -9,7 +9,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 
 ## 2026-11-20 · Repositório público e primeiro release
 
-- Pedido do usuário: "consegue colocar no github? e um release para qualquer um poder baixar". O repositório passa a público, e cada versão sai como release com o Setup e o SHA-256. O README ganhou "Baixar", o aviso do SmartScreen e o aviso de projeto de fã da Riot ([[Estudo - Visual da Riot]]).
+- Pedido do usuário: "consegue colocar no github? e um release para qualquer um poder baixar". O PR #5 levou o `migracao/tauri` ao `main`, e o primeiro release público, `v2.15.1`, saiu com o Setup e o SHA-256. O passo a passo está em [[Publicar no GitHub]]. O README ganhou "Baixar", o aviso do SmartScreen e o aviso de projeto de fã da Riot ([[Estudo - Visual da Riot]]).
 
 ## 2026-11-20 · Eclipse 2.15.1: sons ligados por padrão
 
