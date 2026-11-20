@@ -3,10 +3,33 @@ use super::riot_state::{Look, RiotProbe, Services};
 use super::{check, same_riot_id, AccountState, Cancel, Response, RiotError, RiotId, RiotResult};
 
 pub const AUTOMATIC_CHECK_GRACE_MS: u64 = 12_000;
+const TWO_FACTOR: &str = "Riot needs your 2FA code. Enter it in the Riot window";
+const SECURITY_CHECK: &str = "Riot needs a security check. Complete it in the Riot window";
+const UNFINISHED: &str = "Riot has not finished signing in. Check the Riot window in case it needs you";
 pub const GAME_OPEN_TIMEOUT_MS: u64 = 180_000;
 pub const GAME_UPDATE_TIMEOUT_MS: u64 = 1_200_000;
 pub const RELAUNCH_INTERVAL_MS: u64 = 15_000;
-pub const GAMES: [&str; 4] = ["lol", "tft", "val", "riot"];
+pub const GAMES: [&str; 6] = ["lol", "tft", "val", "2xko", "lor", "riot"];
+
+fn starting_status(game: &str) -> &'static str {
+    match game {
+        "val" => "Starting VALORANT in the background…",
+        "tft" => "Starting Teamfight Tactics in the background…",
+        "2xko" => "Starting 2XKO in the background…",
+        "lor" => "Starting Legends of Runeterra in the background…",
+        _ => "Starting League of Legends in the background…",
+    }
+}
+
+fn updating_status(game: &str) -> &'static str {
+    match game {
+        "val" => "Waiting for the VALORANT update to finish…",
+        "tft" => "Waiting for the Teamfight Tactics update to finish…",
+        "2xko" => "Waiting for the 2XKO update to finish…",
+        "lor" => "Waiting for the Legends of Runeterra update to finish…",
+        _ => "Waiting for the League of Legends update to finish…",
+    }
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Closed {
@@ -145,6 +168,7 @@ struct Flow<'a> {
     native_authentication_complete: bool,
     native_attention_pending: bool,
     native_attention_revealed: bool,
+    confirmed_step: bool,
     automatic_check_until: u64,
     restored_yaml: Option<String>,
     interface_open: bool,
@@ -200,13 +224,19 @@ impl<'a> Flow<'a> {
         let state = self.io.read_authentication_state()?;
         match state {
             Some(current) if current.kind == AuthKind::Multifactor => {
-                self.authentication_attention("Riot needs your 2FA code. Enter it in the Riot window", true)?;
+                self.confirmed_step = true;
+                self.authentication_attention(TWO_FACTOR, true)?;
             }
             Some(current) if current.error == Some("captcha_not_allowed") || current.kind == AuthKind::Challenge => {
                 if self.io.now() < self.automatic_check_until {
                     return Ok(state);
                 }
-                self.authentication_attention("Riot needs a security check. Complete it in the Riot window", true)?;
+                if current.error == Some("captcha_not_allowed") {
+                    self.confirmed_step = true;
+                    self.authentication_attention(SECURITY_CHECK, true)?;
+                } else {
+                    self.authentication_attention(UNFINISHED, true)?;
+                }
             }
             Some(AuthState { error: Some(error), .. }) => {
                 return Err(RiotError::new(match error {
@@ -343,12 +373,10 @@ impl<'a> Flow<'a> {
     fn launch_game(&mut self) -> RiotResult<()> {
         let request = self.request;
         let game = request.game.as_str();
-        self.signed_in_status(if game == "val" { "Starting VALORANT in the background…" } else { "Starting League of Legends in the background…" });
+        self.signed_in_status(starting_status(game));
         let io = self.io;
         let is_game_ready = || -> RiotResult<bool> {
-            let running = io.running_games()?;
-            let process = if game == "val" { running.val } else { running.lol };
-            Ok(process && io.game_window(game)?)
+            Ok(io.running_games()?.game(game) && io.game_window(game)?)
         };
         let mut ready = is_game_ready()?;
         self.check()?;
@@ -373,7 +401,7 @@ impl<'a> Flow<'a> {
                 if outdated(&launch) {
                     if !updating {
                         updating = true;
-                        self.signed_in_status(if game == "val" { "Waiting for the VALORANT update to finish…" } else { "Waiting for the League of Legends update to finish…" });
+                        self.signed_in_status(updating_status(game));
                     }
                     if io.now() - requested_at >= RELAUNCH_INTERVAL_MS {
                         launch = io.request_launch(game, &quiet)?;
@@ -492,16 +520,18 @@ impl<'a> Flow<'a> {
             } else {
                 self.log("sign-in requested through the Riot background service")?;
                 if direct.needs_attention {
-                    self.attention(if direct.reason == Some("multifactor") {
-                        "Riot needs your 2FA code. Enter it in the Riot window"
-                    } else {
-                        "Riot needs a security check. Complete it in the Riot window"
-                    });
+                    let text = match direct.reason {
+                        Some("multifactor") => TWO_FACTOR,
+                        Some("security_check") => SECURITY_CHECK,
+                        _ => UNFINISHED,
+                    };
+                    self.confirmed_step = text != UNFINISHED;
+                    self.attention(text);
                 }
             }
             self.check()?;
             if !self.await_authorization(180_000)? {
-                return Err(RiotError::new(if self.native_attention_pending {
+                return Err(RiotError::new(if self.native_attention_pending && self.confirmed_step {
                     "Sign-in timed out waiting for your attention. Complete the pending step in Riot Client, then try Play again"
                 } else {
                     "Sign-in timed out. Open the Riot Client to see what happened"
@@ -511,7 +541,11 @@ impl<'a> Flow<'a> {
 
         let state = self.auth_state()?;
         if is_human_step(state) && !self.await_authorization(180_000)? {
-            return Err(RiotError::new("Riot security check timed out. Open the Riot Client to continue"));
+            return Err(RiotError::new(if self.confirmed_step {
+                "Riot security check timed out. Open the Riot Client to continue"
+            } else {
+                "Sign-in timed out. Open the Riot Client to see what happened"
+            }));
         }
 
         self.native_authentication_complete = true;
@@ -568,6 +602,7 @@ pub fn sign_in(io: &dyn SignInIo, request: &SignInRequest) -> RiotResult<SignInO
         native_authentication_complete: false,
         native_attention_pending: false,
         native_attention_revealed: false,
+        confirmed_step: false,
         automatic_check_until: 0,
         restored_yaml: None,
         interface_open: false,

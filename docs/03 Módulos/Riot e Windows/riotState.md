@@ -42,6 +42,7 @@ tags: [módulo]
 
 ## Invariantes e decisões
 
+- **Em jogo com qualquer um dos cinco (2026-11-19).** `in_game` usa `RunningGames::any_game`, que inclui TFT, 2XKO e Runeterra ([[ADR-038 TFT, 2XKO e Runeterra no Eclipse]]).
 - **Uma olhada, uma consulta por pergunta.** As respostas ficam guardadas só dentro da olhada, então duas perguntas sobre a mesma coisa nunca se contradizem. Cada decisão pede uma olhada nova; guardar uma olhada entre decisões daria respostas velhas.
 - **Riot fechada não é consultada.** Sem processo da Riot, a conta é `'no'` e os serviços `'off'`, sem chamar a API local. Era a regra do fechamento de tudo e do guardião, e agora vale para todos.
 - **Conta em três valores.** Só `'yes'` e `'no'` são respostas firmes. Erro, resposta inesperada ou ausência de `authorization` viram `'unknown'`, que não prova nada ([[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]).

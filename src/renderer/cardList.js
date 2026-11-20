@@ -3,9 +3,6 @@ import { rankOf, LOL_TIERS, VAL_GROUPS } from './ranks.js';
 
 export const SORTS = ['manual', 'rank', 'name', 'recent'];
 export const ACCOUNT_GAMES = ['lol', 'val'];
-export const SUGGESTED_TAGS = ['Main', 'Smurf', 'Duo'];
-export const MAX_TAGS = 8;
-export const CARD_COLORS = ['#e8505b', '#e8b04f', '#33cc80', '#4fc1bb', '#7b8ff7', '#c06bf0', '#f0587f', '#a9bcc6'];
 export const BATCH_LIMIT = 50;
 
 export const sortOf = (settings) => SORTS.includes(settings?.cardSort) ? settings.cardSort : 'manual';
@@ -13,7 +10,6 @@ export const gamesOf = (account) => {
   const games = Array.isArray(account?.games) ? ACCOUNT_GAMES.filter((game) => account.games.includes(game)) : [];
   return games.length ? games : ACCOUNT_GAMES;
 };
-export const tagsOf = (account) => Array.isArray(account?.tags) ? account.tags.filter((tag) => typeof tag === 'string' && tag) : [];
 
 const fold = (value) => String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -25,25 +21,10 @@ export function tierOf(account, game) {
   return rankOf(account, game, GAME_QUEUES[game][0]).group;
 }
 
-export function allTags(accounts) {
-  const seen = new Map();
-  for (const tag of [...SUGGESTED_TAGS, ...accounts.flatMap(tagsOf)]) if (!seen.has(fold(tag))) seen.set(fold(tag), tag);
-  return [...seen.values()];
-}
-
-export function parseTags(value) {
-  const seen = new Map();
-  for (const raw of String(value ?? '').split(',')) {
-    const tag = raw.trim().slice(0, 24);
-    if (tag && !seen.has(fold(tag))) seen.set(fold(tag), tag);
-  }
-  return [...seen.values()].slice(0, MAX_TAGS);
-}
-
 export function matches(account, query) {
   const words = fold(query).split(/\s+/).filter(Boolean);
   if (!words.length) return true;
-  const haystack = fold([account.gameName, `#${account.tagLine}`, account.username, account.note, ...tagsOf(account)].join(' '));
+  const haystack = fold([account.gameName, `#${account.tagLine}`, account.username].join(' '));
   return words.every((word) => haystack.includes(word));
 }
 
@@ -52,14 +33,13 @@ const time = (value) => {
   return Number.isFinite(parsed) ? parsed : -Infinity;
 };
 
-export function visibleAccounts(accounts, { game = 'lol', stats = 'lol', query = '', region = '', tier = '', tag = '', sort = 'manual' } = {}) {
+export function visibleAccounts(accounts, { game = 'lol', stats = 'lol', query = '', region = '', tier = '', sort = 'manual' } = {}) {
   const order = new Map(accounts.map((account, index) => [account.id, index]));
   const list = accounts.filter((account) =>
-    (game === 'riot' || gamesOf(account).includes(game))
+    (!ACCOUNT_GAMES.includes(game === 'tft' ? 'lol' : game) || gamesOf(account).includes(game === 'tft' ? 'lol' : game))
     && matches(account, query)
     && (!region || account.region === region)
-    && (!tier || tierOf(account, stats) === tier)
-    && (!tag || tagsOf(account).some((item) => fold(item) === fold(tag))));
+    && (!tier || tierOf(account, stats) === tier));
   const score = (account) => rankOf(account, stats, GAME_QUEUES[stats][0]).score;
   const compare = {
     manual: () => 0,
@@ -70,8 +50,8 @@ export function visibleAccounts(accounts, { game = 'lol', stats = 'lol', query =
   return list.sort((a, b) => (Number(b.pinned === true) - Number(a.pinned === true)) || compare(a, b) || order.get(a.id) - order.get(b.id));
 }
 
-export function canReorder({ query = '', region = '', tier = '', tag = '', sort = 'manual' } = {}) {
-  return sort === 'manual' && !query.trim() && !region && !tier && !tag;
+export function canReorder({ query = '', region = '', tier = '', sort = 'manual' } = {}) {
+  return sort === 'manual' && !query.trim() && !region && !tier;
 }
 
 export function moveId(ids, id, target) {

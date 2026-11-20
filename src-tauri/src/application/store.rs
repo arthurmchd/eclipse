@@ -14,7 +14,7 @@ use serde_json::{json, Map, Value};
 use crate::platform::windows::safe_storage::Cipher;
 
 pub const RETIRED_SETTINGS: [&str; 4] = ["minimizeOnLaunch", "hideRiotClient", "closeRiotClient", "streamerMode"];
-const BACKUP_ACCOUNT_FIELDS: [&str; 15] = ["id", "createdAt", "gameName", "tagLine", "region", "valRegion", "username", "password", "note", "lastSeason", "ban", "pinned", "tags", "color", "games"];
+const BACKUP_ACCOUNT_FIELDS: [&str; 13] = ["id", "createdAt", "gameName", "tagLine", "region", "valRegion", "username", "password", "note", "lastSeason", "ban", "pinned", "games"];
 pub const ACCOUNT_GAMES: [&str; 2] = ["lol", "val"];
 const BACKUP_LIMIT: usize = 30;
 const LOG_LIMIT: u64 = 200 * 1024;
@@ -40,8 +40,6 @@ pub struct AccountInput {
     pub note: String,
     pub last_season: Map<String, Value>,
     pub ban: Value,
-    pub tags: Vec<String>,
-    pub color: Option<String>,
     pub games: Vec<String>,
 }
 
@@ -347,8 +345,8 @@ impl Store {
         }
         account.insert("lastSeason".into(), Value::Object(seasons));
         account.insert("ban".into(), if input.ban.is_object() { input.ban.clone() } else { Value::Null });
-        account.insert("tags".into(), json!(input.tags));
-        account.insert("color".into(), input.color.map(Value::String).unwrap_or(Value::Null));
+        account.remove("tags");
+        account.remove("color");
         let games: Vec<&str> = ACCOUNT_GAMES.iter().copied().filter(|game| input.games.iter().any(|chosen| chosen == game)).collect();
         account.insert("games".into(), json!(if games.is_empty() { ACCOUNT_GAMES.to_vec() } else { games }));
         let new_password = input.password.as_deref().filter(|password| !password.is_empty());

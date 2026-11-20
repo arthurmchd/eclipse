@@ -328,7 +328,7 @@ fn language_is_saved_only_as_pt_or_en_and_announces_the_settings_change() {
 }
 
 #[test]
-fn tags_colors_and_games_are_validated_before_they_are_saved() {
+fn games_are_validated_before_they_are_saved_and_tags_or_a_color_are_refused() {
     let f = fixture();
     let base = json!({ "gameName": "Meta", "tagLine": "BR1", "region": "br1", "username": "meta-fixture-user", "password": "meta-fixture-password" });
     let with = |key: &str, value: Value| {
@@ -336,16 +336,12 @@ fn tags_colors_and_games_are_validated_before_they_are_saved() {
         input[key] = value;
         input
     };
-    let saved = f.service.dispatch("saveAccount", &[with("tags", json!([" Main ", "main", "Duo"]))]).unwrap();
-    assert_eq!(saved["tags"], json!(["Main", "Duo"]));
+    let saved = f.service.dispatch("saveAccount", &[base.clone()]).unwrap();
+    assert!(saved.get("tags").is_none());
     assert_eq!(saved["games"], json!(["lol", "val"]));
     let saved = f.service.dispatch("saveAccount", &[with("games", json!(["val", "lol"]))]).unwrap();
     assert_eq!(saved["games"], json!(["lol", "val"]));
-    let saved = f.service.dispatch("saveAccount", &[with("color", json!("#e8505b"))]).unwrap();
-    assert_eq!(saved["color"], "#e8505b");
-    let nine: Vec<String> = (0..9).map(|index| format!("tag{index}")).collect();
-    let long = "x".repeat(25);
-    for (key, value) in [("tags", json!(nine)), ("tags", json!([""])), ("tags", json!([long])), ("tags", json!("Main")), ("color", json!("red")), ("color", json!("#E8505B")), ("games", json!([])), ("games", json!(["tft"])), ("games", json!("lol"))] {
+    for (key, value) in [("tags", json!(["Main"])), ("tags", json!([])), ("color", json!("#e8505b")), ("games", json!([])), ("games", json!(["tft"])), ("games", json!("lol"))] {
         assert_eq!(status(f.service.dispatch("saveAccount", &[with(key, value.clone())])), 400, "{key} {value}");
     }
 }

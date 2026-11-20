@@ -19,7 +19,7 @@ pub type SeenAccount = Box<dyn Fn() -> Option<RiotId> + Send + Sync>;
 pub const OPEN_FAILED: &str = "Could not open the link";
 
 pub fn running_games_json(games: RunningGames) -> Value {
-    json!({ "lol": games.lol, "val": games.val, "client": games.client, "clientWindow": games.client_window })
+    json!({ "lol": games.lol, "val": games.val, "tft": games.tft, "2xko": games.xko, "lor": games.lor, "client": games.client, "clientWindow": games.client_window })
 }
 
 pub struct AppPorts {

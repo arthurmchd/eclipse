@@ -52,8 +52,7 @@ impl<'a> Look<'a> {
     }
 
     pub fn in_game(&self) -> RiotResult<bool> {
-        let state = self.processes()?;
-        Ok(state.lol || state.val)
+        Ok(self.processes()?.any_game())
     }
 
     pub fn window(&self) -> RiotResult<bool> {

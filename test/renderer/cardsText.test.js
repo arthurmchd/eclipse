@@ -13,3 +13,18 @@ test('the card texts have the same keys in Portuguese and English', async () => 
   assert.equal(TEXT.pt.lastMatch(18), 'Última partida: +18 RR');
   assert.equal(TEXT.en.lastMatch(-15), 'Last match: -15 RR');
 });
+
+test('the filter and sort labels stay short so the toolbar fits a 636 px Riot', async () => {
+  const { TEXT } = await import(pathToFileURL(path.join(RENDERER_DIR, 'cardsText.js')).href);
+  for (const text of [TEXT.pt, TEXT.en]) {
+    for (const key of ['allRegions', 'allTiers']) assert.ok(text[key].length <= 10, `${key}: ${text[key]}`);
+    for (const label of Object.values(text.sorts)) assert.ok(label.length <= 15, label);
+    assert.ok(text.searchPlaceholder.length <= 24, text.searchPlaceholder);
+  }
+  assert.deepEqual([TEXT.pt.allRegions, TEXT.pt.allTiers], ['Servidor', 'Elo']);
+  for (const text of [TEXT.pt, TEXT.en]) for (const key of ['allTags', 'filterTag', 'tagsLabel', 'tagsPlaceholder', 'keysHint']) assert.equal(text[key], undefined, key);
+  assert.equal(TEXT.pt.sorts.manual, 'Ordem manual');
+  assert.equal(TEXT.en.sorts.manual, 'Manual order');
+  assert.match(TEXT.pt.dragHint, /^Em Ordem manual/);
+  assert.equal(TEXT.pt.selected, 'Selecionada');
+});

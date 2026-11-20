@@ -8,14 +8,13 @@ use super::language::LANGUAGES;
 
 pub const CARD_LAYOUTS: [&str; 2] = ["plates", "list"];
 pub const CARD_SORTS: [&str; 4] = ["manual", "rank", "name", "recent"];
-pub const MAX_TAGS: usize = 8;
 pub const MAX_BATCH: usize = 50;
-use super::store::{account_riot_id, clean_name, AccountInput, SettingsInput, Store, ACCOUNT_GAMES};
+use super::store::{account_riot_id, AccountInput, SettingsInput, Store, ACCOUNT_GAMES};
 use crate::riot::{same_riot_id, RiotId};
 
 pub const CHANNELS: [&str; 5] = ["account-updated", "refresh-progress", "next-refresh", "sign-in-status", "sign-in-operation"];
-const ACCOUNT_FIELDS: [&str; 20] = ["id", "createdAt", "gameName", "tagLine", "region", "valRegion", "username", "note", "lastSeason", "ban", "pinned", "tags", "color", "games", "signInCount", "stats", "lastPlayed", "lastGame", "hasPassword", "hasSession"];
-const GAMES: [&str; 4] = ["lol", "tft", "val", "riot"];
+const ACCOUNT_FIELDS: [&str; 18] = ["id", "createdAt", "gameName", "tagLine", "region", "valRegion", "username", "note", "lastSeason", "ban", "pinned", "games", "signInCount", "stats", "lastPlayed", "lastGame", "hasPassword", "hasSession"];
+const GAMES: [&str; 6] = ["lol", "tft", "val", "2xko", "lor", "riot"];
 const RESERVED_KEYS: [&str; 3] = ["__proto__", "constructor", "prototype"];
 const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
@@ -215,31 +214,6 @@ fn seasons(value: Option<&Value>) -> Result<Map<String, Value>, Failure> {
     Ok(result)
 }
 
-fn tags(value: Option<&Value>) -> Result<Vec<String>, Failure> {
-    let list = match value {
-        None | Some(Value::Null) => return Ok(Vec::new()),
-        Some(Value::Array(list)) if list.len() <= MAX_TAGS => list,
-        _ => return Err(Failure::invalid()),
-    };
-    let mut result: Vec<String> = Vec::new();
-    for item in list {
-        let tag = clean_name(&text(Some(item), 24, true)?);
-        if !result.iter().any(|kept| kept.to_lowercase() == tag.to_lowercase()) {
-            result.push(tag);
-        }
-    }
-    Ok(result)
-}
-
-fn color(value: Option<&Value>) -> Result<Option<String>, Failure> {
-    static COLOR: OnceLock<Regex> = OnceLock::new();
-    match value {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::String(color)) if COLOR.get_or_init(|| Regex::new(r"^#[0-9a-f]{6}$").unwrap()).is_match(color) => Ok(Some(color.clone())),
-        _ => Err(Failure::invalid()),
-    }
-}
-
 fn games(value: Option<&Value>) -> Result<Vec<String>, Failure> {
     let list = match value {
         None | Some(Value::Null) => return Ok(ACCOUNT_GAMES.iter().map(|game| game.to_string()).collect()),
@@ -375,8 +349,6 @@ impl ManagerService {
             note,
             last_season: seasons(input.get("lastSeason"))?,
             ban: ban(input.get("ban"))?,
-            tags: tags(input.get("tags"))?,
-            color: color(input.get("color"))?,
             games: games(input.get("games"))?,
             password: match input.get("password") {
                 None => None,
@@ -390,7 +362,7 @@ impl ManagerService {
     }
 
     fn save_account(&self, input: &Value) -> Result<Value, Failure> {
-        keys(input, &["id", "gameName", "tagLine", "region", "valRegion", "username", "password", "note", "lastSeason", "ban", "tags", "color", "games"])?;
+        keys(input, &["id", "gameName", "tagLine", "region", "valRegion", "username", "password", "note", "lastSeason", "ban", "games"])?;
         let id = match input.get("id") {
             None | Some(Value::Null) => None,
             Some(Value::String(id)) if id.is_empty() => None,
@@ -416,7 +388,7 @@ impl ManagerService {
         let mut clean = Vec::with_capacity(items.len());
         for (index, item) in items.iter().enumerate() {
             let line = |failure: Failure| Failure::new(&format!("Line {}: {}", index + 1, failure.message), failure.status);
-            keys(item, &["gameName", "tagLine", "region", "valRegion", "username", "password", "note", "tags", "color", "games"]).map_err(line)?;
+            keys(item, &["gameName", "tagLine", "region", "valRegion", "username", "password", "games"]).map_err(line)?;
             clean.push(self.clean_account(item, &context, None).map_err(line)?);
         }
         let saved = self.store.lock().unwrap().add_accounts(clean).map_err(Failure::internal)?;

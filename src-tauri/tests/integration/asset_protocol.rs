@@ -32,7 +32,7 @@ fn served_files() -> Vec<String> {
         assert_eq!(kind, "text/html; charset=utf-8");
         served.push(page.to_string());
         let html = std::fs::read_to_string(&file).unwrap();
-        for reference in html.split('"').filter(|part| [".css", ".js", ".png"].iter().any(|kind| part.ends_with(kind))) {
+        for reference in html.split('"').filter(|part| [".css", ".js", ".png", ".svg"].iter().any(|kind| part.ends_with(kind))) {
             let path = join(folder(page), reference);
             let (file, _) = resolve(&root, &served_url(&path)).unwrap_or_else(|| panic!("{page} loads {path}"));
             assert!(file.is_file(), "{path}");

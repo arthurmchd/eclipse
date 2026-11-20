@@ -46,7 +46,7 @@ impl RiotProbe for Riot {
             return Err(RiotError::new("tasklist failed"));
         }
         let scene = *self.scene.lock().unwrap();
-        Ok(RunningGames { client: scene.client, client_window: scene.client_window, lol: scene.game, val: false })
+        Ok(RunningGames { client: scene.client, client_window: scene.client_window, lol: scene.game, ..RunningGames::default() })
     }
 
     fn session_state(&self) -> RiotResult<Option<AuthState>> {

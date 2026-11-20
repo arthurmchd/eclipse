@@ -51,7 +51,8 @@ tags: [módulo]
 
 ## Invariantes e decisões
 
-- **Etiquetas, cor e jogos (2026-11-15).** `upsert_account` grava `tags`, `color` (ou `null`) e `games` vindos do [[managerService]]; `games` vazio vira `["lol","val"]`. Conta nova começa com `pinned: false` e `signInCount: 0`. `tags`, `color` e `games` entram no instantâneo dos backups; `signInCount` não, como `lastPlayed`.
+- **Jogos (2026-11-15).** `upsert_account` grava `games` vindo do [[managerService]]; `games` vazio vira `["lol","val"]`. Conta nova começa com `pinned: false` e `signInCount: 0`. `games` entra no instantâneo dos backups; `signInCount` não, como `lastPlayed`. As etiquetas (`tags`) saíram em 2026-11-19: salvar a conta apaga as antigas, como a cor, e elas não entram mais nos backups.
+- **Sem cor (2026-11-18).** A cor do cartão saiu a pedido do usuário. `upsert_account` apaga um `color` que tenha ficado de 2.5.0 quando a conta é salva, e os backups não o copiam mais. O `note` continua gravado como antes.
 - **Várias contas num salvamento só.** `add_accounts` cria todas e grava uma vez; se a gravação falhar, nenhuma fica na memória.
 - **Ordem manual.** `reorder_accounts` só aceita uma permutação exata dos ids salvos (sem faltar, sobrar nem repetir) e recusa com "The account list changed"; em falha de gravação, a ordem anterior volta. A ordem é a do próprio vetor `accounts` do `data.json`.
 - **`cardSort`** fica em `manual`, `rank`, `name` ou `recent`; qualquer outro valor salvo aparece como `manual`.

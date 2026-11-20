@@ -12,18 +12,18 @@
   const val = (tier, tierName, rr, extra = {}) => ({ tier, tierName, rr, level: 120, updatedAt: iso(4 * 60000), ...extra });
 
   let accounts = [
-    { id: '1', gameName: 'Piltover Queen', tagLine: 'NA1', region: 'na1', username: 'duoqueen', note: '', tags: ['Main'], color: '#c06bf0', signInCount: 41, lastPlayed: iso(2 * 3600e3), hasPassword: true, lastSeason: { lol: 'Challenger 1302 LP' },
+    { id: '1', gameName: 'Piltover Queen', tagLine: 'NA1', region: 'na1', username: 'duoqueen', note: '', signInCount: 41, lastPlayed: iso(2 * 3600e3), hasPassword: true, lastSeason: { lol: 'Challenger 1302 LP' },
       stats: { lol: lol(301, 4568, e('CHALLENGER', '', 1124, 412, 340, true, { challenger: 1050, grandmaster: 520 }), e('MASTER', '', 88, 40, 31, false, { challenger: 610, grandmaster: 240 })), tft: { ranked: e('DIAMOND', 'I', 75, 60, 50) }, val: val(24, 'Immortal 1', 61, { peak: { tier: 25, name: 'Immortal 2', season: 'e9a3' }, lastSeason: { tier: 23, name: 'Ascendant 3', season: 'e9a3' }, lastChange: 18, ...card('cec2424b-483e-da2e-4369-f0a8822f96b5') }) } },
-    { id: '2', gameName: 'Lux Main', tagLine: 'EUW', region: 'euw1', username: 'gm_lux', note: '', tags: ['Smurf'], signInCount: 12, lastPlayed: iso(26 * 3600e3), hasPassword: true, lastSeason: { lol: 'Master 210 LP' },
+    { id: '2', gameName: 'Lux Main', tagLine: 'EUW', region: 'euw1', username: 'gm_lux', note: '', signInCount: 12, lastPlayed: iso(26 * 3600e3), hasPassword: true, lastSeason: { lol: 'Master 210 LP' },
       stats: { lol: lol(520, 5367, e('GRANDMASTER', '', 512, 290, 251, false, { challenger: 1180, grandmaster: 470 }), null, 'hextech_banner'), tft: { ranked: null }, val: val(21, 'Ascendant 1', 12, { lastChange: -15, ...card('70cecca0-4b4b-9ad4-1652-bebe785ef8e8') }) } },
-    { id: '3', gameName: 'Arcane Scholar', tagLine: 'EUNE', region: 'eun1', username: 'scholarly', note: 'TFT main', tags: ['Main', 'TFT'], games: ['lol'], signInCount: 7, lastPlayed: iso(3 * 86400e3), hasPassword: true, lastSeason: { lol: 'Diamond I', tft: 'Grandmaster' },
+    { id: '3', gameName: 'Arcane Scholar', tagLine: 'EUNE', region: 'eun1', username: 'scholarly', note: 'TFT main', games: ['lol'], signInCount: 7, lastPlayed: iso(3 * 86400e3), hasPassword: true, lastSeason: { lol: 'Diamond I', tft: 'Grandmaster' },
       stats: { lol: lol(380, 6006, e('MASTER', '', 210, 150, 131, false, { challenger: 990, grandmaster: 205 }), null, 'arcanefracturedjinxbanner'), tft: { ranked: e('GRANDMASTER', '', 640, 120, 98) }, val: val(0, 'Unrated', 0) } },
     { id: '4', gameName: 'Hextech Fox', tagLine: 'EUW', region: 'euw1', username: 'mainacc01', note: 'main', lastPlayed: iso(40 * 60000), hasPassword: true, lastSeason: { lol: 'Diamond IV 12 LP' },
       stats: { lol: lol(412, 4895, e('DIAMOND', 'II', 57, 98, 87), e('EMERALD', 'I', 20, 12, 9)), tft: { ranked: e('PLATINUM', 'III', 40, 20, 22) }, val: val(18, 'Diamond 1', 45, { lastChange: 21, ...card('e9c8d760-4d06-4037-4882-6bab3610d9ea') }) } },
-    { id: '5', gameName: 'Kebab Enjoyer', tagLine: 'TR1', region: 'tr1', username: 'smurfy_tr', note: 'smurf', tags: ['Smurf'], signInCount: 3, lastPlayed: iso(9 * 86400e3), hasPassword: true, lastSeason: { lol: 'Platinum I' },
+    { id: '5', gameName: 'Kebab Enjoyer', tagLine: 'TR1', region: 'tr1', username: 'smurfy_tr', note: 'smurf', signInCount: 3, lastPlayed: iso(9 * 86400e3), hasPassword: true, lastSeason: { lol: 'Platinum I' },
       ban: { game: 'lol', permanent: false, until: new Date(now + 6 * 86400e3 + 13 * 3600e3).toISOString() },
       stats: { lol: lol(187, 29, e('EMERALD', 'IV', 23, 70, 72), null, 'spirit_blossom_banner'), tft: { ranked: null }, val: val(9, 'Silver 1', 30, card('50ee5414-45cc-85f6-2ec8-cb96d86f6039')) } },
-    { id: '6', gameName: 'Tidal Wave', tagLine: 'BR1', region: 'br1', username: 'tidalwave', note: 'duo with Leo', tags: ['Duo'], color: '#33cc80', signInCount: 17, lastPlayed: iso(5 * 3600e3), hasPassword: true, lastSeason: { lol: 'Gold I' }, pinned: true,
+    { id: '6', gameName: 'Tidal Wave', tagLine: 'BR1', region: 'br1', username: 'tidalwave', note: 'duo with Leo', signInCount: 17, lastPlayed: iso(5 * 3600e3), hasPassword: true, lastSeason: { lol: 'Gold I' }, pinned: true,
       stats: { lol: lol(143, 1386, e('PLATINUM', 'II', 48, 55, 49), null), tft: { ranked: e('GOLD', 'II', 10, 15, 18) }, val: val(15, 'Platinum 1', 77, { peak: { tier: 17, name: 'Platinum 3', season: 'e8a2' }, lastChange: 23, ...card('910ace70-4d3b-3c53-2c55-5f9fa179caa8') }) } },
     { id: '7', gameName: 'Golden Boy', tagLine: 'KR1', region: 'kr', username: 'goldenboy', note: '', lastPlayed: null, hasPassword: true, lastSeason: {},
       stats: { lol: lol(98, 23, e('GOLD', 'III', 64, 33, 30), null), tft: { ranked: null }, val: val(12, 'Gold 1', 50, card('55f584f9-4684-895d-88e0-a8ada2002d8a')) } },
@@ -68,7 +68,7 @@
       emit('refresh-progress', { done: accounts.length, total: accounts.length });
       return { nextRefresh: nextRefresh() };
     },
-    runningGames: async () => ({ lol: false, val: false, client: false }),
+    runningGames: async () => ({ lol: false, val: false, tft: false, '2xko': false, lor: false, client: false }),
     signIn: async (id, game = 'lol') => {
       if (activeSignIn) return { ok: false, error: 'A sign-in is already in progress' };
       const attempt = activeSignIn = { cancelled: false };

@@ -35,23 +35,24 @@ test('the game tab hides accounts saved for the other game only', async () => {
   assert.deepEqual(gamesOf({ games: [] }), ['lol', 'val']);
 });
 
-test('search ignores case and accents and also looks at tags, notes and login', async () => {
+test('search ignores case and accents and also looks at the login but not at old notes or old tags', async () => {
   const { visibleAccounts } = await load('cardList.js');
   const search = (query) => ids(visibleAccounts(accounts, { game: 'riot', query }));
   assert.deepEqual(search('agil'), ['a']);
   assert.deepEqual(search('CEU'), ['c']);
-  assert.deepEqual(search('duo'), ['a', 'b']);
+  assert.deepEqual(search('duo'), []);
+  assert.deepEqual(search('main'), []);
   assert.deepEqual(search('#br1'), ['c', 'a']);
   assert.deepEqual(search('login-d'), ['d']);
-  assert.deepEqual(search('duo leo'), ['a']);
+  assert.deepEqual(search('leo'), []);
   assert.deepEqual(search('nothing'), []);
 });
 
-test('filters combine server, rank group and tag', async () => {
+test('filters combine server and rank group, and an old tag filter is ignored', async () => {
   const { visibleAccounts, tierOf } = await load('cardList.js');
   assert.deepEqual(ids(visibleAccounts(accounts, { game: 'riot', region: 'br1' })), ['c', 'a']);
   assert.deepEqual(ids(visibleAccounts(accounts, { game: 'riot', tier: 'GOLD' })), ['a', 'd']);
-  assert.deepEqual(ids(visibleAccounts(accounts, { game: 'riot', tag: 'smurf' })), ['b']);
+  assert.deepEqual(ids(visibleAccounts(accounts, { game: 'riot', tag: 'smurf' })), ['c', 'a', 'b', 'd']);
   assert.deepEqual(ids(visibleAccounts(accounts, { game: 'riot', region: 'br1', tier: 'GOLD' })), ['a']);
   assert.equal(tierOf(accounts[1], 'lol'), 'UNRANKED');
   assert.equal(tierOf(accounts[1], 'val'), 'ASCENDANT');
@@ -63,7 +64,8 @@ test('reordering is offered only in the manual order without filters and moves o
   assert.equal(canReorder({ sort: 'rank' }), false);
   assert.equal(canReorder({ query: ' x ' }), false);
   assert.equal(canReorder({ query: '   ' }), true);
-  assert.equal(canReorder({ tag: 'Main' }), false);
+  assert.equal(canReorder({ tier: 'GOLD' }), false);
+  assert.equal(canReorder({ region: 'br1' }), false);
   const list = ['a', 'b', 'c', 'd'];
   assert.deepEqual(moveId(list, 'a', 3), ['b', 'c', 'a', 'd']);
   assert.deepEqual(moveId(list, 'd', 0), ['d', 'a', 'b', 'c']);
@@ -72,13 +74,9 @@ test('reordering is offered only in the manual order without filters and moves o
   assert.deepEqual(moveId(list, 'x', 0), list);
 });
 
-test('tags are trimmed, deduplicated without case and limited to eight', async () => {
-  const { parseTags, allTags } = await load('cardList.js');
-  assert.deepEqual(parseTags(' Main, main ,Duo,, '), ['Main', 'Duo']);
-  assert.equal(parseTags(Array.from({ length: 12 }, (_, index) => `t${index}`).join(',')).length, 8);
-  assert.equal(parseTags('x'.repeat(30))[0].length, 24);
-  assert.deepEqual(allTags(accounts), ['Main', 'Smurf', 'Duo']);
-  assert.deepEqual(allTags([{ tags: ['tft', 'MAIN'] }]), ['Main', 'Smurf', 'Duo', 'tft']);
+test('the tag helpers are gone with the feature', async () => {
+  const list = await load('cardList.js');
+  for (const name of ['tagsOf', 'allTags', 'parseTags', 'SUGGESTED_TAGS', 'MAX_TAGS']) assert.equal(list[name], undefined, name);
 });
 
 test('the usage line says when the account was played and how many sign-ins it had', async () => {
@@ -107,4 +105,11 @@ test('the card sort falls back to the manual order', async () => {
   const { sortOf } = await load('cardList.js');
   assert.equal(sortOf({ cardSort: 'rank' }), 'rank');
   for (const settings of [{}, { cardSort: 'random' }, null]) assert.equal(sortOf(settings), 'manual');
+});
+
+test('TFT follows the League choice of each account and 2XKO and Runeterra show every account', async () => {
+  const { visibleAccounts } = await load('cardList.js');
+  assert.deepEqual(ids(visibleAccounts(accounts, { game: 'tft', stats: 'tft' })), ['c', 'a', 'd']);
+  assert.deepEqual(ids(visibleAccounts(accounts, { game: '2xko', stats: 'lol' })), ['c', 'a', 'b', 'd']);
+  assert.deepEqual(ids(visibleAccounts(accounts, { game: 'lor', stats: 'val' })), ['c', 'a', 'b', 'd']);
 });

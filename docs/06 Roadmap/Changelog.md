@@ -7,6 +7,66 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-19 · Sem aviso falso de verificação
+
+- Um login demorado que terminou em erro de serviço da Riot mostrava "A Riot pede uma verificação de segurança" sem verificação na tela. O aviso vinha só do tempo: qualquer `challenge` depois de 12 s virava verificação ([[signInFlow]], [[riotAuthentication]]).
+- Só 2FA e CAPTCHA recusado pela Riot têm nome. O resto mostra "A Riot ainda não terminou o login. Confira a tela da Riot, caso ela precise de você", e o tempo esgotado diz "O login expirou". O jogo continua sem abrir com algo pendente.
+- Testes novos em `sign_in_flow.rs`, um deles com o caso do log; `riot_authentication.rs` ajustado.
+- Versão 2.10.3, gerada e instalada por cima nesta máquina.
+
+## 2026-11-19 · Ícones .svg no Setup
+
+- No app instalado, os ícones do League, do TFT e do 2XKO apareciam quebrados: o Setup levava só os `.png` de `src/renderer/assets/` ([[assetProtocol]]). Os ícones redesenhados da versão 2.10.0 também eram `.svg` e provavelmente nunca apareceram no app. O Setup passou a levar os `.svg`, e o teste de arquivos do Setup passou a conferi-los.
+- Versão 2.10.2, gerada e instalada por cima nesta máquina.
+
+## 2026-11-19 · Ícones dos jogos baixados pelo usuário, fundo transparente
+
+- Os ícones redesenhados não ficaram bons; o rodapé usa os ícones que o usuário baixou, e a barra de jogos perdeu o bloco escuro ([[cards]]). Fora de uso, os ícones viram silhueta cinza escura.
+- Versão 2.10.1, gerada e instalada por cima nesta máquina.
+
+## 2026-11-19 · Jogos como na Riot, com TFT, 2XKO e Runeterra
+
+- Pedido do usuário, com a captura da barra lateral do Riot Client ([[cards]], [[ADR-038 TFT, 2XKO e Runeterra no Eclipse]]).
+- Rodapé só com ícones, num bloco escuro como o da Riot: League of Legends, VALORANT, Teamfight Tactics, 2XKO, Legends of Runeterra e, separado, o Riot Client. Ícones redesenhados em SVG a partir da captura.
+- O Jogar abre cada jogo pelo seu próprio produto da Riot e espera o processo dele ([[signInFlow]], [[riotClient]], [[windowGuard.ps1]], [[riotState]], [[appPorts]], [[managerService]]). O TFT passou a abrir o `teamfighttactics`, não mais o League.
+- Cartões do TFT com Ranqueada e Dupla. 2XKO e Runeterra não têm elo e mostram o último jogo com elo.
+- Testes novos em `riot_client.rs`, `sign_in_flow.rs`, `riot_state.rs`, `app_ports.rs`, `cardView.test.js` e `cardList.test.js`.
+- Versão 2.10.0, gerada e instalada por cima nesta máquina. 2XKO e Runeterra não estão instalados aqui, então o login deles não foi visto funcionando.
+
+## 2026-11-19 · Sem etiquetas, + só com ícone, ⚙ sem chaves
+
+- Pedido do usuário ([[cards]]):
+  - etiquetas removidas dos cartões, do cadastro, do filtro e da busca;
+  - "+ Adicionar conta" virou só o ícone +;
+  - os campos de chave de API (Riot e HenrikDev) e a dica saíram das configurações.
+- Backend: `tags` saiu do [[managerService]] (recusada como chave extra) e do [[store]], que apaga etiquetas antigas ao salvar e não as copia mais nos backups, como a cor em 2026-11-18. As chaves continuam aceitas e usadas; só não há mais campo para digitá-las.
+- Testes ajustados em `store.rs`, `manager_service.rs`, `cardList.test.js` e `cardsText.test.js`.
+- Versão 2.9.0, gerada e instalada por cima nesta máquina.
+
+## 2026-11-19 · Conta selecionada, filtros e ordem manual
+
+- Pedido do usuário: seguir os três pontos da avaliação de UX, um depois do outro ([[cards]]).
+- Conta selecionada: a placa ganha anel na cor do jogo, sobe um pouco e mostra o selo "Selecionada"; na lista, faixa colorida à esquerda. O foco de teclado virou um contorno escuro separado da seleção.
+- Filtros: "Servidor", "Elo" e "Etiqueta" no lugar de "Todos os…", cada um com a largura do próprio texto, e destaque na cor do jogo quando está em uso. Busca com "Nome, login ou etiqueta". Nada mais é cortado em 757 nem em 636 px.
+- Ordenação: ícone de setas e "Ordem manual" no lugar de "Minha ordem"; "Nome (A–Z)" e "Jogada recente".
+- Teste novo em `cardsText.test.js` para o tamanho desses textos.
+- Versão 2.8.0, gerada e instalada por cima nesta máquina.
+
+## 2026-11-19 · Rodapé só de jogar
+
+- Pedido do usuário: a barra de baixo estava confusa e amontoada ([[cards]]). Das duas versões desenhadas, ele escolheu a que deixa os jogos no rodapé.
+- O rodapé agora tem só as abas dos jogos (com nome, na ordem League of Legends, VALORANT e Riot Client), a conta selecionada com elo e servidor, e o Jogar. Altura de 104 para 88 px.
+- Contador, ↻, "+ Adicionar conta", placas ou lista e ⚙ foram para uma faixa nova entre os filtros e os cartões. ↻ e ⚙ viraram ícones SVG, e a lista vazia ganhou um botão "Adicionar conta".
+- `selectionView` novo em `cardView.js`, com testes em `cardView.test.js`.
+- Versão 2.7.0, gerada e instalada por cima nesta máquina.
+
+## 2026-11-18 · Cor e notas da conta removidas
+
+- Pedido do usuário: tirar a cor do cartão e as notas, que ele não quer usar ([[cards]]). Saíram do cadastro, das placas, da lista, da busca e das traduções.
+- Backend: `color` saiu do [[managerService]] (agora recusada como chave extra) e do [[store]], que apaga uma cor antiga ao salvar a conta e não a copia mais nos backups. O campo `note`, anterior à 2.5.0, continua guardado e preservado ao editar, só não aparece.
+- Testes ajustados no `store.rs`, `manager_service.rs` e `cardList.test.js`.
+- Versão 2.6.0, gerada e instalada por cima nesta máquina. Pedido do usuário no mesmo dia: depois de cada mudança, gerar uma versão nova com Setup e instalá-la.
+
 ## 2026-11-15 · Organizar muitas contas (bloco 1)
 
 - Pedido do usuário: implementar, bloco por bloco, uma lista de recursos tirada de outros gerenciadores. O bloco 1 organiza muitas contas ([[cards]]):

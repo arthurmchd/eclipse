@@ -30,7 +30,10 @@ use crate::platform::windows::windows_environment::local_app_data_for_riot;
 
 pub const LOL_PROCESSES: [&str; 4] = ["LeagueClient.exe", "LeagueClientUx.exe", "LeagueClientUxRender.exe", "League of Legends.exe"];
 pub const VAL_PROCESSES: [&str; 2] = ["VALORANT.exe", "VALORANT-Win64-Shipping.exe"];
-pub const GAME_PROCESSES: [&str; 6] = ["LeagueClient.exe", "LeagueClientUx.exe", "LeagueClientUxRender.exe", "League of Legends.exe", "VALORANT.exe", "VALORANT-Win64-Shipping.exe"];
+pub const TFT_PROCESSES: [&str; 2] = ["TFTClient.exe", "TFTClient-Win64-Shipping.exe"];
+pub const XKO_PROCESSES: [&str; 2] = ["Lion.exe", "Lion-Win64-Shipping.exe"];
+pub const LOR_PROCESSES: [&str; 1] = ["LoR.exe"];
+pub const GAME_PROCESSES: [&str; 11] = ["LeagueClient.exe", "LeagueClientUx.exe", "LeagueClientUxRender.exe", "League of Legends.exe", "VALORANT.exe", "VALORANT-Win64-Shipping.exe", "TFTClient.exe", "TFTClient-Win64-Shipping.exe", "Lion.exe", "Lion-Win64-Shipping.exe", "LoR.exe"];
 pub const CLIENT_PROCESSES: [&str; 4] = ["RiotClientServices.exe", "Riot Client.exe", "RiotClientUx.exe", "RiotClientUxRender.exe"];
 pub const CLIENT_WINDOWS: [&str; 2] = ["Riot Client.exe", "RiotClientUx.exe"];
 pub const QUIT: &str = "/process-control/v1/process/quit";
@@ -72,7 +75,15 @@ pub fn parse_tasklist(output: &str) -> HashSet<String> {
 
 pub fn running_games_in(processes: &HashSet<String>) -> RunningGames {
     let any = |names: &[&str]| names.iter().any(|name| processes.contains(&name.to_lowercase()));
-    RunningGames { lol: any(&LOL_PROCESSES), val: any(&VAL_PROCESSES), client: any(&CLIENT_PROCESSES), client_window: any(&CLIENT_WINDOWS) }
+    RunningGames {
+        lol: any(&LOL_PROCESSES),
+        val: any(&VAL_PROCESSES),
+        tft: any(&TFT_PROCESSES),
+        xko: any(&XKO_PROCESSES),
+        lor: any(&LOR_PROCESSES),
+        client: any(&CLIENT_PROCESSES),
+        client_window: any(&CLIENT_WINDOWS),
+    }
 }
 
 pub fn running_processes() -> RiotResult<HashSet<String>> {
@@ -439,7 +450,7 @@ pub fn close_everything(io: &dyn CloseIo, log: &dyn Fn(&str)) -> RiotResult<Clos
     let gone = io.wait_for(
         &mut || {
             let state = io.running_games()?;
-            Ok(!state.lol && !state.val && !state.client)
+            Ok(!state.any_game() && !state.client)
         },
         10_000,
         250,
@@ -474,8 +485,11 @@ pub fn start_client(io: &dyn StartIo, client_path: &str) -> RiotResult<bool> {
 
 fn product(game: &str) -> Option<&'static str> {
     match game {
-        "lol" | "tft" => Some("league_of_legends"),
+        "lol" => Some("league_of_legends"),
         "val" => Some("valorant"),
+        "tft" => Some("teamfighttactics"),
+        "2xko" => Some("lion"),
+        "lor" => Some("bacon"),
         _ => None,
     }
 }

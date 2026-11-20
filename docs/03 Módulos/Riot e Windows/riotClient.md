@@ -115,6 +115,7 @@ Criado por `createLaunchRequester({ localApi })`, exportado para os testes.
 
 ## Invariantes e decisões
 
+- **Produtos e processos dos cinco jogos (2026-11-19, [[ADR-038 TFT, 2XKO e Runeterra no Eclipse]]).** `product` manda `lol` para `league_of_legends`, `val` para `valorant`, `tft` para `teamfighttactics` (antes ia para o League), `2xko` para `lion` e `lor` para `bacon`. `RunningGames` ganhou `tft`, `xko` e `lor`, lidos de `TFT_PROCESSES`, `XKO_PROCESSES` e `LOR_PROCESSES`, e os métodos `game` e `any_game`. `GAME_PROCESSES`, fechados ao trocar de conta, inclui os cinco jogos, e `close_everything` espera todos fecharem.
 - **Estado da Riot pelo [[riotState]].** Desde 2026-11-07 ([[ADR-029 Estado da Riot definido num lugar só]]), o `RiotClient` implementa a `RiotProbe` com as consultas reais e entrega `look()`. O `close_everything` usa a mesma regra. As consultas soltas de "Riot rodando" e "autorizada" deixaram de sair do módulo; continuam internas, entregues ao [[signInFlow]].
 - **Sem `error:focus` e sem interface escondida.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saiu o ramo `error:focus`, que o [[login.ps1]] nunca emitia, e o `visible: true` explícito das chamadas ao [[riotInterface]], que agora sempre abre a interface visível.
 - `open_client` usa o mesmo abridor quando os serviços já rodam sem interface; pede a janela ao backend antes de considerar outro início. Executar novamente apenas o exe não garantia uma janela.

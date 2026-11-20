@@ -28,7 +28,7 @@ fn ports(changed: Arc<Mutex<Vec<Value>>>, opened: Arc<Mutex<Vec<String>>>) -> (A
     let ports = AppPorts {
         sign_in,
         refresher,
-        running_games: Box::new(|| Ok(RunningGames { lol: true, val: false, client: true, client_window: false })),
+        running_games: Box::new(|| Ok(RunningGames { lol: true, lor: true, client: true, ..RunningGames::default() })),
         open_external: Box::new(move |url| {
             opened.lock().unwrap().push(url.to_string());
             if url.contains("fail") {
@@ -64,8 +64,8 @@ fn running_games_links_and_settings_go_to_their_own_handlers_without_leaking_det
     let changed: Arc<Mutex<Vec<Value>>> = Arc::default();
     let opened: Arc<Mutex<Vec<String>>> = Arc::default();
     let (ports, timers, _dir) = ports(changed.clone(), opened.clone());
-    assert_eq!(ports.running_games().unwrap(), json!({ "lol": true, "val": false, "client": true, "clientWindow": false }));
-    assert_eq!(running_games_json(RunningGames::default()), json!({ "lol": false, "val": false, "client": false, "clientWindow": false }));
+    assert_eq!(ports.running_games().unwrap(), json!({ "lol": true, "val": false, "tft": false, "2xko": false, "lor": true, "client": true, "clientWindow": false }));
+    assert_eq!(running_games_json(RunningGames::default()), json!({ "lol": false, "val": false, "tft": false, "2xko": false, "lor": false, "client": false, "clientWindow": false }));
     assert!(ports.open_external("https://developer.riotgames.com").is_ok());
     let failure = ports.open_external("https://fail.invalid").unwrap_err();
     assert_eq!(failure.message, OPEN_FAILED);

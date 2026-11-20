@@ -350,7 +350,7 @@ fn sign_in_lines_go_to_their_own_log_which_rolls_over_past_its_limit() {
 }
 
 #[test]
-fn tags_color_and_games_are_saved_and_a_missing_game_list_means_both_games() {
+fn games_are_saved_a_missing_game_list_means_both_games_and_an_old_color_or_tags_are_dropped() {
     let (_dir, mut store) = temporary_store();
     let saved = store
         .upsert_account(AccountInput {
@@ -358,21 +358,19 @@ fn tags_color_and_games_are_saved_and_a_missing_game_list_means_both_games() {
             tag_line: "BR1".into(),
             username: "fictional-tagged".into(),
             password: Some("fictional-password".into()),
-            tags: vec!["Main".into(), "Duo".into()],
-            color: Some("#33cc80".into()),
             games: vec!["val".into()],
             ..AccountInput::default()
         })
         .unwrap();
-    assert_eq!(saved["tags"], json!(["Main", "Duo"]));
-    assert_eq!(saved["color"], "#33cc80");
+    assert!(!saved.contains_key("tags"));
     assert_eq!(saved["games"], json!(["val"]));
     assert_eq!(saved["pinned"], false);
     assert_eq!(saved["signInCount"], 0);
     let id = saved["id"].as_str().unwrap().to_string();
+    store.update_account_fields(&id, fields(json!({ "color": "#33cc80", "tags": ["Main", "Duo"] }))).unwrap();
     let edited = store.upsert_account(AccountInput { id: Some(id), game_name: "Tagged".into(), tag_line: "BR1".into(), username: "fictional-tagged".into(), ..AccountInput::default() }).unwrap();
-    assert_eq!(edited["tags"], json!([]));
-    assert_eq!(edited["color"], Value::Null);
+    assert!(!edited.contains_key("tags"));
+    assert!(!edited.contains_key("color"));
     assert_eq!(edited["games"], json!(["lol", "val"]));
 }
 

@@ -1,12 +1,11 @@
-import { GAME_QUEUES, LAYOUTS, layoutOf, accountView } from './cardView.js';
-import { SORTS, CARD_COLORS, sortOf, gamesOf, tagsOf, allTags, parseTags, tierOptions, visibleAccounts, canReorder, moveId, usage, parseBatch } from './cardList.js';
+import { GAME_QUEUES, GAME_NAMES, LAYOUTS, layoutOf, accountView, selectionView } from './cardView.js';
+import { SORTS, sortOf, gamesOf, tierOptions, visibleAccounts, canReorder, moveId, usage, parseBatch } from './cardList.js';
 import { VAL_GROUPS } from './ranks.js';
 import { textFor, translatePage } from './cardsText.js';
 
 const api = window.api;
 const $ = selector => document.querySelector(selector);
-const state = { accounts: [], selectedId: null, game: 'lol', stats: 'lol', operation: null, regions: {}, settings: {}, editing: null, submitting: false, lastRefresh: null, refreshing: false, seenAccount: null, filters: { query: '', region: '', tier: '', tag: '' }, addMode: 'single' };
-const games = { riot: 'Riot Client', lol: 'League of Legends', val: 'VALORANT' };
+const state = { accounts: [], selectedId: null, game: 'lol', stats: 'lol', operation: null, regions: {}, settings: {}, editing: null, submitting: false, lastRefresh: null, refreshing: false, seenAccount: null, filters: { query: '', region: '', tier: '' }, addMode: 'single' };
 const drag = { id: null, pointer: null, startX: 0, startY: 0, active: false, target: null, after: false, ended: false };
 const t = () => textFor(state.settings.language);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -49,9 +48,7 @@ function renderToolbar(text) {
   state.filters.region = fillSelect($('#filter-region'), [['', text.allRegions], ...regionIds.map(id => [id, state.regions[id]?.label || id])], state.filters.region);
   $('#filter-region').hidden = regionIds.length < 2 && !state.filters.region;
   state.filters.tier = fillSelect($('#filter-tier'), [['', text.allTiers], ...tierOptions(state.stats).map(id => [id, tierLabel(id, text)])], state.filters.tier);
-  const tags = allTags(state.accounts).filter(tag => state.accounts.some(account => tagsOf(account).some(item => item.toLowerCase() === tag.toLowerCase())));
-  state.filters.tag = fillSelect($('#filter-tag'), [['', text.allTags], ...tags.map(tag => [tag, tag])], state.filters.tag);
-  $('#filter-tag').hidden = !tags.length && !state.filters.tag;
+  for (const [id, value] of [['#filter-region', state.filters.region], ['#filter-tier', state.filters.tier]]) $(id).classList.toggle('is-active', Boolean(value));
   const sort = fillSelect($('#sort'), SORTS.map(id => [id, text.sorts[id]]), sortOf(state.settings));
   $('#sort').title = sort === 'manual' ? text.dragHint : text.sortLabel;
   $('#toolbar').hidden = !state.accounts.length;
@@ -73,14 +70,15 @@ function render() {
   const running = state.operation?.status === 'running';
   $('#status').hidden = !running || !state.operation.needsAttention;
   $('#status-text').textContent = text.attention;
-  for (const element of document.querySelectorAll('nav button, .footer-tools button')) element.disabled = busy();
+  for (const element of document.querySelectorAll('#games button, .view-bar button')) element.disabled = busy();
   $('#play').disabled = running ? false : busy() || !selected?.hasPassword;
   $('#play').classList.toggle('is-cancel', running);
   $('#play').innerHTML = running ? esc(text.cancel) : busy() ? esc(text.signingIn) : `${esc(state.game === 'riot' ? text.enter : text.play)} <span aria-hidden="true">→</span>`;
-  $('#selected-name').textContent = selected ? `${selected.gameName} #${selected.tagLine}` : text.selectAccount;
-  $('#selected-game').textContent = selected && !selected.hasPassword ? text.addPassword : `${games[state.game]}${selected ? ' · ' + (state.regions[selected.region]?.label || selected.region) : ''}`;
-  $('#selected-name').title = $('#selected-name').textContent;
-  $('#selected-game').title = $('#selected-game').textContent;
+  const chosen = selectionView(selected, state.game, state.regions, text);
+  $('#selected-name').textContent = chosen.name;
+  $('#selected-detail').textContent = chosen.detail;
+  $('#selected-name').title = chosen.name;
+  $('#selected-detail').title = chosen.detail;
   document.body.dataset.theme = state.game;
   for (const button of document.querySelectorAll('[data-game]')) button.setAttribute('aria-pressed', String(button.dataset.game === state.game));
   for (const button of document.querySelectorAll('#layout [data-layout]')) button.setAttribute('aria-pressed', String(button.dataset.layout === layout));
@@ -90,22 +88,20 @@ function render() {
   cards.classList.toggle('can-reorder', reorderable() && !busy());
   const now = Date.now();
   const body = shown.map((account, index) => {
-    const view = { ...accountView(account, state.stats, text), pinned: account.pinned === true, tags: tagsOf(account), note: account.note || '', usage: usage(account, text, now), color: hex(account.color) ? account.color : '' };
+    const view = { ...accountView(account, state.stats, text), pinned: account.pinned === true, usage: usage(account, text, now) };
     const playing = state.operation?.accountId === view.id && busy();
-    return `<article class="account ${layout === 'list' ? 'list-card' : 'plate-card'} ${view.id === state.selectedId ? 'is-selected' : ''} ${playing ? 'is-playing' : ''} ${view.color ? 'has-color' : ''}" data-id="${esc(view.id)}" data-tier="${esc(view.accent)}" data-color="${esc(view.color)}">
+    return `<article class="account ${layout === 'list' ? 'list-card' : 'plate-card'} ${view.id === state.selectedId ? 'is-selected' : ''} ${playing ? 'is-playing' : ''}" data-id="${esc(view.id)}" data-tier="${esc(view.accent)}">
       <input class="account-radio" type="radio" name="account" id="account-${index}" data-account="${esc(view.id)}" ${view.id === state.selectedId ? 'checked' : ''} ${busy() ? 'disabled' : ''}>
-      <label class="account-content" for="account-${index}" ${view.note ? `title="${esc(view.note)}"` : ''}>${layout === 'list' ? row(view, text) : plate(view, text)}</label>
+      ${layout === 'list' ? '' : `<span class="selected-mark" aria-hidden="true">${esc(text.selected)}</span>`}
+      <label class="account-content" for="account-${index}">${layout === 'list' ? row(view, text) : plate(view, text)}</label>
       <button class="pin" data-action="pin" aria-pressed="${view.pinned}" aria-label="${esc(text.pinNamed(view.name, view.pinned))}" title="${esc(view.pinned ? text.unpin : text.pin)}" ${busy() ? 'disabled' : ''}>${view.pinned ? '★' : '☆'}</button>
       <button class="edit" data-action="edit" aria-label="${esc(text.editNamed(view.name))}" title="${esc(text.editAccount)}" ${busy() ? 'disabled' : ''}>···</button>
     </article>`;
   }).join('');
   const filtered = `<div class="empty"><h2>${esc(text.noMatchTitle)}</h2><p>${esc(text.noMatchText)}</p><button type="button" data-action="clear-filters">${esc(text.clearFilters)}</button></div>`;
-  const empty = `<div class="empty"><h2>${esc(text.emptyTitle)}</h2><p>${esc(text.emptyText)}</p></div>`;
+  const empty = `<div class="empty"><h2>${esc(text.emptyTitle)}</h2><p>${esc(text.emptyText)}</p><button type="button" class="primary" data-action="add">${esc(text.addAccount)}</button></div>`;
   cards.innerHTML = shown.length ? (layout === 'list' ? listHead(text) : '') + body : state.accounts.length ? filtered : empty;
-  for (const card of cards.querySelectorAll('[data-tier]')) {
-    if (hex(card.dataset.tier)) card.style.setProperty('--tier', card.dataset.tier);
-    if (hex(card.dataset.color)) card.style.setProperty('--card-color', card.dataset.color);
-  }
+  for (const card of cards.querySelectorAll('[data-tier]')) if (hex(card.dataset.tier)) card.style.setProperty('--tier', card.dataset.tier);
   if (focused) Array.from(document.querySelectorAll('[data-account]')).find(element => element.dataset.account === focused)?.focus({ preventScroll: true });
 }
 
@@ -115,13 +111,6 @@ function avatar(view, className) {
 
 function who(view) {
   return `<span class="who"><strong>${esc(view.name)}</strong><span class="tag">#${esc(view.tag)}</span></span>`;
-}
-
-function chips(view, limit) {
-  if (!view.tags.length) return '';
-  const shown = view.tags.slice(0, limit);
-  const more = view.tags.length - shown.length;
-  return `<span class="chips">${shown.map(tag => `<span class="chip">${esc(tag)}</span>`).join('')}${more > 0 ? `<span class="chip more">+${more}</span>` : ''}</span>`;
 }
 
 function rr(queue) {
@@ -142,7 +131,7 @@ function plate(view, text) {
   return `<span class="plate">
       <span class="avatar">${avatar(view, 'portrait')}${level}</span>
       ${who(view)}
-      <span class="usage">${esc(view.usage)}</span>${chips(view, 3)}${view.note ? `<span class="note">${esc(view.note)}</span>` : ''}
+      <span class="usage">${esc(view.usage)}</span>
       <img class="crest" src="${esc(main.crest)}" alt="" loading="lazy">
       <span class="main"><small class="queue-name">${esc(main.name)}</small><strong class="tier${main.ranked ? '' : ' none'}">${esc(main.tier)}</strong><span class="points">${esc(main.points)}</span></span>
       ${main.played ? `<span class="played">${esc(main.played)}</span>` : ''}${climb(main)}${rr(main)}${others}
@@ -150,14 +139,14 @@ function plate(view, text) {
 }
 
 function listHead(text) {
-  const columns = state.stats === 'val' ? [text.listAccount, text.queues.competitive, text.listProgress] : [text.listAccount, text.queues.solo, text.queues.flex, text.listWins];
+  const columns = [text.listAccount, ...GAME_QUEUES[state.stats].map(queue => text.queues[queue]), state.stats === 'val' ? text.listProgress : text.listWins];
   return `<div class="list-head" aria-hidden="true"><span class="row">${columns.map(name => `<span>${esc(name)}</span>`).join('')}</span><span></span><span></span></div>`;
 }
 
 function row(view, text) {
   const queues = [view.main, ...view.others].map(queue => `<span class="queue-cell"><img src="${esc(queue.crest)}" alt="" loading="lazy"><span><strong>${esc(queue.tier)}</strong><small>${esc([queue.ranked ? queue.points : text.noGames, queue.played].filter(Boolean).join(' · '))}</small></span></span>`).join('');
   const details = [view.level === null ? '' : `${text.level} ${view.level}`, view.usage].filter(Boolean).join(' · ');
-  const head = `<span class="who-cell">${avatar(view, 'portrait')}<span><span class="who-line">${who(view)}${chips(view, 2)}</span><small>${esc(details)}</small></span></span>`;
+  const head = `<span class="who-cell">${avatar(view, 'portrait')}<span><span class="who-line">${who(view)}</span><small>${esc(details)}</small></span></span>`;
   if (state.stats === 'val') return `<span class="row">${head}${queues}<span class="progress-cell">${rr(view.main) || '—'}</span></span>`;
   const { main } = view;
   const tone = main.winrate === null ? '' : main.winrate >= 55 ? 'high' : main.winrate < 50 ? 'low' : '';
@@ -192,19 +181,6 @@ function chosenGames(form) {
   return value === 'lol' || value === 'val' ? [value] : ['lol', 'val'];
 }
 
-function renderTagSuggestions() {
-  const form = $('#account-form');
-  const current = parseTags(form.elements.tags.value).map(tag => tag.toLowerCase());
-  $('#tag-suggestions').innerHTML = allTags(state.accounts).slice(0, 12).map(tag => `<button type="button" class="chip-button" data-tag="${esc(tag)}" aria-pressed="${current.includes(tag.toLowerCase())}">${esc(tag)}</button>`).join('');
-}
-
-function renderColors(value) {
-  const text = t();
-  const box = $('#color-choices');
-  box.innerHTML = ['', ...CARD_COLORS].map(color => `<label class="swatch ${color ? '' : 'none'}" title="${esc(color || text.noColor)}"><input type="radio" name="color" value="${esc(color)}" ${color === value ? 'checked' : ''} aria-label="${esc(color || text.noColor)}"><span data-swatch="${esc(color)}"></span></label>`).join('');
-  for (const swatch of box.querySelectorAll('[data-swatch]')) if (hex(swatch.dataset.swatch)) swatch.style.setProperty('--swatch', swatch.dataset.swatch);
-}
-
 function setAddMode(mode) {
   state.addMode = mode === 'batch' && !state.editing ? 'batch' : 'single';
   const form = $('#account-form');
@@ -227,12 +203,8 @@ function editAccount(account = null) {
   form.elements.username.value = account?.username || '';
   form.elements.region.innerHTML = Object.entries(state.regions).map(([id, region]) => `<option value="${esc(id)}">${esc(region.label)}</option>`).join('');
   form.elements.region.value = account?.region || 'br1';
-  form.elements.tags.value = tagsOf(account).join(', ');
-  form.elements.note.value = account?.note || '';
   const choice = gamesChoice(account);
   for (const input of form.querySelectorAll('input[name=games]')) input.checked = input.value === choice;
-  renderColors(hex(account?.color) ? account.color : '');
-  renderTagSuggestions();
   $('#account-title').textContent = account ? t().editAccount : t().addAccount;
   $('#delete-account').hidden = !account;
   $('#add-mode').hidden = Boolean(account);
@@ -242,7 +214,7 @@ function editAccount(account = null) {
 }
 
 function clearFilters() {
-  state.filters = { query: '', region: '', tier: '', tag: '' };
+  state.filters = { query: '', region: '', tier: '' };
   $('#search').value = '';
   render();
 }
@@ -323,6 +295,7 @@ $('#cards').addEventListener('click', async event => {
   const button = event.target.closest('button[data-action]');
   if (!button || busy()) return;
   if (button.dataset.action === 'clear-filters') return clearFilters();
+  if (button.dataset.action === 'add') return editAccount();
   const account = state.accounts.find(item => item.id === button.closest('[data-id]')?.dataset.id);
   if (!account) return;
   if (button.dataset.action === 'edit') editAccount(account);
@@ -349,7 +322,7 @@ $('#play').addEventListener('click', async () => {
   try {
     state.submitting = true; render(); notice();
     const running = await api.runningGames();
-    if ((running.lol || running.val) && !await confirmAction(t().switchTitle, t().switchText)) return;
+    if (['lol', 'val', 'tft', '2xko', 'lor'].some(game => running?.[game]) && !await confirmAction(t().switchTitle, t().switchText)) return;
     const result = await api.signIn(account.id, game);
     if (!result.ok && !result.cancelled) notice(result.error || t().signInFailed);
     await reload();
@@ -364,21 +337,9 @@ $('#use-seen').addEventListener('click', () => {
   form.elements.riotId.value = `${state.seenAccount.gameName}#${state.seenAccount.tagLine}`;
   form.elements.username.focus();
 });
-$('#tag-suggestions').addEventListener('click', event => {
-  const button = event.target.closest('[data-tag]');
-  if (!button) return;
-  const form = $('#account-form');
-  const tags = parseTags(form.elements.tags.value);
-  const tag = button.dataset.tag;
-  const kept = tags.filter(item => item.toLowerCase() !== tag.toLowerCase());
-  form.elements.tags.value = (kept.length === tags.length ? [...tags, tag] : kept).join(', ');
-  renderTagSuggestions();
-});
-$('#account-form').elements.tags.addEventListener('input', renderTagSuggestions);
 
 function shared(form) {
-  const color = form.querySelector('input[name=color]:checked')?.value || '';
-  return { region: form.elements.region.value, games: chosenGames(form), tags: parseTags(form.elements.tags.value), color: hex(color) ? color.toLowerCase() : null };
+  return { region: form.elements.region.value, games: chosenGames(form) };
 }
 
 async function addBatch(form) {
@@ -405,7 +366,7 @@ $('#account-form').addEventListener('submit', async event => {
     const split = form.elements.riotId.value.trim().lastIndexOf('#');
     if (split < 1) throw new Error(t().riotIdInvalid);
     const previous = state.editing;
-    const input = { gameName: form.elements.riotId.value.trim().slice(0, split), tagLine: form.elements.riotId.value.trim().slice(split + 1), username: form.elements.username.value.trim(), valRegion: previous?.valRegion || '', note: form.elements.note.value.trim(), lastSeason: previous?.lastSeason || {}, ban: previous?.ban || null, ...shared(form) };
+    const input = { gameName: form.elements.riotId.value.trim().slice(0, split), tagLine: form.elements.riotId.value.trim().slice(split + 1), username: form.elements.username.value.trim(), valRegion: previous?.valRegion || '', note: previous?.note || '', lastSeason: previous?.lastSeason || {}, ban: previous?.ban || null, ...shared(form) };
     if (previous) input.id = previous.id;
     if (form.elements.password.value) input.password = form.elements.password.value;
     try { await api.saveAccount(input); }
@@ -421,10 +382,9 @@ $('#settings-form').addEventListener('submit', async event => {
   submit.disabled = true;
   try {
     const input = { refreshMinutes: Number(form.elements.refreshMinutes.value), staySignedIn: form.elements.staySignedIn.checked, language: form.elements.language.value === 'en' ? 'en' : 'pt' };
-    for (const key of ['riotApiKey', 'henrikApiKey']) if (form.elements[key].value.trim()) input[key] = form.elements[key].value.trim();
     const saved = await api.saveSettings(input); state.settings = { ...state.settings, ...saved }; $('#settings-dialog').close(); render(); await api.refresh(); await reload();
   } catch { form.querySelector('.form-error').textContent = t().saveSettingsFailed; }
-  finally { for (const key of ['riotApiKey', 'henrikApiKey']) form.elements[key].value = ''; submit.disabled = false; }
+  finally { submit.disabled = false; }
 });
 
 async function saveView(key, value) {
@@ -439,14 +399,13 @@ $('#search').addEventListener('input', event => { state.filters.query = event.ta
 $('#search').addEventListener('keydown', event => { if (event.key === 'Escape' && event.target.value) { event.preventDefault(); event.stopPropagation(); clearFilters(); } });
 $('#filter-region').addEventListener('change', event => { state.filters.region = event.target.value; render(); });
 $('#filter-tier').addEventListener('change', event => { state.filters.tier = event.target.value; render(); });
-$('#filter-tag').addEventListener('change', event => { state.filters.tag = event.target.value; render(); });
 $('#sort').addEventListener('change', event => { if (SORTS.includes(event.target.value) && !busy()) saveView('cardSort', event.target.value); });
 $('#add-account').addEventListener('click', () => { if (!busy()) editAccount(); });
 $('#settings').addEventListener('click', () => { const form = $('#settings-form'); form.reset(); form.querySelector('.form-error').textContent = ''; form.elements.refreshMinutes.value = state.settings.refreshMinutes ?? 30; form.elements.staySignedIn.checked = state.settings.staySignedIn !== false; form.elements.language.value = state.settings.language === 'en' ? 'en' : 'pt'; $('#settings-dialog').showModal(); });
 $('#refresh').addEventListener('click', () => { if (state.refreshing) return; state.refreshing = true; notice(); render(); api.refresh().catch(() => { state.refreshing = false; notice(t().refreshFailed); render(); }); });
 $('#games').addEventListener('click', event => {
   const button = event.target.closest('[data-game]');
-  if (!button || busy() || !games[button.dataset.game]) return;
+  if (!button || busy() || !GAME_NAMES[button.dataset.game]) return;
   state.game = button.dataset.game;
   if (GAME_QUEUES[state.game] && state.stats !== state.game) { state.stats = state.game; state.filters.tier = ''; }
   render();

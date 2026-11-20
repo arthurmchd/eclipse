@@ -130,6 +130,7 @@ fn normalize_state(value: &Value) -> RiotResult<AuthState> {
 fn attention(state: &AuthState) -> Option<AuthOutcome> {
     match state.kind {
         AuthKind::Multifactor => Some(AuthOutcome::attention("multifactor")),
+        AuthKind::Challenge if state.error == Some("captcha_not_allowed") => Some(AuthOutcome::attention("security_check")),
         AuthKind::Challenge => Some(AuthOutcome::attention("challenge")),
         _ => None,
     }
