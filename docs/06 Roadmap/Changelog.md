@@ -7,6 +7,10 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-20 · README novo
+
+- Pedido do usuário: "arrume o readme como algo bem profissional", sem o nome antigo. Logo, frase de apresentação, selos de versão e downloads, capturas com contas fictícias da prévia (`.github/assets/`), recursos, instalação, como funciona, segurança, perguntas frequentes, seção para desenvolvedores e aviso legal da Riot. Os detalhes técnicos continuam no vault.
+
 ## 2026-11-20 · Repositório público e primeiro release
 
 - Pedido do usuário: "consegue colocar no github? e um release para qualquer um poder baixar". O PR #5 levou o `migracao/tauri` ao `main`, e o primeiro release público, `v2.15.1`, saiu com o Setup e o SHA-256. O passo a passo está em [[Publicar no GitHub]]. O README ganhou "Baixar", o aviso do SmartScreen e o aviso de projeto de fã da Riot ([[Estudo - Visual da Riot]]).

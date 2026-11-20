@@ -1,26 +1,133 @@
+<div align="center">
+
+<img src="src/renderer/assets/icon.png" alt="Eclipse" width="104">
+
 # Eclipse
 
-Gerenciador de contas Riot (antes chamado Riot Account Manager; a pasta do projeto e a de dados continuam `riot-account-manager`).
+**Todas as suas contas da Riot, um clique de distância.**
 
-Cartões de contas presos à janela oficial do Riot Client, sobre a arte à direita da coluna de login: cadastro, edição, configurações, elos e abertura de League of Legends (e TFT) e VALORANT. O serviço fica na bandeja; você abre a Riot pelo atalho normal.
+Gerenciador de contas que vive dentro do Riot Client: escolha a conta, clique em Jogar e o Eclipse entra e abre o jogo.
 
-Cada cartão mostra nome, nível e, para Solo/Duo e Flex lado a lado (Competitivo no VALORANT), elo, winrate, vitórias e derrotas. Cadastro e configurações usam diálogos compactos. A caixa "Ocultar contas" mostra a arte da Riot de volta.
+[![Versão](https://img.shields.io/github/v/release/arthurmchd/riot-account-manager?label=vers%C3%A3o&color=c8aa6e)](https://github.com/arthurmchd/riot-account-manager/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/arthurmchd/riot-account-manager/total?color=d53235)](https://github.com/arthurmchd/riot-account-manager/releases)
+[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows&logoColor=white)](#baixar-e-instalar)
+[![Tauri](https://img.shields.io/badge/Tauri-2-24c8db?logo=tauri&logoColor=white)](https://tauri.app)
+[![Rust](https://img.shields.io/badge/Rust-orange?logo=rust&logoColor=white)](https://www.rust-lang.org)
 
-- Elos sem chave de API: lidos do LoL ou do VALORANT aberto quando a conta joga. Com chaves no ⚙, todas as contas se atualizam de uma vez
-- Senhas, chaves e sessões criptografadas com o DPAPI do Windows
-- Primeira entrada de cada conta preenchida no formulário da Riot; depois, com "Manter login", entrada em segundo plano com a sessão guardada da conta
-- A Riot sempre abre desconectada, na tela de login com os cartões
-- Não altera a instalação da Riot, não contorna CAPTCHA nem 2FA e não mexe nos jogos nem no Vanguard
+[**Baixar**](https://github.com/arthurmchd/riot-account-manager/releases/latest) · [Recursos](#recursos) · [Como funciona](#como-funciona) · [Segurança](#segurança-e-privacidade) · [Perguntas frequentes](#perguntas-frequentes)
 
-## Baixar
+<img src=".github/assets/league.png" alt="Contas do League of Legends no Eclipse" width="860">
 
-Baixe o `Eclipse_<versão>_x64-setup.exe` da [versão mais recente](https://github.com/arthurmchd/riot-account-manager/releases/latest) e rode. Só Windows 10 ou 11, sem pedir administrador.
+</div>
 
-O Setup não é assinado, então o Windows mostra "O Windows protegeu o computador": clique em **Mais informações** → **Executar assim mesmo**. Cada versão traz o SHA-256 do Setup nas notas, para conferir o arquivo com `Get-FileHash Eclipse_<versão>_x64-setup.exe`.
+## Recursos
 
-O Eclipse não é endossado pela Riot Games e não reflete as opiniões da Riot Games nem de ninguém envolvido oficialmente na produção ou no gerenciamento das propriedades da Riot Games. Riot Games, League of Legends, VALORANT, Teamfight Tactics, 2XKO e Legends of Runeterra são marcas da Riot Games, Inc.
+**Entrar sem digitar**
+- Um clique em **Jogar** entra na conta e abre o jogo; a janela da Riot fecha sozinha quando o jogo aparece.
+- Na primeira vez, o Eclipse preenche o login da própria Riot. Depois, com **Manter login**, entra em segundo plano com a sessão guardada daquela conta.
+- 2FA, CAPTCHA e termos de uso continuam na tela da Riot, com você.
 
-## Instalar a partir do código
+**Ver tudo de uma vez**
+- League of Legends, VALORANT, Teamfight Tactics, 2XKO e Legends of Runeterra, cada um na sua aba, além de só entrar no Riot Client.
+- Elo, PdL ou RR, winrate, partidas e nível de cada conta, atualizados sozinhos. Sem precisar de chave de API.
+- A borda e o ícone que você usa no jogo aparecem na placa da conta.
+
+**Organizar muitas contas**
+- Busca, filtros por servidor e elo, favoritas fixadas no topo e ordem manual arrastando.
+- Placas grandes ou lista compacta, como preferir.
+- Cadastro de várias contas de uma vez.
+
+**Com a cara da Riot**
+- Tema escuro do Riot Client, com o visual de cada jogo: dourado no League, vermelho e cantos cortados no VALORANT.
+- Animações e sons de interface do cliente do League (dá para desligar).
+- Português e inglês.
+
+**No seu Windows**
+- Fica na bandeja, abre junto com o Windows se você quiser e avisa por notificação.
+- Instala sem pedir administrador e se atualiza por cima, sem perder contas.
+
+<table>
+  <tr>
+    <td><img src=".github/assets/valorant.png" alt="Contas do VALORANT no Eclipse"></td>
+    <td><img src=".github/assets/lista.png" alt="Lista compacta de contas no Eclipse"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Aba do VALORANT</sub></td>
+    <td align="center"><sub>Lista compacta</sub></td>
+  </tr>
+</table>
+
+<sub>Capturas com contas fictícias.</sub>
+
+## Baixar e instalar
+
+1. Baixe o `Eclipse_<versão>_x64-setup.exe` da [versão mais recente](https://github.com/arthurmchd/riot-account-manager/releases/latest).
+2. Rode o arquivo. Ele instala na sua conta do Windows, sem pedir administrador, e cria o atalho **Eclipse** no menu Iniciar.
+3. Abra o Eclipse e depois o Riot Client, pelo atalho de sempre. As contas aparecem dentro da janela da Riot.
+
+> [!NOTE]
+> O instalador ainda não é assinado digitalmente. Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informações** → **Executar assim mesmo**. Cada versão traz o SHA-256 do instalador nas notas, para você conferir com `Get-FileHash`.
+
+**Requisitos:** Windows 10 ou 11, 64 bits, com o Riot Client instalado.
+
+**Atualizar:** saia do Eclipse pela bandeja e rode o instalador novo por cima. Contas, sessões e configurações continuam.
+
+**Desinstalar:** em **Configurações → Aplicativos instalados** do Windows.
+
+## Como funciona
+
+O Eclipse acompanha a janela do Riot Client e mostra as contas sobre a arte, ao lado do login. Ele fala com o Riot Client pelo serviço local que a própria Riot usa, no seu computador.
+
+| Etapa | O que acontece |
+|---|---|
+| Primeira entrada da conta | O Eclipse preenche usuário e senha no formulário da Riot. Verificações aparecem para você ali mesmo. |
+| Próximas entradas | Com **Manter login**, a Riot recebe de volta a sessão que ela mesma guardou para aquela conta, sem formulário. |
+| Trocar de conta | A Riot fecha com a saída normal e abre na conta escolhida. A sessão de quem saiu continua valendo. |
+| Elos | League pelo OP.GG; League, TFT e VALORANT também lidos do jogo aberto quando a conta joga. |
+
+## Segurança e privacidade
+
+- **Tudo fica no seu computador.** Senhas e sessões são criptografadas com a proteção de dados do Windows (DPAPI), atrelada à sua conta do Windows.
+- **Nada é contornado.** O Eclipse não burla CAPTCHA, 2FA ou qualquer verificação da Riot.
+- **Os jogos não são tocados.** O Eclipse não altera a instalação da Riot, não injeta código e não mexe nos jogos nem no Vanguard.
+- **Rede fechada.** O Eclipse não abre portas no seu PC e só conversa com o Riot Client local por conexão verificada.
+- **Serviços externos, com transparência.** O Riot ID e o servidor de cada conta vão ao OP.GG para buscar o elo do League. Ícones, emblemas e sons vêm da CommunityDragon. Senha e sessão nunca saem do seu computador.
+
+## Perguntas frequentes
+
+<details>
+<summary><b>Posso ser banido por usar o Eclipse?</b></summary>
+<br>
+O Eclipse usa só o próprio Riot Client: preenche o login da Riot e devolve a ela a sessão do "Manter login". Ele não lê nem altera a memória dos jogos e não interage com o Vanguard. Ainda assim, é um projeto não oficial, e a Riot não se manifestou sobre ele. Use por sua conta.
+</details>
+
+<details>
+<summary><b>Preciso de chave de API da Riot?</b></summary>
+<br>
+Não. O elo do League vem do OP.GG, e o do VALORANT e do TFT aparece quando a conta joga com o Eclipse aberto.
+</details>
+
+<details>
+<summary><b>A Riot pediu código de verificação. E agora?</b></summary>
+<br>
+Digite o código na própria tela da Riot, como sempre. Depois disso, com <b>Manter login</b> ligado, as próximas entradas daquela conta não pedem nada até a sessão expirar.
+</details>
+
+<details>
+<summary><b>Por que uma conta voltou a pedir senha?</b></summary>
+<br>
+A sessão guardada deixa de valer quando você sai da conta pelo menu da Riot ou usa <b>Sign Out</b> no LoL. Para fechar o jogo, use <b>Exit</b>. Trocar a senha ou sair de todos os dispositivos também encerra a sessão.
+</details>
+
+<details>
+<summary><b>Funciona no macOS ou no Linux?</b></summary>
+<br>
+Não. O Eclipse é só para Windows, como o Vanguard.
+</details>
+
+## Para desenvolvedores
+
+Requisitos: Rust com `tauri-cli` (`cargo install tauri-cli`) e Node.js 22 ou mais novo.
 
 ```powershell
 npm ci
@@ -28,13 +135,7 @@ cd src-tauri
 cargo tauri build
 ```
 
-Rode `src-tauri\target\release\bundle\nsis\Eclipse_<versão>_x64-setup.exe`. Ele instala na sua conta do Windows, sem pedir administrador, em `%LOCALAPPDATA%\Eclipse`, e cria o atalho "Eclipse" no menu Iniciar. O Setup não é assinado: se o Windows avisar, use **Mais informações** → **Executar assim mesmo**. As contas ficam em `%APPDATA%\riot-account-manager\`, e a desinstalação não as apaga. Se achar o Eclipse antigo em Electron instalado, o Setup o desinstala antes, mantendo as contas e o início com o Windows.
-
-Abra pelo atalho; o Eclipse fica na bandeja. Na bandeja, **Iniciar com o Windows** abre o Eclipse quando você entra no Windows. Para atualizar, saia pela bandeja e rode o Setup novo por cima.
-
-Pela bandeja, **Contas no Riot** abre a Riot com os cartões e **Abrir Riot Client** abre só a Riot. Ao clicar em **Jogar**, o botão vira **Cancelar** enquanto o Eclipse entra na conta. Quando a janela do jogo abre, a janela da Riot é fechada. 2FA, CAPTCHA e outras verificações aparecem na própria tela da Riot.
-
-## Rodar do projeto
+O instalador sai em `src-tauri\target\release\bundle\nsis\`. Em desenvolvimento, o app só abre com uma pasta de dados de teste, para nunca tocar nas contas reais:
 
 ```powershell
 $env:ECLIPSE_DATA_DIR = "C:\pasta\de\teste"
@@ -42,50 +143,25 @@ cd src-tauri
 cargo run
 ```
 
-Em desenvolvimento, o Eclipse só abre com `ECLIPSE_DATA_DIR` apontando para uma pasta escolhida à mão, para nunca abrir as contas reais por acidente. A opção **Iniciar com o Windows** não aparece.
-
-O Eclipse em Electron saiu em 2026-11-15 (a 2.0.0 é a primeira versão só em Tauri); o código está na tag `electron-final`. O modo antigo, com uma cópia privada da interface da Riot, saiu em 2026-11-07 e está na tag `modo-antigo-final`.
-
-Requisitos: Windows 10/11, Rust com o `tauri-cli` (`cargo install tauri-cli`) e Node.js 22+ (para as fontes, a prévia e os testes JS).
-
-## Documentação
-
-A documentação completa é um vault do Obsidian em [`docs/`](docs/00%20Início.md). Abra a pasta `docs` como vault no Obsidian ou navegue pelos arquivos:
-
-| Assunto | Nota |
-|---|---|
-| Visão geral e uso | [Visão geral](docs/01%20Visão%20geral/Visão%20geral.md) · [Como usar](docs/01%20Visão%20geral/Como%20usar.md) |
-| Arquitetura | [Arquitetura](docs/02%20Arquitetura/Arquitetura.md) · [Estrutura de pastas](docs/02%20Arquitetura/Estrutura%20de%20pastas.md) · [Fluxo de login](docs/02%20Arquitetura/Fluxo%20de%20login.md) |
-| Segurança | [Segurança e privacidade](docs/02%20Arquitetura/Segurança%20e%20privacidade.md) · [Armazenamento e dados](docs/02%20Arquitetura/Armazenamento%20e%20dados.md) |
-| Integração com o Riot | [Integração com o Riot Client](docs/02%20Arquitetura/Integração%20com%20o%20Riot%20Client.md) · [Atualização do Riot Client](docs/05%20Guias/Atualização%20do%20Riot%20Client.md) |
-| Desenvolvimento | [Desenvolvimento](docs/05%20Guias/Desenvolvimento.md) · [Backlog](docs/06%20Roadmap/Backlog.md) |
-
-## Estrutura
-
-```
-src-tauri/           o app: Rust, Tauri, Setup e testes
-  src/application/   armazenamento, serviço de login, sessões, elos
-  src/riot/          controle do Riot Client e fluxo de login
-  src/platform/      janelas, DPAPI, início com o Windows, notificações
-  src/integration/   sobreposição presa à Riot, cartões e API local
-src/
-  renderer/          os cartões
-  integration/       caixa, cobertura e o preload dos cartões
-  platform/windows/  auxiliares PowerShell
-scripts/dev/         prévia no navegador
-test/                testes JS dos cartões, do preload e dos .ps1
-docs/                vault do Obsidian
-```
-
-## Comandos
-
 | Comando | O que faz |
 |---|---|
-| `cargo test` (em `src-tauri/`) | Roda os testes do app |
-| `cargo tauri build` (em `src-tauri/`) | Gera o Setup |
-| `npm test` | Roda os testes JS |
-| `npm run preview` | Cartões no navegador com contas fictícias (<http://localhost:5178>) |
+| `cargo test` (em `src-tauri/`) | Testes do app |
+| `npm test` | Testes da interface |
+| `npm run preview` | Interface no navegador com contas fictícias, em <http://localhost:5178> |
+| `cargo tauri build` (em `src-tauri/`) | Gera o instalador |
 
-## Aviso
+```
+src-tauri/           app em Rust e Tauri, instalador e testes
+  src/application/   armazenamento, login, sessões e elos
+  src/riot/          Riot Client e fluxo de login
+  src/platform/      janelas, criptografia, bandeja e notificações
+  src/integration/   sobreposição na janela da Riot
+src/renderer/        interface das contas
+docs/                documentação (vault do Obsidian)
+```
 
-Automatizar o Riot Client é zona cinzenta nos termos da Riot; o risco é de quem usa. Se existir uma pasta `.client-integration/` de uma versão antiga, ela contém recursos proprietários da Riot e nunca deve ser distribuída.
+A documentação completa, com arquitetura, decisões e o porquê de cada regra, fica em [`docs/`](docs/00%20Início.md). Comece por [Visão geral](docs/01%20Visão%20geral/Visão%20geral.md), [Arquitetura](docs/02%20Arquitetura/Arquitetura.md) e [Segurança e privacidade](docs/02%20Arquitetura/Segurança%20e%20privacidade.md).
+
+## Aviso legal
+
+O Eclipse não é endossado pela Riot Games e não reflete as opiniões da Riot Games nem de ninguém envolvido oficialmente na produção ou no gerenciamento das propriedades da Riot Games. Riot Games, League of Legends, VALORANT, Teamfight Tactics, 2XKO e Legends of Runeterra são marcas ou marcas registradas da Riot Games, Inc.
