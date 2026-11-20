@@ -23,6 +23,8 @@ tags: [dev]
 
 O Eclipse em Electron saiu na versão 2.0.0, em 2026-11-15; o código está na tag `electron-final`. Os comandos do modo antigo saíram em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
 
+Com um `cargo run` aberto, o `target/debug/eclipse.exe` fica travado: rode o `cargo test` com outro `CARGO_TARGET_DIR`.
+
 Rodar só uma parte: `cargo test --test riot sign_in_flow` (uma camada e um filtro de nome) ou `node --test test/renderer/ranks.test.js`.
 
 ## Testes

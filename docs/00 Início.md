@@ -89,6 +89,7 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[Solução de problemas]]: logs, backups e recuperação
 - [[Publicar no GitHub]]
 - [[Trabalhando com agentes]]: como o Claude Code usa este vault
+- [[Memória]]: o que o agente lembra entre conversas
 
 ## Roadmap
 

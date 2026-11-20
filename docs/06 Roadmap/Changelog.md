@@ -7,6 +7,12 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-20 · Memória do agente no vault
+
+- A memória do Claude Code saiu de `~/.claude/` e passou para [[Memória]], em `docs/07 Memória/`, com o template [[Nota de memória]]. O `CLAUDE.md` manda ler o índice no começo de toda tarefa e salvar ali o que for preciso lembrar ([[Trabalhando com agentes]]).
+- Vieram [[Testes sem o usuário]], [[Setup novo a cada mudança]] e [[Escolhas técnicas pelo agente]]. A memória da migração para o Tauri já estava superada pela nota [[Migração para Tauri]]; dela só ficou a dica do `CARGO_TARGET_DIR` em [[Desenvolvimento]].
+- Só vault e configuração do agente; sem Setup novo.
+
 ## 2026-11-19 · Sem aviso falso de verificação
 
 - Um login demorado que terminou em erro de serviço da Riot mostrava "A Riot pede uma verificação de segurança" sem verificação na tela. O aviso vinha só do tempo: qualquer `challenge` depois de 12 s virava verificação ([[signInFlow]], [[riotAuthentication]]).
