@@ -15,7 +15,7 @@ tags: [módulo]
 - Garante uma única instância do aplicativo (`tauri-plugin-single-instance`) e sai com um aviso se o Eclipse antigo, em Electron, estiver aberto ([[electronInstance]]).
 - Cria o [[store]] (com o [[safeStorage]]), o [[signInService]], o [[refresher]], o [[managerService]] com o [[appPorts]], o [[sessionKeeper]], o [[riotWakeup]], o [[rankWatcher]] e a janela do [[riotOverlay]] com o [[riotWindowObserver]].
 - Registra o protocolo `eclipse://` ([[assetProtocol]]) e os comandos `manager` ([[managerHost]]) e `overlay_toggle` ([[overlayToggle]]).
-- Monta a bandeja: Contas no Riot, Abrir Riot Client, Cancelar login, "Iniciar com o Windows" (só no app compilado em modo release, [[startWithWindows]]) e Sair; duplo clique abre as contas.
+- Monta a bandeja: Contas no Riot, Abrir Riot Client, Cancelar login, "Atualizar para a versão X" (só com uma versão nova encontrada, [[updates]]), "Iniciar com o Windows" (só no app compilado em modo release, [[startWithWindows]]), "Procurar atualizações" e Sair; duplo clique abre as contas.
 - Mostra notificações do Windows ([[notices]], [[toasts]]) e caixas de aviso.
 
 ## API pública
@@ -24,7 +24,7 @@ Não exporta API. As entradas do usuário são os atalhos do Eclipse instalado, 
 
 ## Dependências
 
-- Usa: [[paths]], [[store]], [[safeStorage]], [[language]], [[notices]], [[toasts]], [[timers]], [[rankApi]], [[refresher]], [[riotClient]], [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[managerService]], [[appPorts]], [[managerHost]], [[riotOverlay]], [[riotWindowObserver]], [[assetProtocol]], [[startWithWindows]], [[electronInstance]] e a bandeja e o menu do Tauri.
+- Usa: [[paths]], [[store]], [[safeStorage]], [[language]], [[notices]], [[toasts]], [[timers]], [[rankApi]], [[refresher]], [[riotClient]], [[signInService]], [[sessionKeeper]], [[riotWakeup]], [[rankWatcher]], [[managerService]], [[appPorts]], [[managerHost]], [[riotOverlay]], [[riotWindowObserver]], [[assetProtocol]], [[startWithWindows]], [[electronInstance]], [[updates]], [[appUpdater]] e a bandeja e o menu do Tauri.
 - Usado por: o executável `eclipse.exe`.
 
 ## Invariantes e decisões
@@ -49,6 +49,7 @@ Não exporta API. As entradas do usuário são os atalhos do Eclipse instalado, 
 - **Saída ordenada.** Para o [[refresher]], cancela o login, para o guardião, o wakeup e a leitura do jogo, depois a sobreposição, e só então sai.
 - **Fechar a Riot pela cópia do X.** Revisão de 2026-11-04 ([[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]): o main passa ao [[riotOverlay]] o fechamento do [[riotAppControls]]. Falhas não viram notificação nem caixa; a sobreposição fecha só a janela.
 - **Bandeja e avisos no idioma salvo.** Revisão de 2026-11-04 ([[ADR-014 Interface em português e inglês]]): o menu da bandeja, as notificações e as caixas de aviso vêm de `main_text` do [[language]], e as mensagens que aparecem neles passam por `localize`. O `sign-in.log` fica em inglês. Ao salvar as configurações, o menu é refeito e o idioma vai à sobreposição. O menu também é refeito ao ligar ou desligar "Iniciar com o Windows".
+- **Atualizações pela bandeja (2026-11-21, [[ADR-045 Atualização pelo GitHub]]).** O main registra o `tauri-plugin-updater`, monta o [[updates]] com o [[appUpdater]] e o inicia junto com o resto. Uma versão nova vira um balão e o item "Atualizar para a versão X"; o clique chama `install`, e um login em andamento ou uma falha viram uma caixa de aviso. "Procurar atualizações" grava `updateChecks` no [[store]], refaz o menu e, ao religar, pergunta na hora. O `quit` para também as perguntas, e o [[appUpdater]] chama o mesmo `quit` antes de rodar o Setup.
 - **Iniciar com o Windows só no app instalado.** Desde 2026-11-08 ([[ADR-030 Eclipse instalado por um Setup próprio]]), a opção aparece só no app compilado em modo release, marcada conforme a chave `Run`. Rodando do projeto, a chave não é lida nem gravada. Iniciado pelo Windows, o Eclipse faz o mesmo que pelo atalho: fica na bandeja sem abrir a Riot.
 - **WebView2 sem detecção de oclusão nem animação.** Desde 2026-11-04, ainda no Electron, a detecção de oclusão do Chromium fica desligada (`CalculateNativeWinOcclusion` nos argumentos das webviews): com ela, a página dos cartões ficava marcada como oculta depois de a Riot ser restaurada e não voltava a desenhar. As transições do DWM da janela dos cartões também ficam desligadas ([[riotOverlay]], [[ADR-016 Riot sem animação de minimizar e cartões com os cantos dela]]).
 

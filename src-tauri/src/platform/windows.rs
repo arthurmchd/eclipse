@@ -1,8 +1,12 @@
 pub mod dpapi;
 pub mod electron_instance;
+pub mod login_form;
+pub mod observer_thread;
 pub mod riot_window_observer;
 pub mod safe_storage;
 pub mod start_with_windows;
 pub mod toasts;
+pub mod win32;
 pub mod window_controller;
+pub mod window_guard;
 pub mod windows_environment;

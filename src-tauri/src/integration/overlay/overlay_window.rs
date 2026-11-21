@@ -8,7 +8,7 @@ use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS
 use windows_sys::Win32::Graphics::Gdi::{CombineRgn, CreateRectRgn, DeleteObject, SetWindowRgn, RGN_OR};
 use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowPos, ShowWindow, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE};
 
-use super::overlay_drag::{install, UNAVAILABLE};
+use super::overlay_drag::{install, request_from_cards, UNAVAILABLE};
 use super::overlay_toggle::{language_script, toggle_rect, INIT_SCRIPT};
 use super::riot_overlay::{cards_rect, cover_rect, OverlayWindow, Rect, Size};
 use crate::integration::asset_protocol::{is_page, page_url, CARDS_PAGE, COVER_PAGE, TOGGLE_PAGE};
@@ -182,6 +182,10 @@ impl<R: Runtime> OverlayWindow for TauriOverlayWindow<R> {
     fn set_toggle_language(&self, language: &str) {
         *self.language.lock().unwrap() = if language == "en" { "en" } else { "pt" };
         let _ = self.toggle.eval(language_script(language));
+    }
+
+    fn begin_drag(&self) {
+        request_from_cards(self.hwnd);
     }
 
     fn close(&self) {

@@ -24,6 +24,18 @@ pub const NON_BLOCKING_SESSION_STATES: [&str; 31] = [
     "pendingloginqueuebypass", "pendingloginqueue", "pendinggamesession",
 ];
 
+pub const BLOCKING_SESSION_STATES: [&str; 26] = [
+    "pendingplatformuser", "pendingplatformauthorizationconsent", "pendingprovidercredentials",
+    "platformagerestricted", "pendingauthintent", "pendingloginstrategy", "pendingcreateaccountstrategy",
+    "pendingsigninstrategy", "reauthenticationrequired", "keypairerror", "pendingdisambiguation",
+    "pendingkridverification", "signupagerestricted", "pendingparentalemail", "multifactorchallengedenied",
+    "pendingageverification", "pendingusernamechangedconfirmation", "pendingeulaacceptance", "pendingriotid",
+    "pendingvngprofile", "pendinglolregionselection", "productagerestricted", "pendingrecoverableaccount",
+    "gameplayrestricted", "pendingconsent", "confirmedagetooyoung",
+];
+
+const CAPTCHA_TYPES: [&str; 3] = ["hcaptcha", "recaptcha", "captcha"];
+
 const INVALID: &str = "The Riot authentication service returned an invalid response";
 const NOT_COMPLETED: &str = "Riot could not complete sign-in. Open Riot Client to continue";
 const TOO_MANY: &str = "Too many attempts, wait a few minutes";
@@ -38,19 +50,45 @@ pub enum AuthKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChallengeSource {
+    Captcha(&'static str),
+    AuthenticatorType,
+    PlayerSession(&'static str),
+}
+
+impl ChallengeSource {
+    pub fn describe(self) -> String {
+        match self {
+            Self::Captcha(kind) => format!("authenticator captcha: {kind}"),
+            Self::AuthenticatorType => "authenticator type: other".to_string(),
+            Self::PlayerSession(state) => format!("player session: {state}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AuthState {
     pub kind: AuthKind,
     pub error: Option<&'static str>,
+    pub source: Option<ChallengeSource>,
 }
 
 impl AuthState {
     pub const fn of(kind: AuthKind) -> Self {
-        Self { kind, error: None }
+        Self { kind, error: None, source: None }
     }
 
     pub const fn failed(kind: AuthKind, error: &'static str) -> Self {
-        Self { kind, error: Some(error) }
+        Self { kind, error: Some(error), source: None }
     }
+
+    pub const fn challenge(source: ChallengeSource) -> Self {
+        Self { kind: AuthKind::Challenge, error: None, source: Some(source) }
+    }
+}
+
+fn known(list: &[&'static str], value: &str) -> &'static str {
+    list.iter().copied().find(|name| *name == value).unwrap_or("other")
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -113,8 +151,9 @@ fn normalize_state(value: &Value) -> RiotResult<AuthState> {
         None | Some(Value::Null) => {}
         Some(captcha) => {
             let captcha_type = captcha.as_object().and_then(|captcha| captcha.get("type")).and_then(Value::as_str).ok_or(INVALID)?;
-            if captcha_type.to_lowercase() != "none" {
-                return Ok(AuthState::of(AuthKind::Challenge));
+            let captcha_type = captcha_type.to_lowercase();
+            if captcha_type != "none" {
+                return Ok(AuthState::challenge(ChallengeSource::Captcha(known(&CAPTCHA_TYPES, &captcha_type))));
             }
         }
     }
@@ -123,7 +162,7 @@ fn normalize_state(value: &Value) -> RiotResult<AuthState> {
         "multifactor" => AuthKind::Multifactor,
         "auth" => AuthKind::Auth,
         "error" => return Ok(AuthState::failed(AuthKind::Error, "authentication_error")),
-        _ => AuthKind::Challenge,
+        _ => return Ok(AuthState::challenge(ChallengeSource::AuthenticatorType)),
     }))
 }
 
@@ -211,6 +250,14 @@ impl RiotAuthentication {
         normalize_state(&response.json).map(Some)
     }
 
+    fn authorized(&self, cancel: Option<&Cancel>) -> RiotResult<bool> {
+        match self.get(AUTHORIZATION, cancel) {
+            Ok(response) => Ok(response.status == 200),
+            Err(error) if error.is_cancelled() => Err(error),
+            Err(_) => Ok(false),
+        }
+    }
+
     pub fn session_state(&self, cancel: Option<&Cancel>) -> RiotResult<Option<AuthState>> {
         let mut response = self.get(AUTHENTICATION, cancel)?;
         let mut legacy = false;
@@ -224,7 +271,10 @@ impl RiotAuthentication {
         if response.status != 200 {
             return Ok(None);
         }
-        let state = normalize_state(&response.json)?;
+        let mut state = normalize_state(&response.json)?;
+        if !legacy && matches!(state.source, Some(ChallengeSource::Captcha(_))) && self.authorized(cancel)? {
+            state = AuthState::of(AuthKind::Authenticated);
+        }
         if legacy || state.kind != AuthKind::Authenticated {
             return Ok(Some(state));
         }
@@ -240,7 +290,7 @@ impl RiotAuthentication {
             return Ok(Some(AuthState::of(AuthKind::Multifactor)));
         }
         if !NON_BLOCKING_SESSION_STATES.contains(&login_state.as_str()) {
-            return Ok(Some(AuthState::of(AuthKind::Challenge)));
+            return Ok(Some(AuthState::challenge(ChallengeSource::PlayerSession(known(&BLOCKING_SESSION_STATES, &login_state)))));
         }
         Ok(Some(state))
     }

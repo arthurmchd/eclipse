@@ -21,3 +21,5 @@ A memória do Claude Code neste projeto. O resto do vault guarda o porquê do c�
 - [[Testes sem o usuário]]: só capturas das janelas do próprio Eclipse; nada de controlar a tela ou de Riot falsa
 - [[Setup novo a cada mudança]]: subir a versão, gerar o Setup e instalar, sem perguntar
 - [[Escolhas técnicas pelo agente]]: o usuário conta com a recomendação do agente em escolhas de tecnologia
+- [[Laboratório de velocidade do login]]: medição de 2026-11-21 na Riot real; onde o login perde tempo, digitação aplicada na 2.18.0, troca de conta por logout descartada (ADR-020)
+- [[Preparação para muitos usuários]]: as cinco etapas da 2.19.0 feitas; falta Riot real, commit, release com `latest.json` e a cópia da chave

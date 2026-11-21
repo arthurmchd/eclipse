@@ -49,6 +49,7 @@ pub trait ManagerPorts: Send + Sync {
     fn schedule_refresh(&self);
     fn init_context(&self) -> Map<String, Value>;
     fn settings_changed(&self, settings: &Map<String, Value>);
+    fn start_with_windows(&self, turn: Option<bool>) -> Option<bool>;
 }
 
 fn secret_key(key: &str) -> bool {
@@ -317,6 +318,7 @@ impl ManagerService {
         result.insert("accounts".into(), Value::Array(accounts));
         result.insert("settings".into(), Value::Object(store.public_settings()));
         drop(store);
+        result.insert("startWithWindows".into(), self.ports.start_with_windows(None).map_or(Value::Null, Value::Bool));
         result.insert("operation".into(), copy_public(&self.ports.operation()));
         result.insert("eventCursor".into(), json!(self.events.cursor()));
         Ok(Value::Object(result))
@@ -425,10 +427,12 @@ impl ManagerService {
     }
 
     fn save_settings(&self, input: &Value) -> Result<Value, Failure> {
-        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "cardLayout", "cardSort", "uiSounds", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
+        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "cardLayout", "cardSort", "uiSounds", "startWithWindows", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
         let mut clean = SettingsInput::default();
+        let mut startup = None;
         for (key, value) in input.as_object().unwrap() {
             match key.as_str() {
+                "startWithWindows" => startup = Some(value.as_bool().ok_or_else(|| Failure::new("Invalid setting", 400))?),
                 "refreshMinutes" => {
                     let minutes = value.as_f64().filter(|minutes| minutes.is_finite() && (0.0..=10080.0).contains(minutes)).ok_or_else(|| Failure::new("Invalid refresh interval", 400))?;
                     clean.refresh_minutes = Some(minutes);
@@ -454,9 +458,13 @@ impl ManagerService {
             }
         }
         let settings = self.store.lock().unwrap().update_settings(clean).map_err(Failure::internal)?;
+        let started = startup.map(|turn| self.ports.start_with_windows(Some(turn)));
         self.ports.schedule_refresh();
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.ports.settings_changed(&settings)));
         let mut result = settings;
+        if let Some(started) = started {
+            result.insert("startWithWindows".into(), started.map_or(Value::Null, Value::Bool));
+        }
         result.insert("nextRefresh".into(), self.ports.init_context().get("nextRefresh").cloned().unwrap_or(Value::Null));
         Ok(Value::Object(result))
     }

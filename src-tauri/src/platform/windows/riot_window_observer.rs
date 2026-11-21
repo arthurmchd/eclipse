@@ -1,14 +1,9 @@
-use std::io::{self, Read, Write};
-use std::os::windows::process::CommandExt;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::io::{self, Write};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
-use std::thread;
 
 use regex::Regex;
 use serde_json::{json, Value};
 
-use super::window_controller::{powershell_args, CREATE_NO_WINDOW};
 use crate::application::timers::Timers;
 
 pub const COMMANDS: [&str; 2] = ["minimize", "close"];
@@ -92,7 +87,7 @@ pub struct ObserverChild {
 }
 
 pub trait ObserverSpawn: Send + Sync {
-    fn spawn(&self, script: &Path, output: Output) -> io::Result<ObserverChild>;
+    fn spawn(&self, output: Output) -> io::Result<ObserverChild>;
 }
 
 pub struct ObserverHooks {
@@ -114,7 +109,6 @@ struct State {
 
 struct Inner {
     spawner: Arc<dyn ObserverSpawn>,
-    script: PathBuf,
     owner_pid: u32,
     timers: Arc<dyn Timers>,
     hooks: ObserverHooks,
@@ -205,8 +199,8 @@ pub struct RiotWindowObserver {
 }
 
 impl RiotWindowObserver {
-    pub fn new(spawner: Arc<dyn ObserverSpawn>, script: PathBuf, owner_pid: u32, timers: Arc<dyn Timers>, hooks: ObserverHooks) -> Self {
-        Self { inner: Arc::new(Inner { spawner, script, owner_pid, timers, hooks, state: Mutex::new(State::default()) }) }
+    pub fn new(spawner: Arc<dyn ObserverSpawn>, owner_pid: u32, timers: Arc<dyn Timers>, hooks: ObserverHooks) -> Self {
+        Self { inner: Arc::new(Inner { spawner, owner_pid, timers, hooks, state: Mutex::new(State::default()) }) }
     }
 
     pub fn start(&self, client_path: &str, overlay_window: Option<&str>) {
@@ -224,7 +218,7 @@ impl RiotWindowObserver {
                 inner.output(chunk);
             }
         });
-        match self.inner.spawner.spawn(&self.inner.script, output) {
+        match self.inner.spawner.spawn(output) {
             Ok(mut child) => {
                 let _ = child.input.write_all(request_line(self.inner.owner_pid, client_path, overlay_window).as_bytes());
                 let _ = child.input.flush();
@@ -270,44 +264,5 @@ impl RiotWindowObserver {
         if let Some(kill) = kill {
             self.inner.timers.later(KILL_DELAY_MS, kill);
         }
-    }
-}
-
-pub struct PowerShellObserver;
-
-impl ObserverSpawn for PowerShellObserver {
-    fn spawn(&self, script: &Path, output: Output) -> io::Result<ObserverChild> {
-        let mut child = Command::new("powershell.exe")
-            .args(powershell_args(script))
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn()?;
-        let input = child.stdin.take().ok_or_else(|| io::Error::other("no input"))?;
-        let mut stdout = child.stdout.take().ok_or_else(|| io::Error::other("no output"))?;
-        let mut stderr = child.stderr.take().ok_or_else(|| io::Error::other("no error output"))?;
-        thread::Builder::new().name("eclipse-observer-output".into()).spawn(move || {
-            let mut buffer = [0u8; 4096];
-            loop {
-                match stdout.read(&mut buffer) {
-                    Ok(0) | Err(_) => break,
-                    Ok(read) => output(Some(&buffer[..read])),
-                }
-            }
-            output(None);
-        })?;
-        thread::Builder::new().name("eclipse-observer-errors".into()).spawn(move || {
-            let _ = io::copy(&mut stderr, &mut io::sink());
-        })?;
-        let child = Arc::new(Mutex::new(child));
-        Ok(ObserverChild {
-            input: Box::new(input),
-            kill: Box::new(move || {
-                let mut child = child.lock().unwrap();
-                let _ = child.kill();
-                let _ = child.wait();
-            }),
-        })
     }
 }

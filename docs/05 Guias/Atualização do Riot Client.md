@@ -14,6 +14,7 @@ Os cartões ficam sobre a janela oficial da Riot e não dependem de uma versão 
 - O login visível digita no lugar errado ou não marca "Manter conectado".
 - Os cartões não somem com um diálogo da Riot aberto, ou somem sem motivo.
 - O `sign-in.log` mostra erro da API local, de certificado ou um estado de sessão desconhecido.
+- O login avisa "O Eclipse ainda não reconhece este Riot Client mais novo", e o `sign-in.log` mostra `Riot Client <versão> (newer than the last tested, …)` ([[riotVersion]]).
 
 ## O que pode quebrar
 
@@ -21,8 +22,8 @@ Os cartões ficam sobre a janela oficial da Riot e não dependem de uma versão 
 |---|---|---|
 | Largura da coluna de login | `cardsLeft` em [[riotOverlay]] (400/1536 da largura) | Os cartões começam onde a arte começa |
 | Caixa "Ocultar contas" | `TOGGLE_AREA` em [[overlayToggle]] | Posição medida na tela de login |
-| Ponto do painel e caixa "Stay signed in" | `PANEL_POINT` em [[riotWindowObserver]] (`PANEL_X`, `PANEL_Y`, `BOX_X`, `BOX_Y` no `.ps1`) | O observador lê cores nesses pontos para saber se o formulário está à mostra e se a caixa está marcada |
-| Posições do preenchimento nativo | `$USERNAME`, `$PASSWORD`, `$REMEMBER`, `$SUBMIT`, `$PANEL` em [[login.ps1]] | Frações medidas na janela da Riot; só usadas quando a API pede o formulário |
+| Ponto do painel e caixa "Stay signed in" | `PANEL_POINT` em [[riotWindowObserver]] (`PANEL` e `BOX` em `observer_thread.rs`, iguais aos do [[loginForm]]) | O observador lê cores nesses pontos para saber se o formulário está à mostra e se a caixa está marcada |
+| Posições do preenchimento nativo | `USERNAME`, `PASSWORD`, `REMEMBER`, `SUBMIT`, `PANEL` em [[loginForm]] | Frações medidas na janela da Riot; só usadas quando a API pede o formulário |
 | Estados da sessão do jogador | `NON_BLOCKING_SESSION_STATES` em [[riotAuthentication]] | Estado automático novo fica bloqueado até entrar na lista. Compare com a enumeração `PlayerSessionStateType` em `C:\Riot Games\Riot Client\RiotGamesApi.dll` (só leitura) |
 | Rotas da API local | constantes no topo de [[riotAuthentication]] e [[riotInterface]] | Rota nova ou removida muda o login e a abertura da interface |
 | Certificado da API local | `dist/main/root.pem` dentro do `app.asar` oficial, lido por [[backend]] com [[asar]] | Sem ele, o HTTPS para a API local é recusado |
@@ -37,7 +38,8 @@ Os serviços do Riot (`RiotGamesApi.dll`) atualizam junto com a interface e tamb
 2. **Meça de novo o que mudou.** As constantes da tabela são frações da área cliente. Meça numa captura de tela da Riot em 1536 × 864 e atualize a fração.
 3. **Confira a API.** Se o login falhar, procure no `sign-in.log` a rota ou o estado que mudou. Para comparar versões, leia o `app.asar` e a `RiotGamesApi.dll` só para leitura.
 4. **Teste.** Ajuste os testes do módulo alterado. `npm test` tem de passar.
-5. **Registre.** Atualize a nota do módulo, [[Integração com o Riot Client]] e o [[Changelog]].
+5. **Suba a versão conferida.** Com tudo funcionando na Riot nova, suba `LAST_TESTED_MAJOR` em [[riotVersion]] e o teste dele.
+6. **Registre.** Atualize a nota do módulo, [[Integração com o Riot Client]] e o [[Changelog]].
 
 ## Ferramenta útil: REA
 

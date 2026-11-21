@@ -27,8 +27,11 @@ pub struct HttpsRequest {
     pub max_bytes: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SendFailure;
+
 pub trait HttpsClient: Send + Sync {
-    fn send(&self, request: &HttpsRequest) -> Result<(u16, Vec<u8>), ()>;
+    fn send(&self, request: &HttpsRequest) -> Result<(u16, Vec<u8>), SendFailure>;
 }
 
 pub type ClientPath = Arc<dyn Fn() -> Option<PathBuf> + Send + Sync>;
@@ -103,7 +106,7 @@ impl LocalApi for RiotTransport {
                     check(Some(cancel))?;
                     return Ok(parse(status, &bytes));
                 }
-                Ok(Err(())) | Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Ok(Err(SendFailure)) | Err(mpsc::RecvTimeoutError::Disconnected) => {
                     check(Some(cancel))?;
                     return Err(RiotError::new(FAILED));
                 }
@@ -116,9 +119,9 @@ impl LocalApi for RiotTransport {
 pub struct TlsClient;
 
 impl HttpsClient for TlsClient {
-    fn send(&self, request: &HttpsRequest) -> Result<(u16, Vec<u8>), ()> {
-        let root = native_tls::Certificate::from_pem(&request.ca).map_err(|_| ())?;
-        let connector = native_tls::TlsConnector::builder().add_root_certificate(root).disable_built_in_roots(true).build().map_err(|_| ())?;
+    fn send(&self, request: &HttpsRequest) -> Result<(u16, Vec<u8>), SendFailure> {
+        let root = native_tls::Certificate::from_pem(&request.ca).map_err(|_| SendFailure)?;
+        let connector = native_tls::TlsConnector::builder().add_root_certificate(root).disable_built_in_roots(true).build().map_err(|_| SendFailure)?;
         let agent = ureq::AgentBuilder::new().tls_connector(Arc::new(connector)).timeout(Duration::from_millis(request.timeout_ms)).redirects(0).build();
         let url = format!("https://127.0.0.1:{}{}", request.port, request.path);
         let authorization = format!("Basic {}", STANDARD.encode(format!("riot:{}", request.token)));
@@ -130,13 +133,13 @@ impl HttpsClient for TlsClient {
         let response = match outcome {
             Ok(response) => response,
             Err(ureq::Error::Status(_, response)) => response,
-            Err(_) => return Err(()),
+            Err(_) => return Err(SendFailure),
         };
         let status = response.status();
         let mut bytes = Vec::new();
-        response.into_reader().take(request.max_bytes as u64 + 1).read_to_end(&mut bytes).map_err(|_| ())?;
+        response.into_reader().take(request.max_bytes as u64 + 1).read_to_end(&mut bytes).map_err(|_| SendFailure)?;
         if bytes.len() > request.max_bytes {
-            return Err(());
+            return Err(SendFailure);
         }
         Ok((status, bytes))
     }

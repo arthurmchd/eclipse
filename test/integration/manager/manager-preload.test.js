@@ -25,6 +25,7 @@ test('the preload exposes fixed account methods and preserves their argument sha
   await f.api.reorderAccounts(['b', 'a']);
   await f.api.minimizeRiot('close');
   await f.api.closeRiot();
+  await f.api.dragRiot(10, 20);
   assert.equal(f.api.revealRiot, undefined);
   assert.equal(f.api.setModal, undefined);
   for (const name of ['copy', 'closeManager', 'patchAccount', 'forgetSession', 'showRiotClient', 'pickClientPath', 'openDataFolder']) assert.equal(f.api[name], undefined);
@@ -33,7 +34,7 @@ test('the preload exposes fixed account methods and preserves their argument sha
     ['addAccounts', [[{ gameName: 'Synthetic' }]]],
     ['pinAccount', ['synthetic-id', true]],
     ['reorderAccounts', [['b', 'a']]],
-    ['windowAction', ['minimize']], ['windowAction', ['close']],
+    ['windowAction', ['minimize']], ['windowAction', ['close']], ['windowAction', ['drag']],
   ]);
   f.unload();
 });

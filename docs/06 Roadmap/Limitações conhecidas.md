@@ -9,7 +9,7 @@ tags: [limitações]
 
 - **API local não é contrato público.** Os endpoints do Riot Client usados para sessão, autenticação e abertura de produtos podem mudar sem aviso. A [própria Riot](https://developer.riotgames.com/docs/lol#league-client-api) não garante documentação, disponibilidade nem aviso de mudanças.
 - **Cartões dependem do desenho da tela de login.** A largura da coluna de login, a caixa "Ocultar contas" e os pontos que o [[riotWindowObserver]] lê são frações da janela da Riot. Um redesenho pode exigir ajuste ([[Atualização do Riot Client]]). A cópia privada presa a versões saiu em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
-- **Preenchimento de compatibilidade depende do layout.** [[login.ps1]] usa posições medidas na v141 e as cores da caixa "Stay signed in" da v142. Um redesenho pode exigir ajuste. O caminho direto pela API não usa posições.
+- **Preenchimento de compatibilidade depende do layout.** [[loginForm]] usa posições medidas na v141 e as cores da caixa "Stay signed in" da v142. Um redesenho pode exigir ajuste. O caminho direto pela API não usa posições.
 - **Elo sem chave só muda com o jogo aberto.** Desde 2026-11-08 ([[ADR-031 Elo lido do próprio jogo, sem chave]]). Conta nunca jogada desde a instalação fica sem elo, e conta parada não vê a perda de PDL por inatividade nem a nova temporada. Sem a chave da HenrikDev, o VALORANT não mostra RR, última partida, pico nem temporada passada; sem a da Riot, o LoL não mostra os cortes de Mestre+.
 - **Elo da temporada passada e banimentos são manuais.** A Riot API não informa. No VALORANT, a HenrikDev preenche quando disponível.
 - **Termos de uso.** Automatizar o Riot Client é zona cinzenta. O app não mexe nos jogos nem no Vanguard, mas o risco é do usuário.

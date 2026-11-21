@@ -1,9 +1,9 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use eclipse::riot::riot_authentication::{AuthKind, AuthOutcome, AuthState, Credentials};
+use eclipse::riot::riot_authentication::{AuthKind, AuthOutcome, AuthState, ChallengeSource, Credentials};
 use eclipse::riot::riot_state::RiotProbe;
-use eclipse::riot::sign_in_flow::{sign_in, Account, Closed, LaunchAnswer, SignInIo, SignInOutcome, SignInRequest, StatusDetails, TypeRequest};
+use eclipse::riot::sign_in_flow::{sign_in, Account, Closed, LaunchAnswer, INPUT_METHODS, SignInIo, SignInOutcome, SignInRequest, StatusDetails, TypeRequest};
 use eclipse::riot::{AccountState, Cancel, Response, RiotError, RiotId, RiotResult, RunningGames};
 use serde_json::Value;
 
@@ -655,6 +655,33 @@ fn an_unresolved_player_session_verification_never_opens_a_game_despite_existing
 }
 
 #[test]
+fn an_unfinished_sign_in_logs_where_riot_reported_it_once_per_source() {
+    let mut f = direct();
+    f.authorized.set(true);
+    f.on_session_state = Box::new(|f: &Fake| {
+        Ok(Some(if f.elapsed() < 5000 {
+            AuthState::challenge(ChallengeSource::Captcha("hcaptcha"))
+        } else if f.elapsed() < 10_000 {
+            AuthState::challenge(ChallengeSource::PlayerSession("pendingeulaacceptance"))
+        } else if f.elapsed() < 15_000 {
+            AuthState::of(AuthKind::Challenge)
+        } else {
+            AuthState::of(AuthKind::Authenticated)
+        }))
+    });
+    assert!(f.run().unwrap().game_started);
+    let reported: Vec<String> = f.logs().into_iter().filter(|line| line.starts_with("Riot reported an unfinished sign-in")).collect();
+    assert_eq!(
+        reported,
+        [
+            "Riot reported an unfinished sign-in (authenticator captcha: hcaptcha)",
+            "Riot reported an unfinished sign-in (player session: pendingeulaacceptance)",
+            "Riot reported an unfinished sign-in (source unavailable)",
+        ]
+    );
+}
+
+#[test]
 fn player_session_inspection_errors_cannot_be_mistaken_for_completed_verification() {
     let mut f = direct();
     f.authorized.set(true);
@@ -734,6 +761,28 @@ fn the_visible_form_reports_how_the_riot_interface_was_opened_to_the_sign_in_log
     assert!(f.run().unwrap().game_started);
     assert!(f.logs().contains(&"started the Riot Client with its interface".to_string()));
     assert!(f.logs().contains(&"credentials entered (remember:on)".to_string()));
+}
+
+#[test]
+fn the_sign_in_log_says_how_the_form_was_filled_only_with_names_from_a_fixed_list() {
+    for (lines, expected) in [
+        (vec!["input:uia", "remember:on", "ok"], "credentials entered (input:uia, remember:on)"),
+        (vec!["input:keys", "remember:off", "ok"], "credentials entered (input:keys, remember:off)"),
+        (vec!["input:secret", "remember:on", "ok"], "credentials entered (remember:on)"),
+        (vec!["input:uia", "ok"], "credentials entered (input:uia, remember state unavailable)"),
+    ] {
+        let mut f = direct();
+        f.on_authenticate = Box::new(native_form);
+        let output: Vec<String> = lines.iter().map(|line| line.to_string()).collect();
+        f.on_type_credentials = Box::new(move |f: &Fake, _: &TypeRequest, _: &dyn Fn(&str)| {
+            f.authorized.set(true);
+            Ok(output.clone())
+        });
+        assert!(f.run().unwrap().game_started);
+        assert!(f.logs().contains(&expected.to_string()), "{expected}");
+        assert!(!f.logs().iter().any(|line| line.contains("secret")));
+    }
+    assert_eq!(INPUT_METHODS, ["input:uia", "input:keys"]);
 }
 
 fn typed_flag(f: &mut Fake) -> Rc<Cell<bool>> {

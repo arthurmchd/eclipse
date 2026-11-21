@@ -24,9 +24,11 @@ tags: [módulo]
 |---|---|---|
 | `RiotAuthentication::new(api)` | construtor | Recebe a API local (trait `LocalApi` do [[riotTransport]]) |
 | `authenticate(conta, cancel, lembrar)` | método | `Credentials` de usuário e senha; `lembrar` segue "Manter login". Devolve um `AuthOutcome` (abaixo) ou erro com mensagem fixa |
-| `session_state(cancel)` | método | `AuthState { kind, error }` normalizado. HTTP 429 vira erro `rate_limited`; outro status diferente de 200 vira `None`. Erro se a sessão do jogador não puder ser confirmada |
+| `session_state(cancel)` | método | `AuthState { kind, error, source }` normalizado; `source` (`ChallengeSource`) só vem num `challenge` e diz de onde ele veio. HTTP 429 vira erro `rate_limited`; outro status diferente de 200 vira `None`. Erro se a sessão do jogador não puder ser confirmada |
 | `login_screen_state(cancel)` | método | Só leitura, para a sobreposição: `auth`, erro fixo de credenciais ou `None` |
 | `NON_BLOCKING_SESSION_STATES` | constante | Os 31 estados automáticos da sessão do jogador que não pedem atenção |
+| `BLOCKING_SESSION_STATES` | constante | Os 26 estados de bloqueio conhecidos da Riot 142, só para dar nome à fonte de um `challenge` |
+| `ChallengeSource` | enum | `Captcha(tipo)`, `AuthenticatorType` ou `PlayerSession(estado)`, sempre com nomes de lista fixa; `describe()` monta o texto do log |
 | `AUTHENTICATION`, `START`, `COMPLETE`, `LEGACY_SESSION`, `AUTHORIZATION`, `PLAYER_SESSION` | constantes | As rotas usadas |
 
 Resultados de `authenticate`:
@@ -50,6 +52,7 @@ Estados normalizados (`AuthKind`): `auth`, `authenticated`, `multifactor`, `chal
 | `POST .../riot-identity/complete` | Envia `{ username, password, remember: true, language: 'en_US', captcha: '' }`, 30 s. |
 | `GET /rso-auth/v1/session` | Estado em clientes antigos, só leitura. |
 | `GET /player-session-lifecycle/v1/session` | `loginState` da sessão do jogador. |
+| `GET /rso-auth/v1/authorization` | Conta autorizada (200): esconde os cartões em `login_screen_state` e libera o CAPTCHA do formulário em `session_state`. |
 
 ## Dependências
 
@@ -67,7 +70,7 @@ Estados normalizados (`AuthKind`): `auth`, `authenticated`, `multifactor`, `chal
 
 ## Estados da sessão do jogador
 
-`sessionState` só devolve `authenticated` quando o `loginState` está em `NON_BLOCKING_SESSION_STATES`. `PendingMultifactor` vira `multifactor`. **Qualquer outro valor vira `challenge`**, inclusive estados que a Riot criar depois.
+Um CAPTCHA no formulário do autenticador com `GET /rso-auth/v1/authorization` em 200 conta como autenticado e segue para esta checagem ([[ADR-042 CAPTCHA do formulário não bloqueia conta autorizada]]). `sessionState` só devolve `authenticated` quando o `loginState` está em `NON_BLOCKING_SESSION_STATES`. `PendingMultifactor` vira `multifactor`. **Qualquer outro valor vira `challenge`**, inclusive estados que a Riot criar depois.
 
 | Grupo | Estados (v142) | Resultado |
 |---|---|---|
@@ -78,7 +81,7 @@ Estados normalizados (`AuthKind`): `auth`, `authenticated`, `multifactor`, `chal
 | Ação humana ou bloqueio | `PendingConsent`, `PendingEulaAcceptance`, `PendingForget`, `PendingAgeVerification`, `PendingHealup`, `PendingKRIdVerification`, `PendingDisambiguation`, `PendingRiotID`, `PendingLolRegionSelection`, `PendingVNGProfile`, `Error`, restrições de idade e de jogo (`SignupAgeRestricted`, `ConfirmedAgeTooYoung`, `PlatformAgeRestricted`, `ProductAgeRestricted`, `GamePlayRestricted`), `PendingParentalEmail`, `MultifactorChallengeDenied`, `PendingUsernameChangedConfirmation`, `PendingRecoverableAccount`, `ReauthenticationRequired`, escolhas de conta e plataforma (`PendingCreateAccountStrategy`, `PendingSignup`, `PendingPlatformAuthorizationConsent`, `PendingProviderCredentials`, `PendingPlatformUser`, `PendingAuthIntent`, `PendingLoginStrategy`, `PendingSignInStrategy`), `KeyPairError` | `challenge` |
 | Desconhecido | qualquer outro | `challenge` |
 
-Fonte: enumeração `PlayerSessionStateType` lida (sem alterar nada) em `C:\Riot Games\Riot Client\RiotGamesApi.dll` da instalação 142, conferida contra os estados que a interface do Riot 142 trata. O código só guarda a lista de permitidos; os estados de bloqueio estão listados nos testes.
+Fonte: enumeração `PlayerSessionStateType` lida (sem alterar nada) em `C:\Riot Games\Riot Client\RiotGamesApi.dll` da instalação 142, conferida contra os estados que a interface do Riot 142 trata. Quem libera o jogo continua sendo só a lista de permitidos. Os estados de bloqueio conhecidos ficam em `BLOCKING_SESSION_STATES` apenas para nomear a fonte no log.
 
 ## Invariantes e decisões
 
@@ -99,11 +102,13 @@ Fonte: enumeração `PlayerSessionStateType` lida (sem alterar nada) em `C:\Riot
 - **Cancelamento antes e depois de cada requisição.** Cancelar após o `DELETE` impede o `start` e o envio da senha.
 - **`remember` segue a configuração "Manter login".** `authenticate(account, signal, { remember })` envia `remember: true` por padrão e `false` só quando a opção está desmarcada. Com `true`, o cliente grava o login lembrado que o app guarda por conta ([[Armazenamento e dados]]). Desmarcado desde 2026-11-04, a Riot não lembra a conta.
 - **Conta autorizada não está na tela de login.** `login_screen_state` devolve `auth` só se `GET /rso-auth/v1/authorization` não responder 200. O autenticador pode continuar reportando `auth` depois de entrar; sem essa conferência, os cartões ficavam sobre a página inicial do Riot.
+- **Fonte do `challenge` com nome fixo (2026-11-21).** No laboratório de velocidade, o login com a conta já conectada esperou 180 s por um `challenge` que não saía, com a Riot autorizada e o Riot ID certo. O estado não dizia se vinha do objeto `captcha` do autenticador, de um tipo desconhecido dele ou do `loginState` da sessão do jogador. Agora `source` diz isso. Tipo de CAPTCHA fora de `hcaptcha`, `recaptcha` e `captcha`, e estado fora de `BLOCKING_SESSION_STATES`, viram `other`: nada do texto da Riot passa adiante. Essa mudança foi só de diagnóstico.
+- **CAPTCHA do formulário não bloqueia conta autorizada (2026-11-21, [[ADR-042 CAPTCHA do formulário não bloqueia conta autorizada]]).** O autenticador descreve o formulário do próximo login: com a conta conectada, ele passa de `auth` sem CAPTCHA para `auth` com `hcaptcha` cerca de 1 s depois, e o login expirava. Agora um `challenge` de origem `Captcha` consulta a autorização; com 200, a sessão do jogador decide. Falha ao consultar conta como não autorizado, e o cancelamento continua sendo cancelamento. `captcha_not_allowed`, tipo desconhecido e clientes antigos não fazem essa consulta.
 - **Lista de estados herdada do Electron.** Um teste confere que `NON_BLOCKING_SESSION_STATES` tem os mesmos 31 nomes, em minúsculas, que o Electron usava.
 
 ## Testes
 
-- `src-tauri/tests/riot/riot_authentication.rs`: a sobreposição achando o formulário mesmo com CAPTCHA nativo e sumindo com sessão autenticada, MFA, estado desconhecido, conta já autorizada ou rota indisponível; envio único pelo contexto existente; "Manter login" desligado pedindo à Riot que não lembre; contexto ausente ou antigo; reset com falha; rotas indisponíveis antes do envio (formulário nativo) e depois do envio (erro, sem segundo envio); 2FA e telas humanas sem senha; CAPTCHA antes e depois do envio; limite de tentativas; erros sem eco da resposta; estado já autenticado; estados da sessão do jogador permitidos, bloqueantes e indisponíveis; cancelamento; entradas inválidas; e a lista dos 31 estados.
+- `src-tauri/tests/riot/riot_authentication.rs`: a sobreposição achando o formulário mesmo com CAPTCHA nativo e sumindo com sessão autenticada, MFA, estado desconhecido, conta já autorizada ou rota indisponível; envio único pelo contexto existente; "Manter login" desligado pedindo à Riot que não lembre; contexto ausente ou antigo; reset com falha; rotas indisponíveis antes do envio (formulário nativo) e depois do envio (erro, sem segundo envio); 2FA e telas humanas sem senha; CAPTCHA antes e depois do envio; limite de tentativas; erros sem eco da resposta; estado já autenticado; estados da sessão do jogador permitidos, bloqueantes e indisponíveis; CAPTCHA do formulário liberado só com autorização 200 e a sessão do jogador decidindo, bloqueado sem ela ou com falha na consulta, cancelamento durante a consulta; a fonte de cada `challenge` só com nomes fixos (`other` para o resto) e a lista de bloqueios sem sobrepor a de permitidos; cancelamento; entradas inválidas; e a lista dos 31 estados.
 - `src-tauri/tests/riot/auth_context_regression.rs`: `suuid` vazio ou ausente exige `DELETE` + `start` antes da senha; `invalid_request` inicial é limpo; `invalid_request` após o envio não repete nem reinicia.
 
 ## Pontos de atenção

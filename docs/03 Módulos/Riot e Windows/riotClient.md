@@ -12,7 +12,7 @@ tags: [módulo]
 
 ## Responsabilidade
 
-- Liga as peças reais ao [[signInFlow]]: processos do Windows, arquivo de configurações do Riot, API local, helper de janelas ([[windowController]]) e [[login.ps1]].
+- Liga as peças reais ao [[signInFlow]]: processos do Windows, arquivo de configurações do Riot, API local, helper de janelas ([[windowController]]) e [[loginForm]].
 - Lê o estado de login pela API local do Riot Client. Porta e senha vêm do lockfile, via [[riotTransport]].
 - Faz a troca de conta com o "Stay signed in" do próprio cliente. Ver "Invariantes e decisões".
 
@@ -41,7 +41,7 @@ Funções soltas:
 
 | Função | Descrição |
 |---|---|
-| `running_games()` | `RunningGames` (`lol`, `val`, `client`, `client_window`) a partir do `tasklist` (`parse_tasklist`, `running_games_in`) |
+| `running_games()` | `RunningGames` (`lol`, `val`, `client`, `client_window`) a partir da lista de processos do Windows ([[win32]] `process_names`, `running_games_in`) |
 | `detect_client_path(escolhido)` | O caminho escolhido se existir; depois `rc_default` e `rc_live` de `C:/ProgramData/Riot Games/RiotClientInstalls.json`; depois `FALLBACK_CLIENT`. Senão `None`. `detect_client_path_with` troca o disco para os testes |
 | `has_persisted_login(yaml)` | `true` se o YAML tem login lembrado |
 | `strip_persisted_login(yaml)` | Remove o login lembrado e mantém só o `tdid` |
@@ -54,12 +54,12 @@ Funções soltas:
 | `start_client(io, caminho)` | A regra do `start_client`, pela trait `StartIo` |
 | `request_launch(api, jogo, log)` | Pede a abertura de um jogo já verificado e devolve o motivo de recusa |
 | `watch_settings(aviso)`, `watch_lockfile(aviso)` | Observam a pasta `Data` (só `RiotGamesPrivateSettings*`) e a pasta `Config` (só o `lockfile`) da Riot pela biblioteca `notify`. Pasta ausente devolve `None` |
-| `run_login_script(executor, script, pedido, cancel)` | Roda o [[login.ps1]] com as credenciais só pela entrada padrão |
+| `run_login_script(executor, script, pedido, cancel)` | Roda o [[loginForm]] com as credenciais só pela entrada padrão |
 | `taskkill(nomes)` | Encerra processos pelo nome |
 
 ## Dependências
 
-- Usa: [[signInFlow]], [[riotState]], [[gameRanks]], [[riotTransport]], [[riotAuthentication]], [[riotAppControls]], [[riotInterface]], [[riotProcess]], [[windowController]], [[windowsEnvironment]], [[paths]] (pasta dos helpers), [[login.ps1]] e `notify`.
+- Usa: [[signInFlow]], [[riotState]], [[gameRanks]], [[riotTransport]], [[riotAuthentication]], [[riotAppControls]], [[riotInterface]], [[riotProcess]], [[windowController]], [[windowsEnvironment]], [[paths]] (pasta dos helpers), [[loginForm]] e `notify`.
 - Usado por: [[main]] (abrir, fechar, tela de login, encerramento), [[appPorts]] (jogos abertos e sessão de quem sai), [[signInService]], [[sessionKeeper]], [[riotWakeup]] e [[rankWatcher]].
 - **API sem o modo antigo.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saíram o início da cópia privada, o "mostrar cliente" e a leitura do estado de autenticação para fora. O [[signInFlow]] continua recebendo essa leitura pela `SignInIo`.
 
@@ -74,7 +74,7 @@ Funções soltas:
 
 | Função | O que faz |
 |---|---|
-| `runningProcesses` | `tasklist /FO CSV /NH`. Falha: "Could not check running Riot games. No accounts were switched". |
+| `running_processes` | `process_names()` do [[win32]], pelo Toolhelp. Lista vazia conta como falha: "Could not check running Riot games. No accounts were switched". |
 | `taskkill(names)` | `taskkill /F /T /IM ...`. Ignora erros. |
 | `sessionState` | `authentication.sessionState()`. Qualquer erro vira `null`. Nulo também com a Riot em segundo plano, porque a rota não existe nesse modo. Entregue ao [[riotState]] e ao [[signInFlow]]. |
 | `authorization` | `GET /rso-auth/v1/authorization` lido por `authorizationOf`. Erro vira `'unknown'`. Entregue ao [[riotState]], ao [[signInFlow]] e ao `closeEverything`. |
@@ -90,34 +90,19 @@ Funções soltas:
 4. Mata os processos do cliente e espera até 10 s (a cada 250 ms). Se algo resta: "Could not close the Riot Client".
 5. Retorna `{ signedIn, riotId, yaml }`, com o YAML como ficou no disco.
 
-### `runWindowScript(request, onLine, signal)`
+### `fill_login_form(form, pedido, versão, cancel, log)`
 
-- `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File login.ps1`, com `windowsHide`.
-- O pedido vai como JSON no stdin. Retorna `{ promise, kill }`; `onLine` recebe cada linha impressa.
-- Timeout de 90 s: "The Riot Client sign-in form did not respond". `signal` mata o processo: "Sign-in cancelled".
-- Sucesso exige código 0 e última linha `ok`. Resolve com todas as linhas.
-- Traduz `error:window-not-found` e `error:form-not-ready`. O resto vira "Riot Client window script failed: <última linha>".
-
-### `typeCredentials(request, signal, log)` (entregue ao signInFlow)
-
-- Garante a janela da interface com `openInterface` ([[riotInterface]]): reaproveita a janela existente, pede `show` aos serviços headless ou os reinicia com interface, sempre visível desde 2026-11-07.
-- Checa cancelamento e roda `runWindowScript(request, () => {}, signal)`.
-- O caminho usado vai para o `sign-in.log` pelo `log`.
-
-### `requestLaunch(game, log)`
-
-Criado por `createLaunchRequester({ localApi })`, exportado para os testes.
-
-- Base: `/product-launcher/v1/products/<produto>/patchlines/live`. `lol` e `tft` → `league_of_legends`; `val` → `valorant`.
-- `GET <base>/eligibility` só para o log. Depois `POST <base>` com 30 s.
-- Grava no log só o status HTTP, `eligible`/`not eligible` quando a elegibilidade vem como booleano e um `errorCode` com formato de código. Nunca lança erro.
-- Devolve `{ status, errorCode }`. `errorCode` é o `errorCode` da resposta se casar com `^[A-Za-z0-9_.-]{1,100}$`, senão `null`. Status fora de 0–999 vira `0`. Sem resposta, grava "launch request: no answer from Riot" e devolve `{ status: 0, errorCode: null }`.
+- Escreve no log a versão do Riot Client (`version_line` do [[riotVersion]]), lida do `RiotClientServices.exe` por `file_version` do [[win32]].
+- Chama o `LoginForm` do [[loginForm]] (o real é o `NativeLoginForm`) com usuário, senha e `remember`, dentro do processo do Eclipse. Cancelado antes, não toca no formulário.
+- `report_lines` devolve `input:uia|keys`, `remember:on|off|unknown` e `ok`, as linhas que o [[signInFlow]] lê.
+- `fill_error` traduz a falha: `window-not-found` → "The Riot Client window did not open", `form-not-ready` → "The Riot Client sign-in screen did not load. Finish signing in there", cancelamento → "Sign-in cancelled", o resto → "Riot Client sign-in form failed: <código>", só com códigos da lista fechada. Numa Riot mais nova que a última conferida, as falhas de desenho viram o aviso do [[riotVersion]] (`fill_error_for`).
+- Até a 2.18.1 era o `run_login_script`, que abria o `login.ps1` num PowerShell com o pedido no stdin e prazo de 90 s ([[ADR-044 Helpers do Windows em Rust]]).
 
 ## Invariantes e decisões
 
 - **Produtos e processos dos cinco jogos (2026-11-19, [[ADR-038 TFT, 2XKO e Runeterra no Eclipse]]).** `product` manda `lol` para `league_of_legends`, `val` para `valorant`, `tft` para `teamfighttactics` (antes ia para o League), `2xko` para `lion` e `lor` para `bacon`. `RunningGames` ganhou `tft`, `xko` e `lor`, lidos de `TFT_PROCESSES`, `XKO_PROCESSES` e `LOR_PROCESSES`, e os métodos `game` e `any_game`. `GAME_PROCESSES`, fechados ao trocar de conta, inclui os cinco jogos, e `close_everything` espera todos fecharem.
 - **Estado da Riot pelo [[riotState]].** Desde 2026-11-07 ([[ADR-029 Estado da Riot definido num lugar só]]), o `RiotClient` implementa a `RiotProbe` com as consultas reais e entrega `look()`. O `close_everything` usa a mesma regra. As consultas soltas de "Riot rodando" e "autorizada" deixaram de sair do módulo; continuam internas, entregues ao [[signInFlow]].
-- **Sem `error:focus` e sem interface escondida.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saiu o ramo `error:focus`, que o [[login.ps1]] nunca emitia, e o `visible: true` explícito das chamadas ao [[riotInterface]], que agora sempre abre a interface visível.
+- **Sem `error:focus` e sem interface escondida.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]) saiu o ramo `error:focus`, que o [[loginForm]] nunca emitia, e o `visible: true` explícito das chamadas ao [[riotInterface]], que agora sempre abre a interface visível.
 - `open_client` usa o mesmo abridor quando os serviços já rodam sem interface; pede a janela ao backend antes de considerar outro início. Executar novamente apenas o exe não garantia uma janela.
 
 - Para [[ADR-010 Login visível com progresso]], fornece ao fluxo a abertura da interface visível, pelo abridor existente, e o fechamento só dos processos de jogos, sem reiniciar a interface Riot. A confirmação de fechar jogos permanece nos [[cards]] antes da operação.
@@ -149,7 +134,7 @@ Criado por `createLaunchRequester({ localApi })`, exportado para os testes.
 - **`request_launch` registra e devolve o motivo de recusa.** Por exemplo, HTTP 424 `launch_failed_product_not_up_to_date` quando o jogo ainda precisa de atualização; com ele o [[signInFlow]] espera e repete o pedido (desde 2026-11-04). Quem decide o sucesso continua sendo o [[signInFlow]], pela janela do jogo.
 - **Log da abertura só com valores fixos.** Desde 2026-11-07 o `request_launch` não grava mais até 300 caracteres de cada resposta. Pelo `sign-in.log` real, a elegibilidade responde um booleano, o pedido aceito uma string (o ID da abertura) e a recusa `{ errorCode, httpStatus, implementationDetails, message }`. Ficam de fora a mensagem, os detalhes, o ID e o texto de erro da rede, que podem trazer caminhos ou nomes. O código basta para o [[signInFlow]] reconhecer o jogo desatualizado.
 - **O início da Riot nunca inclui um jogo.** O jogo só é pedido depois da verificação, por `request_launch`.
-- **`login.ps1` com credenciais só pela entrada padrão.** O caminho vem da pasta dos helpers ([[paths]]). Um cancelamento ou os 90 s (`LOGIN_TIMEOUT_MS`) encerram a árvore inteira do PowerShell (`taskkill /T`), não só o processo de cima.
+- **Credenciais não saem do processo (2026-11-21, [[ADR-044 Helpers do Windows em Rust]]).** O preenchimento roda no próprio Eclipse pelo [[loginForm]]. Antes ia ao `login.ps1` pela entrada padrão de um PowerShell, com prazo de 90 s e `taskkill /T` no cancelamento. A lista de processos também deixou de abrir o `tasklist`.
 
 ## Testes
 
@@ -162,9 +147,10 @@ Criado por `createLaunchRequester({ localApi })`, exportado para os testes.
 - `start_client`: Riot fechada iniciada com a interface depois de trazer a janela à frente; Riot rodando ou aberta no meio-tempo nunca iniciada, fechada ou reiniciada;
 - `request_launch`: log só com status, elegibilidade e código bem formado; resposta ausente ou código estranho só com texto fixo; só jogos conhecidos;
 - `detect_client_path` na ordem caminho escolhido, instalações da Riot e pasta padrão;
-- a lista de processos achando jogos, serviços e a janela da Riot pelo nome.
+- a lista de processos achando jogos, serviços e a janela da Riot pelo nome;
+- o relatório do preenchimento virando as linhas do [[signInFlow]], as falhas virando texto fixo, e as credenciais indo direto a um `LoginForm` falso, que nunca é chamado num login já cancelado.
 
-Sem cobertura: os vigias de pasta, o `login.ps1` real e os `taskkill` e `tasklist` reais.
+Sem cobertura: os vigias de pasta, o preenchimento real (ver [[loginForm]]) e o `taskkill` real.
 
 ## Pontos de atenção
 

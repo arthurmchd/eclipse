@@ -69,7 +69,7 @@ fn the_setup_carries_every_served_file_at_its_own_path_and_nothing_the_protocol_
         let found = bundled.iter().find(|file| file.target == path).unwrap_or_else(|| panic!("{path} is not in the Setup"));
         assert!(same_file(&found.source, &root.join(&path)), "{path}");
     }
-    for file in bundled.iter().filter(|file| !file.target.ends_with(".ps1")) {
+    for file in &bundled {
         assert_eq!(allowed(&file.target), Some(file.target.as_str()), "{}", file.target);
         assert!(same_file(&file.source, &root.join(&file.target)), "{}", file.target);
     }

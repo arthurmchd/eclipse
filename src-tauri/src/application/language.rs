@@ -53,7 +53,6 @@ pub const MESSAGES: &[(&str, &str)] = &[
     ("The Riot Client did not start", "O Riot Client não iniciou"),
     ("The Riot Client window did not open", "A janela do Riot Client não abriu"),
     ("The Riot Client sign-in screen did not load. Finish signing in there", "A tela de login do Riot Client não carregou. Termine o login por lá"),
-    ("The Riot Client sign-in form did not respond", "O formulário de login do Riot Client não respondeu"),
     ("The Riot background sign-in service returned an invalid response", "O serviço de login da Riot devolveu uma resposta inválida"),
     ("The Riot authentication service returned an invalid response", "O serviço de autenticação da Riot devolveu uma resposta inválida"),
     ("The local Riot service could not complete the request", "O serviço local da Riot não concluiu o pedido"),
@@ -81,7 +80,13 @@ pub const MESSAGES: &[(&str, &str)] = &[
 
 const PATTERNS: &[(&str, &str, &str, &str)] = &[
     ("^Riot sign-in error: (.+)$", "^Erro de login da Riot: (.+)$", "Riot sign-in error: ", "Erro de login da Riot: "),
-    ("^Riot Client window script failed: (.+)$", "^O script da janela do Riot Client falhou: (.+)$", "Riot Client window script failed: ", "O script da janela do Riot Client falhou: "),
+    ("^Riot Client sign-in form failed: (.+)$", "^O formulário de login do Riot Client falhou: (.+)$", "Riot Client sign-in form failed: ", "O formulário de login do Riot Client falhou: "),
+    (
+        r"^Eclipse does not recognize this newer Riot Client yet\. Finish signing in there and check for an Eclipse update\. Riot Client (\d{1,6})$",
+        r"^O Eclipse ainda não reconhece este Riot Client mais novo\. Termine o login por lá e procure uma atualização do Eclipse\. Riot Client (\d{1,6})$",
+        "Eclipse does not recognize this newer Riot Client yet. Finish signing in there and check for an Eclipse update. Riot Client ",
+        "O Eclipse ainda não reconhece este Riot Client mais novo. Termine o login por lá e procure uma atualização do Eclipse. Riot Client ",
+    ),
 ];
 
 pub struct MainText {
@@ -96,6 +101,12 @@ pub struct MainText {
     pub open_failed_detail: &'static str,
     pub understood: &'static str,
     pub old_eclipse_open: &'static str,
+    pub tray_update_checks: &'static str,
+    pub tray_update_to: &'static str,
+    pub update_title: &'static str,
+    pub update_available: &'static str,
+    pub update_busy: &'static str,
+    pub update_failed: &'static str,
 }
 
 const MAIN_TEXT_PT: MainText = MainText {
@@ -110,6 +121,12 @@ const MAIN_TEXT_PT: MainText = MainText {
     open_failed_detail: "Tente de novo pelo ícone da bandeja. Se continuar, confira se o Riot Client está instalado.",
     understood: "Entendi",
     old_eclipse_open: "O Eclipse antigo está aberto. Saia dele pela bandeja antes de abrir este.",
+    tray_update_checks: "Procurar atualizações",
+    tray_update_to: "Atualizar para a versão ",
+    update_title: "Atualização do Eclipse",
+    update_available: "Há uma versão nova do Eclipse. Para instalar, use o ícone da bandeja: Atualizar para a versão ",
+    update_busy: "Espere o login terminar para atualizar o Eclipse.",
+    update_failed: "Não foi possível baixar a atualização do Eclipse. Tente de novo mais tarde.",
 };
 
 const MAIN_TEXT_EN: MainText = MainText {
@@ -124,6 +141,12 @@ const MAIN_TEXT_EN: MainText = MainText {
     open_failed_detail: "Try again from the tray icon. If it keeps failing, check that Riot Client is installed.",
     understood: "OK",
     old_eclipse_open: "The old Eclipse is open. Quit it from the tray before opening this one.",
+    tray_update_checks: "Check for updates",
+    tray_update_to: "Update to version ",
+    update_title: "Eclipse update",
+    update_available: "A new Eclipse version is out. To install it, use the tray icon: Update to version ",
+    update_busy: "Wait for the sign-in to finish to update Eclipse.",
+    update_failed: "Could not download the Eclipse update. Try again later.",
 };
 
 fn patterns() -> &'static Vec<(Regex, Regex, &'static str, &'static str)> {

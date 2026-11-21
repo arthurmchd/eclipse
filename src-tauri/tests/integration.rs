@@ -1,3 +1,5 @@
+#[path = "integration/app_updater.rs"]
+mod app_updater;
 #[path = "integration/asar.rs"]
 mod asar;
 #[path = "integration/asset_protocol.rs"]

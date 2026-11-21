@@ -15,6 +15,7 @@ pub type Probe = Box<dyn Fn() -> Result<RunningGames, String> + Send + Sync>;
 pub type Opener = Box<dyn Fn(&str) -> Result<(), String> + Send + Sync>;
 pub type SettingsChanged = Box<dyn Fn(&Map<String, Value>) + Send + Sync>;
 pub type SeenAccount = Box<dyn Fn() -> Option<RiotId> + Send + Sync>;
+pub type Startup = Box<dyn Fn(Option<bool>) -> Option<bool> + Send + Sync>;
 
 pub const OPEN_FAILED: &str = "Could not open the link";
 
@@ -29,6 +30,7 @@ pub struct AppPorts {
     pub open_external: Opener,
     pub settings_changed: SettingsChanged,
     pub seen_account: SeenAccount,
+    pub startup: Startup,
     pub version: String,
 }
 
@@ -80,6 +82,10 @@ impl ManagerPorts for AppPorts {
 
     fn settings_changed(&self, settings: &Map<String, Value>) {
         (self.settings_changed)(settings);
+    }
+
+    fn start_with_windows(&self, turn: Option<bool>) -> Option<bool> {
+        (self.startup)(turn)
     }
 }
 

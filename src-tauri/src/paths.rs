@@ -21,10 +21,6 @@ pub fn renderer_dir() -> PathBuf {
     source_dir().join("renderer")
 }
 
-pub fn windows_helpers_dir() -> PathBuf {
-    source_dir().join("platform").join("windows")
-}
-
 pub fn user_data_dir() -> Option<PathBuf> {
     env::var_os("APPDATA")
         .filter(|value| !value.is_empty())
@@ -44,6 +40,3 @@ pub fn data_dir() -> Option<PathBuf> {
     data_dir_from(cfg!(debug_assertions), env::var_os(DATA_DIR_VARIABLE), user_data_dir())
 }
 
-pub fn observer_script() -> PathBuf {
-    windows_helpers_dir().join("riotWindowObserver.ps1")
-}

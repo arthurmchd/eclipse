@@ -24,10 +24,10 @@ A memória do agente neste projeto fica no vault, em `docs/07 Memória/`, e não
 
 ## Regras de código
 
-- **Nenhum comentário** em Rust, JS, CSS, HTML, PowerShell ou no C# embutido.
-- O app é só o Tauri desde 2026-11-15; o Electron saiu (tag `electron-final`, [[ADR-034 Troca do Electron pelo Tauri]]). `src/` guarda o que o Tauri serve ou roda: os cartões (`src/renderer`), a caixa e a cobertura, o `manager-preload.js` embutido e os `.ps1`.
+- **Nenhum comentário** em Rust, JS, CSS ou HTML.
+- O app é só o Tauri desde 2026-11-15; o Electron saiu (tag `electron-final`, [[ADR-034 Troca do Electron pelo Tauri]]). `src/` guarda o que o Tauri serve ou roda: os cartões (`src/renderer`), a caixa e a cobertura, e o `manager-preload.js` embutido. Desde a 2.19.0 não há PowerShell: as chamadas ao Windows são Rust ([[ADR-044 Helpers do Windows em Rust]]).
 - Caminhos do projeto só por `src-tauri/src/paths.rs` no Rust e `src/paths.js` nos scripts e testes JS.
-- Testes do Rust espelham `src-tauri/src/` em `src-tauri/tests/`; os testes JS cobrem os cartões, o preload, a prévia e os `.ps1`. Comportamento novo vem com teste.
+- Testes do Rust espelham `src-tauri/src/` em `src-tauri/tests/`; os testes JS cobrem os cartões, o preload e a prévia. Comportamento novo vem com teste.
 - Dependências trocáveis (traits e ganchos injetados) para tudo que toca processo, rede ou disco.
 - ES modules no renderer, sem build; CommonJS nos scripts e testes JS.
 

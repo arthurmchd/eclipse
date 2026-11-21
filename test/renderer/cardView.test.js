@@ -120,3 +120,13 @@ test('a plate has no border until one is read from the game, and each tab uses t
   assert.equal(accountView(read, 'tft', TEXT.pt).border.kind, 'level');
   assert.match(accountView(read, 'val', TEXT.pt).border.src, /levelborders\/9c4afb15-40d7-3557-062a-4bb198cb9958\//);
 });
+
+test('start with Windows is sent only when it exists and the box changed', async () => {
+  const { startupChange } = await load('cardView.js');
+  assert.equal(startupChange(false, true), true);
+  assert.equal(startupChange(true, false), false);
+  assert.equal(startupChange(true, true), undefined);
+  assert.equal(startupChange(false, false), undefined);
+  assert.equal(startupChange(null, true), undefined);
+  assert.equal(startupChange(undefined, false), undefined);
+});

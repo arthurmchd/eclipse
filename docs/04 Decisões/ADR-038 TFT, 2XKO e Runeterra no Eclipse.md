@@ -30,8 +30,8 @@ Os cinco jogos ficam no rodapé, na ordem da Riot, e o Jogar abre cada um pelo s
 ## Consequências
 
 - O TFT mostra nos cartões o elo de Ranqueada e Dupla (`stats.tft`), com os emblemas do League. 2XKO e Runeterra não têm elo no Eclipse: os cartões mostram o último jogo com elo escolhido, como a aba Riot, e a linha da conta diz o nome do jogo.
-- Se a Riot mudar o nome de um produto ou executável, o login daquele jogo espera até o tempo limite e diz que o jogo não abriu. Os nomes ficam em `riot_client.rs` (`TFT_PROCESSES`, `XKO_PROCESSES`, `LOR_PROCESSES`, `product`) e no `GameProcess` do [[windowGuard.ps1]].
+- Se a Riot mudar o nome de um produto ou executável, o login daquele jogo espera até o tempo limite e diz que o jogo não abriu. Os nomes ficam em `riot_client.rs` (`TFT_PROCESSES`, `XKO_PROCESSES`, `LOR_PROCESSES`, `product`) e no `GameProcess` do [[windowGuard]].
 
 ## Relacionado
 
-- [[cards]] · [[signInFlow]] · [[riotClient]] · [[windowGuard.ps1]] · [[riotState]] · [[appPorts]] · [[managerService]]
+- [[cards]] · [[signInFlow]] · [[riotClient]] · [[windowGuard]] · [[riotState]] · [[appPorts]] · [[managerService]]

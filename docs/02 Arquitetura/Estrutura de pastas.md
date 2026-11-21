@@ -6,7 +6,7 @@ tags: [arquitetura, pastas]
 # Estrutura de pastas
 
 > [!note] Só Tauri desde 2026-11-15
-> O Eclipse em Electron saiu do projeto na versão 2.0.0 ([[ADR-034 Troca do Electron pelo Tauri]], tag `electron-final`). Onde esta nota fala de `npm start`, `npm run dist`, `.bat`, `src/main`, `src/core` ou `src/riot`, é histórico.
+> O Eclipse em Electron saiu do projeto na versão 2.0.0 ([[ADR-034 Troca do Electron pelo Tauri]], tag `electron-final`). Onde esta nota fala de `npm start`, `npm run dist`, `.bat`, `src/main`, `src/core` ou `src/riot`, é histórico. Os `.ps1` de `src/platform/windows/` também saíram, na 2.19.0 ([[ADR-044 Helpers do Windows em Rust]]); a pasta não existe mais.
 
 ```
 riot-account-manager/

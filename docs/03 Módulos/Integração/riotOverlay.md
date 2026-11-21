@@ -23,12 +23,12 @@ Mostra os cartões de contas sobre a área de arte da janela oficial detectada p
 | `set_language(idioma)` | método | Idioma da caixa |
 | `set_hidden(oculto)` | método | Clique na caixa "Ocultar contas" |
 | `set_operation(operação)` | método | Operação de login atual, para cobrir a coluna ou sumir |
-| `window_action(ação)` | método | Cópias de minimizar e fechar dos [[cards]] |
+| `window_action(ação)` | método | Cópias de minimizar e fechar dos [[cards]] e o arraste pela área deles |
 | `stop()` | método | Cancela a leitura e o temporizador, para o observador e fecha a janela |
 
 Funções puras de geometria, em pixels físicos: `overlay_bounds`, `cards_left`, `cards_rect`, `cover_rect`, `panel_hole`, `corner_radius`, `corner_insets`, `top_edge`, `cover_shape` e `overlay_shape(tamanho, ShapeOptions { hidden, corner, top, covered, toggle })`, que dá a região de pintura e cliques. `login_visible` decide pelo estado de login. Constantes: `LAYOUT_MS` (750 ms), `CHECK_FRESH_MS` (2,5 s) e `PANEL_HOLE` (5).
 
-**`OverlayWindow`:** `set_size`, `set_region`, `show_inactive`, `hide`, `set_cover_visible`, `set_toggle_visible`, `set_toggle_language` e `close`. A real é a `TauriOverlayWindow` de `overlay_window.rs`, criada por `create(app, host, log)`; `handle()` dá o identificador nativo para o observador.
+**`OverlayWindow`:** `set_size`, `set_region`, `show_inactive`, `hide`, `set_cover_visible`, `set_toggle_visible`, `set_toggle_language`, `begin_drag` e `close`. A real é a `TauriOverlayWindow` de `overlay_window.rs`, criada por `create(app, host, log)`; `handle()` dá o identificador nativo para o observador.
 
 ## Invariantes e decisões
 
@@ -64,7 +64,8 @@ Funções puras de geometria, em pixels físicos: `overlay_bounds`, `cards_left`
   - **Não conferido na tela.** O usuário preferiu não ter a tela capturada. A conferência foi pelas medidas do Windows e pelos testes de geometria.
 - **Sem animação ao minimizar.** O helper desliga a animação de minimizar da Riot ([[ADR-016 Riot sem animação de minimizar e cartões com os cantos dela]]): a Riot e os cartões somem juntos, sem a arte descendo até a barra de tarefas. A volta continua por aqui (`show_inactive` no primeiro retrato restaurado).
 - **Sem região própria para diálogo.** Com a área inteira sempre coberta, o aviso `onModal` saiu (revisão de 2026-11-04). O fundo escurecido dos diálogos já chega à borda direita. Esconder os cartões (Riot minimizada ou sessão fora do login) continua fechando os diálogos pelo `visibilitychange` da página.
-- **Ações das cópias.** O [[managerHost]] leva ao `window_action(ação)` só `minimize` ou `close`:
+- **Ações das cópias.** O [[managerHost]] leva ao `window_action(ação)` só `minimize`, `close` ou `drag`:
+  - `drag` (desde 2026-11-21, [[ADR-041 Arraste da Riot pela área do Eclipse]]) chama `begin_drag` da janela só com os cartões à vista e sem "Ocultar contas"; o [[overlayDrag]] decide o resto. Não passa pelo helper;
   - `minimize` manda o comando ao helper do [[riotWindowObserver]];
   - `close` chama `close_client()` e, se o resultado não for segundo plano (Riot vai sair, ou o serviço local falhou), manda o comando `close` ao helper, que fecha a janela como o `QuitUX` da Riot;
   - qualquer outra ação (inclusive `reveal`, da cópia do perfil que saiu em 2026-11-06), ou qualquer ação depois de `stop`, devolve `false` sem fazer nada.

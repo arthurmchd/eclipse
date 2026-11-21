@@ -169,7 +169,7 @@ pub fn overlay_shape(size: Size, options: ShapeOptions) -> Vec<Rect> {
 }
 
 pub fn login_visible(state: &Result<Option<AuthState>, ()>) -> bool {
-    matches!(state, Ok(Some(AuthState { kind: AuthKind::Auth, error: None })) | Ok(Some(AuthState { kind: AuthKind::Error, error: Some("auth_failure") })))
+    matches!(state, Ok(Some(AuthState { kind: AuthKind::Auth, error: None, .. })) | Ok(Some(AuthState { kind: AuthKind::Error, error: Some("auth_failure"), .. })))
 }
 
 pub trait OverlayWindow: Send + Sync {
@@ -180,6 +180,7 @@ pub trait OverlayWindow: Send + Sync {
     fn set_cover_visible(&self, visible: bool);
     fn set_toggle_visible(&self, visible: bool);
     fn set_toggle_language(&self, language: &str);
+    fn begin_drag(&self);
     fn close(&self);
 }
 
@@ -503,6 +504,13 @@ impl RiotOverlay {
             let state = self.inner.state.lock().unwrap();
             if state.disposed {
                 return false;
+            }
+            if action == "drag" {
+                let shown = state.visible && !state.hidden;
+                if shown {
+                    self.inner.window.begin_drag();
+                }
+                return shown;
             }
             match state.observer.clone() {
                 Some(observer) => observer,

@@ -20,7 +20,7 @@ Primeiro passo sempre: abra `%APPDATA%\riot-account-manager\` e veja `sign-in.lo
 
 O login visível não conseguiu abrir a interface oficial da Riot. Procure no `sign-in.log` a linha logo antes do erro:
 
-- "opened the Riot interface through the background service": a interface abriu, mas o formulário não foi encontrado; veja [[login.ps1]].
+- "opened the Riot interface through the background service": a interface abriu, mas o formulário não foi encontrado; veja [[loginForm]].
 - "restarting it with the interface" seguido de erro: os serviços não reiniciaram com interface; anote o horário e veja os logs do Riot em `%LOCALAPPDATA%\Riot Games\Riot Client\Logs`.
 
 Ver [[riotInterface]].

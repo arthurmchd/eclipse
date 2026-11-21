@@ -7,12 +7,13 @@ use std::time::{Duration, SystemTime};
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use eclipse::platform::windows::window_controller::{HelperFailure, HelperOutput, HelperRunner};
+use eclipse::platform::windows::login_form::{FillFailure, FillReport, InputMethod, LoginForm, Remember};
 use eclipse::riot::riot_client::{
-    authorization_of, close_everything, detect_client_path_with, has_persisted_login, interpret_login_output, lockfile_change, login_request_json, parse_tasklist, persisted_riot_id, persisted_subject,
-    replace_file_with, request_launch, run_login_script, running_games_in, settings_change, start_client, strip_persisted_login, taskkill_args, CloseIo, DiskFiles, SettingsFiles, StartIo, FALLBACK_CLIENT, QUIT,
+    authorization_of, close_everything, detect_client_path_with, fill_error, fill_error_for, fill_login_form, has_persisted_login, lockfile_change, persisted_riot_id, persisted_subject,
+    replace_file_with, report_lines, request_launch, running_games_in, settings_change, start_client, strip_persisted_login, taskkill_args, CloseIo, DiskFiles, SettingsFiles, StartIo, FALLBACK_CLIENT, QUIT,
 };
 use eclipse::riot::riot_state::RiotProbe;
+use eclipse::riot::riot_version::{RiotVersion, NEWER_RIOT};
 use eclipse::riot::sign_in_flow::{LaunchAnswer, TypeRequest};
 use eclipse::riot::{AccountState, Cancel, Response, RiotError, RiotId, RiotResult, RunningGames};
 use serde_json::{json, Value};
@@ -618,22 +619,24 @@ fn the_riot_client_is_found_by_the_chosen_path_then_the_riot_installs_then_the_d
     assert_eq!(detect_client_path_with("", &exists_in(&[]), &|_| Err(io::Error::from(io::ErrorKind::NotFound))), None);
 }
 
+fn names(list: &[&str]) -> HashSet<String> {
+    list.iter().map(|name| name.to_lowercase()).collect()
+}
+
 #[test]
 fn the_process_list_finds_games_riot_services_and_the_riot_window_by_name() {
-    let output = "\"System Idle Process\",\"0\",\"Services\",\"0\",\"8 K\"\r\n\"RiotClientServices.exe\",\"10\",\"Console\",\"1\",\"9 K\"\r\n\"league of legends.exe\",\"11\",\"Console\",\"1\",\"9 K\"\r\n";
-    let processes = parse_tasklist(output);
-    assert!(processes.contains("riotclientservices.exe"));
+    let processes = names(&["System Idle Process", "RiotClientServices.exe", "league of legends.exe"]);
     assert_eq!(running_games_in(&processes), RunningGames { lol: true, client: true, ..RunningGames::default() });
-    let window = parse_tasklist("\"Riot Client.exe\",\"12\"\n\"VALORANT-Win64-Shipping.exe\",\"13\"");
+    let window = names(&["Riot Client.exe", "VALORANT-Win64-Shipping.exe"]);
     assert_eq!(running_games_in(&window), RunningGames { val: true, client: true, client_window: true, ..RunningGames::default() });
-    assert_eq!(running_games_in(&parse_tasklist("")), RunningGames::default());
-    let tft = running_games_in(&parse_tasklist("\"TFTClient-Win64-Shipping.exe\",\"14\""));
+    assert_eq!(running_games_in(&names(&[])), RunningGames::default());
+    let tft = running_games_in(&names(&["TFTClient-Win64-Shipping.exe"]));
     assert_eq!(tft, RunningGames { tft: true, ..RunningGames::default() });
     assert!(tft.game("tft") && tft.any_game() && !tft.game("lol"));
-    let xko = running_games_in(&parse_tasklist("\"Lion-Win64-Shipping.exe\",\"15\""));
+    let xko = running_games_in(&names(&["Lion-Win64-Shipping.exe"]));
     assert_eq!(xko, RunningGames { xko: true, ..RunningGames::default() });
     assert!(xko.game("2xko") && !xko.game("lor"));
-    let lor = running_games_in(&parse_tasklist("\"LoR.exe\",\"16\""));
+    let lor = running_games_in(&names(&["LoR.exe"]));
     assert_eq!(lor, RunningGames { lor: true, ..RunningGames::default() });
     assert!(lor.game("lor") && lor.any_game());
     assert!(!RunningGames { client: true, client_window: true, ..RunningGames::default() }.any_game());
@@ -656,34 +659,36 @@ fn the_watchers_react_only_to_the_riot_settings_and_the_riot_lockfile() {
 }
 
 #[test]
-fn the_sign_in_script_succeeds_only_with_ok_as_its_last_line() {
-    assert_eq!(interpret_login_output(Some(0), "remember:on\r\nok\r\n").unwrap(), ["remember:on", "ok"]);
+fn a_filled_form_reports_how_it_was_filled_and_the_box_and_failures_become_fixed_text() {
+    assert_eq!(report_lines(FillReport { input: InputMethod::Automation, remember: Remember::On }), ["input:uia", "remember:on", "ok"]);
+    assert_eq!(report_lines(FillReport { input: InputMethod::Keys, remember: Remember::Unknown }), ["input:keys", "remember:unknown", "ok"]);
     let cases = [
-        (Some(1), "error:window-not-found\n", "The Riot Client window did not open"),
-        (Some(1), "error:form-not-ready\n", "The Riot Client sign-in screen did not load. Finish signing in there"),
-        (Some(0), "typed\n", "Riot Client window script failed: typed"),
-        (Some(3), "", "Riot Client window script failed: exit code 3"),
-        (None, "  \n", "Riot Client window script failed: exit code null"),
+        (FillFailure::WindowNotFound, "The Riot Client window did not open"),
+        (FillFailure::FormNotReady, "The Riot Client sign-in screen did not load. Finish signing in there"),
+        (FillFailure::InputFailed, "Riot Client sign-in form failed: input-failed"),
+        (FillFailure::InvalidCredentials, "Riot Client sign-in form failed: invalid-credentials"),
+        (FillFailure::Failed, "Riot Client sign-in form failed: window-script-failed"),
     ];
-    for (code, output, message) in cases {
-        assert_eq!(interpret_login_output(code, output).unwrap_err().message, message);
+    for (failure, message) in cases {
+        assert_eq!(fill_error(failure).message, message);
+    }
+    assert!(fill_error(FillFailure::Cancelled).is_cancelled());
+}
+
+struct Form {
+    answer: Result<FillReport, FillFailure>,
+    calls: std::sync::Mutex<Vec<(String, String, bool)>>,
+}
+
+impl LoginForm for Form {
+    fn fill(&self, username: &str, password: &str, remember: bool, _cancel: Option<&Cancel>) -> Result<FillReport, FillFailure> {
+        self.calls.lock().unwrap().push((username.to_string(), password.to_string(), remember));
+        self.answer
     }
 }
 
-struct Script {
-    answer: Result<HelperOutput, HelperFailure>,
-    inputs: std::sync::Mutex<Vec<(String, u64)>>,
-}
-
-impl HelperRunner for Script {
-    fn run(&self, _script: &Path, input: &str, timeout_ms: u64, _cancel: Option<&Cancel>) -> Result<HelperOutput, HelperFailure> {
-        self.inputs.lock().unwrap().push((input.to_string(), timeout_ms));
-        self.answer.clone()
-    }
-}
-
-fn script(answer: Result<HelperOutput, HelperFailure>) -> Script {
-    Script { answer, inputs: Default::default() }
+fn form(answer: Result<FillReport, FillFailure>) -> Form {
+    Form { answer, calls: Default::default() }
 }
 
 fn typed() -> TypeRequest {
@@ -691,24 +696,35 @@ fn typed() -> TypeRequest {
 }
 
 #[test]
-fn the_credentials_reach_the_sign_in_script_only_through_its_input() {
-    let request = typed();
-    let parsed: Value = serde_json::from_str(&login_request_json(&request)).unwrap();
-    assert_eq!(parsed, json!({ "action": "type", "username": "synthetic-user", "password": "synthetic \"pass\"", "remember": true }));
-    let runner = script(Ok(HelperOutput { code: Some(0), stdout: "remember:on\nok\n".into(), stderr: String::new() }));
-    assert_eq!(run_login_script(&runner, &PathBuf::from("login.ps1"), &request, None).unwrap(), ["remember:on", "ok"]);
-    assert_eq!(*runner.inputs.lock().unwrap(), [(login_request_json(&request), 90_000)]);
+fn the_credentials_go_straight_to_the_native_form_and_a_cancelled_sign_in_never_touches_it() {
+    let filled = form(Ok(FillReport { input: InputMethod::Automation, remember: Remember::Off }));
+    let lines = RefCell::new(Vec::<String>::new());
+    let log = |line: &str| lines.borrow_mut().push(line.to_string());
+    assert_eq!(fill_login_form(&filled, &typed(), Some(RiotVersion([143, 0, 14, 5311])), None, &log).unwrap(), ["input:uia", "remember:off", "ok"]);
+    assert_eq!(*lines.borrow(), ["Riot Client 143.0.14.5311"]);
+    assert_eq!(*filled.calls.lock().unwrap(), [("synthetic-user".to_string(), "synthetic \"pass\"".to_string(), true)]);
+    let gone = form(Err(FillFailure::Cancelled));
+    assert!(fill_login_form(&gone, &typed(), None, None, &log).unwrap_err().is_cancelled());
+    let cancel = Cancel::new();
+    cancel.cancel();
+    let never = form(Ok(FillReport { input: InputMethod::Keys, remember: Remember::On }));
+    assert!(fill_login_form(&never, &typed(), None, Some(&cancel), &log).unwrap_err().is_cancelled());
+    assert!(never.calls.lock().unwrap().is_empty());
+    assert_eq!(lines.borrow().len(), 2);
 }
 
 #[test]
-fn a_sign_in_script_that_hangs_is_cancelled_or_times_out_with_fixed_text() {
-    let cancelled = script(Err(HelperFailure::Cancelled));
-    assert!(run_login_script(&cancelled, &PathBuf::from("login.ps1"), &typed(), None).unwrap_err().is_cancelled());
-    let slow = script(Err(HelperFailure::TimedOut));
-    assert_eq!(run_login_script(&slow, &PathBuf::from("login.ps1"), &typed(), None).unwrap_err().message, "The Riot Client sign-in form did not respond");
-    let cancel = Cancel::new();
-    cancel.cancel();
-    let never = script(Ok(HelperOutput { code: Some(0), stdout: "ok".into(), stderr: String::new() }));
-    assert!(run_login_script(&never, &PathBuf::from("login.ps1"), &typed(), Some(&cancel)).unwrap_err().is_cancelled());
-    assert!(never.inputs.lock().unwrap().is_empty());
+fn a_form_that_fails_on_a_riot_newer_than_the_last_tested_says_so_and_names_its_version() {
+    let newer = Some(RiotVersion([144, 0, 2, 7]));
+    let message = format!("{NEWER_RIOT}144");
+    assert_eq!(fill_error_for(FillFailure::FormNotReady, newer).message, message);
+    assert_eq!(fill_error_for(FillFailure::InputFailed, newer).message, message);
+    assert_eq!(fill_error_for(FillFailure::FormNotReady, Some(RiotVersion([143, 0, 0, 0]))).message, "The Riot Client sign-in screen did not load. Finish signing in there");
+    assert_eq!(fill_error_for(FillFailure::WindowNotFound, newer).message, "The Riot Client window did not open");
+    assert!(fill_error_for(FillFailure::Cancelled, newer).is_cancelled());
+    let failing = form(Err(FillFailure::FormNotReady));
+    let lines = RefCell::new(Vec::<String>::new());
+    let log = |line: &str| lines.borrow_mut().push(line.to_string());
+    assert_eq!(fill_login_form(&failing, &typed(), newer, None, &log).unwrap_err().message, message);
+    assert_eq!(*lines.borrow(), ["Riot Client 144.0.2.7 (newer than the last tested, 143)"]);
 }

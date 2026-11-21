@@ -36,10 +36,10 @@ flowchart LR
     MH --> MS
   end
 
-  subgraph Windows["Auxiliares Windows (PowerShell + C#)"]
-    WG["windowGuard.ps1<br/>pontual"]
-    LG["login.ps1<br/>pontual"]
-    OB["riotWindowObserver.ps1<br/>persistente"]
+  subgraph Windows["Auxiliares Windows (Rust, dentro do eclipse.exe)"]
+    WG["windowGuard<br/>pontual"]
+    LG["loginForm<br/>pontual"]
+    OB["riotWindowObserver<br/>thread persistente"]
   end
 
   subgraph Riot["Riot Client (instalação original)"]
@@ -59,9 +59,8 @@ flowchart LR
 |---|---|---|
 | Eclipse (`eclipse.exe`) | Enquanto o app roda; mantém a bandeja e o armazenamento | Sim: decripta a senha para o login |
 | Cartões (webview `cards`) | Enquanto a sobreposição existe; visível só na tela de login | Não recebe segredos persistidos; só o que o usuário digita nos formulários |
-| `riotWindowObserver.ps1` | Um helper persistente enquanto o app roda | Não |
-| `windowGuard.ps1` | Uma execução por pedido: trazer a Riot à frente, fechar a janela dela, procurar o jogo | Não |
-| `login.ps1` | Uma execução por preenchimento de compatibilidade | Sim, por stdin, nunca por argumento |
+
+Desde 2026-11-21 ([[ADR-044 Helpers do Windows em Rust]]) o Eclipse não abre PowerShell: o [[riotWindowObserver]] é uma thread do `eclipse.exe`, e o [[windowGuard]] e o [[loginForm]] são chamadas diretas ao Windows. Até a 2.18.1 eram três `.ps1` com C# embutido, em processos próprios. Os únicos processos que o Eclipse abre são o Riot Client, o `taskkill` para fechar a Riot e os jogos e o `rundll32` para abrir links.
 
 O WebView2 roda os próprios processos de navegador, que o Windows gerencia; eles só veem as páginas da lista fechada do [[assetProtocol]].
 
@@ -88,7 +87,7 @@ A regra de dependência aponta para baixo. `src-tauri/src/paths.rs` é o único 
 ## Princípios
 
 1. **Um dono para cada operação.** [[signInService]] é o único que inicia logins. Operações concorrentes são recusadas.
-2. **Dependências por trait em tudo que toca o mundo.** `SignInIo`, `LocalApi`, `HelperRunner`, `Timers`: os testes trocam processos, rede, disco e tempo por dublês.
+2. **Dependências por trait em tudo que toca o mundo.** `SignInIo`, `LocalApi`, `LoginForm`, `WindowOps`, `ObserverSpawn`, `Timers`: os testes trocam processos, rede, disco e tempo por dublês.
 3. **Segredos não atravessam fronteiras.** Ver [[Segurança e privacidade]].
 4. **Falhar fechado.** Estado de login desconhecido ou consulta falha: esconder os cartões, nunca adivinhar.
 5. **Nunca alterar a Riot.** Nenhum arquivo da instalação é escrito; o `app.asar` oficial só é lido.
@@ -102,8 +101,9 @@ A regra de dependência aponta para baixo. `src-tauri/src/paths.rs` é o único 
 | Eclipse → cartões | Consulta à fila limitada de eventos públicos | [[managerService]], [[manager-preload]] |
 | caixa "Ocultar contas" → Eclipse | comando `overlay_toggle`, só um booleano | [[overlayToggle]] |
 | Eclipse → Riot Client | HTTPS na porta do lockfile, CA lida do `app.asar` oficial | [[riotTransport]], [[backend]], [[asar]] |
-| sobreposição → janela da Riot | helper persistente, stdin/stdout JSON | [[riotWindowObserver]] |
-| Eclipse → janelas da Riot e do jogo | stdin JSON para `windowGuard.ps1`, um processo por pedido | [[windowController]] |
+| sobreposição → janela da Riot | thread persistente, linhas JSON por canal | [[riotWindowObserver]] |
+| Eclipse → janelas da Riot e do jogo | chamadas diretas ao Windows, um pedido por vez | [[windowController]], [[windowGuard]] |
+| Eclipse → formulário de login da Riot | UI Automation e mensagens à janela, dentro do processo | [[loginForm]] |
 
 ## Leitura complementar
 

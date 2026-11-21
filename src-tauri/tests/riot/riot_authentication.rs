@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
-use eclipse::riot::riot_authentication::{AuthKind, AuthOutcome, AuthState, Credentials, RiotAuthentication, AUTHENTICATION as AUTH, AUTHORIZATION, COMPLETE, LEGACY_SESSION, NON_BLOCKING_SESSION_STATES, PLAYER_SESSION, START};
+use eclipse::riot::riot_authentication::{AuthKind, AuthOutcome, AuthState, ChallengeSource, Credentials, RiotAuthentication, AUTHENTICATION as AUTH, AUTHORIZATION, BLOCKING_SESSION_STATES, COMPLETE, LEGACY_SESSION, NON_BLOCKING_SESSION_STATES, PLAYER_SESSION, START};
 use eclipse::riot::{Cancel, Response, RiotError, RiotResult};
 use serde_json::{json, Value};
 
@@ -320,19 +320,81 @@ fn session_state_returns_only_fixed_type_and_error_values_and_falls_back_read_on
         (json!({ "type": "success", "access_token": "private" }), AuthState::of(AuthKind::Authenticated)),
         (json!({ "type": "auth", "captcha": { "type": "none" }, "username": USERNAME }), AuthState::of(AuthKind::Auth)),
         (json!({ "type": "multifactor", "email": "private@example.invalid" }), AuthState::of(AuthKind::Multifactor)),
-        (json!({ "type": "auth", "captcha": { "type": "hcaptcha", "token": "private" } }), AuthState::of(AuthKind::Challenge)),
+        (json!({ "type": "auth", "captcha": { "type": "hcaptcha", "token": "private" } }), AuthState::challenge(ChallengeSource::Captcha("hcaptcha"))),
+        (json!({ "type": "auth", "captcha": { "type": PASSWORD } }), AuthState::challenge(ChallengeSource::Captcha("other"))),
         (json!({ "type": "error", "error": PASSWORD }), AuthState::failed(AuthKind::Error, "authentication_error")),
         (json!({ "type": "auth", "error": "auth_failure" }), AuthState::failed(AuthKind::Error, "auth_failure")),
-        (json!({ "type": "confirm_age", "token": "private" }), AuthState::of(AuthKind::Challenge)),
+        (json!({ "type": "confirm_age", "token": "private" }), AuthState::challenge(ChallengeSource::AuthenticatorType)),
     ];
     for (raw, expected) in cases {
-        let modern = if expected.kind == AuthKind::Authenticated { vec![ok(raw.clone()), ok(json!({ "loginState": "PendingProductContext" }))] } else { vec![ok(raw.clone())] };
+        let modern = if expected.kind == AuthKind::Authenticated {
+            vec![ok(raw.clone()), ok(json!({ "loginState": "PendingProductContext" }))]
+        } else if matches!(expected.source, Some(ChallengeSource::Captcha(_))) {
+            vec![ok(raw.clone()), status(404, Value::Null)]
+        } else {
+            vec![ok(raw.clone())]
+        };
         assert_eq!(fixture(modern).service.session_state(None).unwrap(), Some(expected), "{raw}");
         let legacy = fixture(vec![status(404, Value::Null), ok(raw.clone())]);
         assert_eq!(legacy.service.session_state(None).unwrap(), Some(expected), "{raw}");
         assert_eq!(legacy.routes(), routes(&[("GET", AUTH), ("GET", LEGACY_SESSION)]));
     }
     assert_eq!(fixture(vec![status(404, Value::Null), status(404, Value::Null)]).service.session_state(None).unwrap(), None);
+}
+
+fn form_captcha() -> Value {
+    json!({ "type": "auth", "suuid": "synthetic-next-login", "captcha": { "type": "hcaptcha", "data": "private-challenge" } })
+}
+
+#[test]
+fn a_captcha_on_the_next_login_form_does_not_block_an_authorized_account_and_the_player_session_decides() {
+    let cases = [
+        ("PendingProductContext", AuthState::of(AuthKind::Authenticated)),
+        ("Authorized", AuthState::of(AuthKind::Authenticated)),
+        ("PendingEulaAcceptance", AuthState::challenge(ChallengeSource::PlayerSession("pendingeulaacceptance"))),
+        ("PendingMultifactor", AuthState::of(AuthKind::Multifactor)),
+        ("SomethingNew", AuthState::challenge(ChallengeSource::PlayerSession("other"))),
+    ];
+    for (login_state, expected) in cases {
+        let f = fixture(vec![ok(form_captcha()), ok(json!({ "type": "authorization" })), ok(json!({ "loginState": login_state, "sessionToken": PASSWORD }))]);
+        assert_eq!(f.service.session_state(None).unwrap(), Some(expected), "{login_state}");
+        assert_eq!(f.routes(), routes(&[("GET", AUTH), ("GET", AUTHORIZATION), ("GET", PLAYER_SESSION)]));
+    }
+    let unsupported = fixture(vec![ok(form_captcha()), ok(json!({ "type": "authorization" })), status(404, Value::Null)]);
+    assert_eq!(unsupported.service.session_state(None).unwrap(), Some(AuthState::of(AuthKind::Authenticated)));
+}
+
+#[test]
+fn a_form_captcha_still_blocks_when_the_account_is_not_confirmed_as_authorized() {
+    for answer in [status(404, Value::Null), status(401, json!({ "error": PASSWORD })), status(500, Value::Null), Step::Fail(PASSWORD.into())] {
+        let f = fixture(vec![ok(form_captcha()), answer]);
+        assert_eq!(f.service.session_state(None).unwrap(), Some(AuthState::challenge(ChallengeSource::Captcha("hcaptcha"))));
+        assert_eq!(f.routes(), routes(&[("GET", AUTH), ("GET", AUTHORIZATION)]));
+    }
+}
+
+#[test]
+fn a_refused_captcha_an_unknown_authenticator_screen_and_old_clients_never_ask_for_the_authorization() {
+    for raw in [json!({ "type": "auth", "error": "captcha_not_allowed" }), json!({ "type": "confirm_age" })] {
+        let f = fixture(vec![ok(raw.clone())]);
+        assert_eq!(f.service.session_state(None).unwrap().unwrap().kind, AuthKind::Challenge, "{raw}");
+        assert_eq!(f.routes(), routes(&[("GET", AUTH)]));
+    }
+    let legacy = fixture(vec![status(404, Value::Null), ok(form_captcha())]);
+    assert_eq!(legacy.service.session_state(None).unwrap(), Some(AuthState::challenge(ChallengeSource::Captcha("hcaptcha"))));
+    assert_eq!(legacy.routes(), routes(&[("GET", AUTH), ("GET", LEGACY_SESSION)]));
+}
+
+#[test]
+fn cancelling_while_checking_the_authorization_of_a_form_captcha_is_reported_as_cancelled() {
+    let cancel = Cancel::new();
+    let trigger = cancel.clone();
+    let f = fixture(vec![ok(form_captcha()), Step::Then(Box::new(move || {
+        trigger.cancel();
+        Ok(Response::new(200, json!({ "type": "authorization" })))
+    }))]);
+    assert!(f.service.session_state(Some(&cancel)).unwrap_err().is_cancelled());
+    assert_eq!(f.routes().len(), 2);
 }
 
 fn player_state(login_state: &str) -> RiotResult<Option<AuthState>> {
@@ -342,8 +404,9 @@ fn player_state(login_state: &str) -> RiotResult<Option<AuthState>> {
 #[test]
 fn successful_identity_authentication_still_reports_pending_player_session_verification_without_returning_session_data() {
     for login_state in ["PendingConsent", "PendingEulaAcceptance", "PendingForget", "PendingAgeVerification", "PendingHealup", "PendingMultifactor", "PendingKRIdVerification", "PendingDisambiguation", "PendingRiotID", "PendingLolRegionSelection", "PendingVNGProfile", "Error"] {
+        let state = player_state(login_state).unwrap().unwrap();
         let expected = if login_state == "PendingMultifactor" { AuthKind::Multifactor } else { AuthKind::Challenge };
-        assert_eq!(player_state(login_state).unwrap(), Some(AuthState::of(expected)), "{login_state}");
+        assert_eq!(state.kind, expected, "{login_state}");
     }
     let f = fixture(vec![ok(json!({ "type": "success" })), ok(json!({ "loginState": "PendingConsent" }))]);
     f.service.session_state(None).unwrap();
@@ -364,8 +427,28 @@ fn restriction_consent_and_account_choice_player_session_states_block_the_launch
         "PendingUsernameChangedConfirmation", "PendingRecoverableAccount", "ReauthenticationRequired", "PendingCreateAccountStrategy", "PendingSignup", "PendingPlatformAuthorizationConsent",
         "PendingProviderCredentials", "PendingPlatformUser", "PendingAuthIntent", "PendingLoginStrategy", "PendingSignInStrategy", "KeyPairError", "PendingFutureVerification", "SomethingNew", PASSWORD,
     ] {
-        assert_eq!(player_state(login_state).unwrap(), Some(AuthState::of(AuthKind::Challenge)), "{login_state}");
+        assert_eq!(player_state(login_state).unwrap().unwrap().kind, AuthKind::Challenge, "{login_state}");
     }
+}
+
+#[test]
+fn a_blocking_player_session_state_carries_only_its_name_from_a_fixed_list() {
+    for (login_state, name) in [("PendingEulaAcceptance", "pendingeulaacceptance"), ("PendingSignInStrategy", "pendingsigninstrategy"), ("ConfirmedAgeTooYoung", "confirmedagetooyoung"), ("SomethingNew", "other"), (PASSWORD, "other")] {
+        assert_eq!(player_state(login_state).unwrap(), Some(AuthState::challenge(ChallengeSource::PlayerSession(name))), "{login_state}");
+    }
+    assert_eq!(ChallengeSource::PlayerSession("pendingeulaacceptance").describe(), "player session: pendingeulaacceptance");
+    assert_eq!(ChallengeSource::Captcha("hcaptcha").describe(), "authenticator captcha: hcaptcha");
+    assert_eq!(ChallengeSource::AuthenticatorType.describe(), "authenticator type: other");
+}
+
+#[test]
+fn the_blocking_player_session_names_are_lowercase_unique_and_never_overlap_the_non_blocking_ones() {
+    let mut names = BLOCKING_SESSION_STATES.to_vec();
+    assert!(names.iter().all(|name| !name.is_empty() && name.chars().all(|letter| letter.is_ascii_lowercase())));
+    assert!(names.iter().all(|name| !NON_BLOCKING_SESSION_STATES.contains(name)));
+    names.sort_unstable();
+    names.dedup();
+    assert_eq!(names.len(), BLOCKING_SESSION_STATES.len());
 }
 
 #[test]

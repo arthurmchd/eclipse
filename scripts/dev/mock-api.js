@@ -42,6 +42,7 @@
   border('10', { kind: 'level', theme: 2 }, 'level');
 
   let settings = { refreshMinutes: 30, staySignedIn: true, riotClientPath: '', language: 'pt', cardLayout: 'plates', cardSort: 'manual', uiSounds: true, riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
+  let startWithWindows = false;
   let lastRefresh = iso(7 * 60000);
   let activeSignIn = null;
   const listeners = {};
@@ -51,7 +52,7 @@
   const nextRefresh = () => new Date(now + 22 * 60000 + 59000).toISOString();
 
   window.api = {
-    init: async () => ({ accounts, settings, seenAccount: { gameName: 'Night Owl', tagLine: 'BR1' }, regions: REGIONS, valRegions: ['br', 'na', 'latam', 'eu', 'kr', 'ap'], lastRefresh, nextRefresh: nextRefresh(), version: '1.0.0' }),
+    init: async () => ({ accounts, settings, seenAccount: { gameName: 'Night Owl', tagLine: 'BR1' }, regions: REGIONS, valRegions: ['br', 'na', 'latam', 'eu', 'kr', 'ap'], lastRefresh, nextRefresh: nextRefresh(), version: '1.0.0', startWithWindows }),
     saveAccount: async (input) => {
       const { password, ...rest } = input;
       let acc = accounts.find((a) => a.id === input.id);
@@ -94,12 +95,16 @@
       }
     },
     minimizeRiot: async () => ({ ok: true }),
+    dragRiot: async () => ({ ok: true }),
     closeRiot: async () => ({ ok: true }),
     cancelSignIn: async () => {
       if (activeSignIn) activeSignIn.cancelled = true;
       return { ok: true };
     },
-    saveSettings: async (input) => ({ ...(settings = { ...settings, ...input }), nextRefresh: nextRefresh() }),
+    saveSettings: async ({ startWithWindows: startup, ...input }) => {
+      if (typeof startup === 'boolean') startWithWindows = startup;
+      return { ...(settings = { ...settings, ...input }), nextRefresh: nextRefresh(), ...(typeof startup === 'boolean' ? { startWithWindows } : {}) };
+    },
     onAccountUpdated: on('account-updated'),
     onRefreshProgress: on('refresh-progress'),
     onNextRefresh: on('next-refresh'),

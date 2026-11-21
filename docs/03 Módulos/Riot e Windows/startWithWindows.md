@@ -8,13 +8,13 @@ tags: [módulo]
 
 # startWithWindows
 
-> Liga e desliga o início do Eclipse instalado junto com o Windows, para a opção "Iniciar com o Windows" da bandeja.
+> Liga e desliga o início do Eclipse instalado junto com o Windows, para a opção "Iniciar com o Windows" da bandeja e das configurações dos [[cards]].
 
 ## Responsabilidade
 
 - Diz se o Windows vai abrir o Eclipse ao entrar na conta.
 - Grava ou remove a entrada do Eclipse na chave `Run` do usuário (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) e a aprovação dela em `...\Explorer\StartupApproved\Run`.
-- **Não** liga nada sozinho: só muda quando o [[main]] pede, por um clique do usuário na bandeja.
+- **Não** liga nada sozinho: só muda quando o [[main]] pede, por um clique do usuário na bandeja ou pela caixa das configurações.
 - **Não** age rodando do projeto (`cargo tauri dev`): lá o executável é o de `target\debug`.
 
 ## API pública
@@ -31,13 +31,14 @@ tags: [módulo]
 ## Dependências
 
 - Usa: a trait `StartupRegistry`; o `UserRegistry` real usa o crate `winreg` e só toca o usuário atual.
-- Usado por: [[main]], que monta a opção da bandeja com `available()`, `enabled()` e `set()`.
+- Usado por: [[main]], que monta a opção da bandeja com `available()`, `enabled()` e `set()` e entrega o mesmo objeto ao [[appPorts]] (`startup`) para as configurações.
 
 ## Invariantes e decisões
 
 - **Desligado até o usuário ligar.** Criado em 2026-11-08 ([[ADR-030 Eclipse instalado por um Setup próprio]]). O usuário escolheu a opção desligada por padrão; nada grava a chave `Run` no início do app.
 - **Só no app instalado.** Rodando do projeto, ligar gravaria o executável de desenvolvimento, que abriria sem pasta de dados no próximo login do Windows. Por isso `available()` olha se é o app compilado em modo release, e o [[main]] nem mostra a opção.
 - **Marcado é "vai abrir mesmo".** A entrada conta se o executável do comando for o do Eclipse (sem diferenciar maiúsculas e barras) e se o primeiro byte do `StartupApproved` for par, ou se ele não existir. Uma entrada desativada no Gerenciador de Tarefas aparece desmarcada; marcar de novo grava 12 bytes começando em `02`, que apagam a desativação. É a mesma leitura e gravação que o `setLoginItemSettings` do Electron fazia, para a entrada gravada por ele continuar valendo.
+- **Também nas configurações.** Desde 2026-11-21, pedido do usuário: "coloque na aba das configurações uma caixa para eu escolher abrir o eclipse junto com o windows". A caixa "Iniciar com o Windows" dos [[cards]] lê e grava o registro por este mesmo objeto, via [[appPorts]] e [[managerService]]; não é um ajuste do `data.json`. Bandeja e caixa mostram o mesmo estado: salvar as configurações chama `settings_changed`, que remonta o menu da bandeja, e a página relê o estado a cada `init`. Rodando do projeto, a caixa não aparece, como a opção da bandeja.
 - **Nome fixo `Eclipse`.** O valor `Run` guarda o caminho entre aspas. O desinstalador apaga esse mesmo nome (`src-tauri/windows/hooks.nsh`).
 - **Desligar limpa tudo do usuário.** Desligar remove a entrada `Eclipse` e qualquer outra entrada do usuário que aponte para o mesmo executável, para a opção não continuar marcada por uma entrada antiga com outro nome. Entradas de outros programas e da máquina (`HKLM`) ficam.
 - **Erro vira linha fixa.** Uma falha do registro vai ao `sign-in.log` como "could not turn on the start with Windows" ou "... off ...", sem o texto da exceção, e a opção mostra o estado lido depois.

@@ -143,7 +143,7 @@ Decisões em [[ADR-019 Sessão salva por conta no modo cartões]], [[ADR-020 Rio
 - erro numa olhada sem parar as seguintes;
 - sessões de antes do modo cartões apagadas uma vez no `start()`, com aviso ao cartão.
 
-Fora dos testes: o observador real do arquivo, o modo segundo plano real da Riot e o `tasklist` real.
+Fora dos testes: o observador real do arquivo, o modo segundo plano real da Riot e a lista real de processos.
 
 ## Pontos de atenção
 
@@ -154,6 +154,6 @@ Fora dos testes: o observador real do arquivo, o modo segundo plano real da Riot
 - **Não se sabe se a Riot volta a gravar o login depois de uma limpeza com ela conectada.** Por isso a limpeza nunca acontece com ela conectada. Uma falha de rede momentânea na consulta da conta (`'unknown'` no [[riotState]]) pode, raramente, fazer uma limpeza nesse estado; a sessão já estava guardada.
 - **Formato do `id_token`.** A identidade depende de a Riot continuar gravando o `id_token` com `sub` e `acct` no login lembrado. Se o formato mudar, o login deixa de ser guardado pelo guardião, mas continua sendo limpo. A sessão capturada pelo próprio login ([[signInFlow]]) não depende disso.
 - **Custo.**
-  - A olhada roda `tasklist` e lê o arquivo da Riot a cada 4 s enquanto o Eclipse está aberto.
+  - A olhada lê a lista de processos ([[win32]]) e o arquivo da Riot a cada 4 s enquanto o Eclipse está aberto.
   - A API local só é consultada com a Riot aberta, sem jogo e com login no arquivo ou com um jogo recém-fechado.
   - Cada conferência com login no arquivo decifra as sessões guardadas para comparar o `sub`. A decifração é local e rápida ([[store]]).

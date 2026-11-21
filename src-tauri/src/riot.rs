@@ -6,6 +6,7 @@ pub mod riot_interface;
 pub mod riot_process;
 pub mod riot_state;
 pub mod riot_transport;
+pub mod riot_version;
 pub mod sign_in_flow;
 
 use std::fmt;

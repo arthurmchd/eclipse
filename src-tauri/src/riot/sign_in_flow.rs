@@ -1,4 +1,4 @@
-use super::riot_authentication::{AuthKind, AuthOutcome, AuthState, Credentials};
+use super::riot_authentication::{AuthKind, AuthOutcome, AuthState, ChallengeSource, Credentials};
 use super::riot_state::{Look, RiotProbe, Services};
 use super::{check, same_riot_id, AccountState, Cancel, Response, RiotError, RiotId, RiotResult};
 
@@ -9,6 +9,7 @@ const UNFINISHED: &str = "Riot has not finished signing in. Check the Riot windo
 pub const GAME_OPEN_TIMEOUT_MS: u64 = 180_000;
 pub const GAME_UPDATE_TIMEOUT_MS: u64 = 1_200_000;
 pub const RELAUNCH_INTERVAL_MS: u64 = 15_000;
+pub const INPUT_METHODS: [&str; 2] = ["input:uia", "input:keys"];
 pub const GAMES: [&str; 6] = ["lol", "tft", "val", "2xko", "lor", "riot"];
 
 fn starting_status(game: &str) -> &'static str {
@@ -172,6 +173,7 @@ struct Flow<'a> {
     automatic_check_until: u64,
     restored_yaml: Option<String>,
     interface_open: bool,
+    logged_challenge: Option<Option<ChallengeSource>>,
 }
 
 impl<'a> Flow<'a> {
@@ -220,6 +222,15 @@ impl<'a> Flow<'a> {
         Ok(())
     }
 
+    fn log_challenge(&mut self, source: Option<ChallengeSource>) -> RiotResult<()> {
+        if self.logged_challenge == Some(source) {
+            return Ok(());
+        }
+        self.logged_challenge = Some(source);
+        let detail = source.map(ChallengeSource::describe).unwrap_or_else(|| "source unavailable".to_string());
+        self.log(&format!("Riot reported an unfinished sign-in ({detail})"))
+    }
+
     fn auth_state(&mut self) -> RiotResult<Option<AuthState>> {
         let state = self.io.read_authentication_state()?;
         match state {
@@ -235,6 +246,7 @@ impl<'a> Flow<'a> {
                     self.confirmed_step = true;
                     self.authentication_attention(SECURITY_CHECK, true)?;
                 } else {
+                    self.log_challenge(current.source)?;
                     self.authentication_attention(UNFINISHED, true)?;
                 }
             }
@@ -514,9 +526,10 @@ impl<'a> Flow<'a> {
                 let typed = TypeRequest { username: account.username.clone(), password: account.password.clone(), remember: request.remember };
                 let lines = io.type_credentials(&typed, request.cancel, &self.quiet_log())?;
                 self.automatic_check_until = io.now() + AUTOMATIC_CHECK_GRACE_MS;
+                let mut summary: Vec<&str> = lines.iter().map(String::as_str).find(|line| INPUT_METHODS.contains(line)).into_iter().collect();
                 let remembered: Vec<&str> = lines.iter().map(String::as_str).filter(|line| line.starts_with("remember:")).collect();
-                let summary = if remembered.is_empty() { "remember state unavailable".to_string() } else { remembered.join(", ") };
-                self.log(&format!("credentials entered ({summary})"))?;
+                if remembered.is_empty() { summary.push("remember state unavailable") } else { summary.extend(remembered) }
+                self.log(&format!("credentials entered ({})", summary.join(", ")))?;
             } else {
                 self.log("sign-in requested through the Riot background service")?;
                 if direct.needs_attention {
@@ -606,6 +619,7 @@ pub fn sign_in(io: &dyn SignInIo, request: &SignInRequest) -> RiotResult<SignInO
         automatic_check_until: 0,
         restored_yaml: None,
         interface_open: false,
+        logged_challenge: None,
     };
     match flow.run() {
         Ok(()) => Ok(flow.result),
