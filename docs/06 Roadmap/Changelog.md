@@ -12,6 +12,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 - O observador em Rust da 2.19.0 nunca reconhecia a janela da Riot, porque comparava o caminho do `RiotClientInstalls.json` (com `/`) com o do processo (com `\`). Agora os dois lados são normalizados ([[riotWindowObserver]]). Achado pelo `riot_check` na Riot real, com autorização do usuário.
 - `riot_check` e o preenchimento esperam os campos do UI Automation pelo mesmo laço de até 3 s; a checagem tentava uma vez só e falhava enquanto o Chromium ligava a árvore de acessibilidade ([[loginForm]]).
 - Conferido na Riot real com uma cópia temporária dos dados e contas sem 2FA: `riot_check` todo verde; login com a Riot na tela de login em 33,7 s e com a Riot fechada em 36,7 s e 44,7 s, sempre `input:uia` e com o jogo percebido. Uma primeira tentativa, com a Riot parada na tela de login havia muito tempo, não achou o formulário pronto em 60 s ("authenticator captcha: hcaptcha"); não se repetiu nas três seguintes, e a busca da janela é a mesma do `.ps1`. Numa das tentativas a caixa "Stay signed in" saiu `remember:unknown`.
+- Publicada a pedido do usuário: PR #8 no `main` com a CI verde na primeira rodada e release `v2.19.1` com Setup, `.sig` e `latest.json`, o primeiro com atualização automática ([[Publicar no GitHub]]).
 
 ## 2026-11-21 · Eclipse 2.19.0: sem PowerShell
 
