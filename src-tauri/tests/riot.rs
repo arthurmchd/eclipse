@@ -16,6 +16,8 @@ mod riot_process;
 mod riot_state;
 #[path = "riot/riot_transport.rs"]
 mod riot_transport;
+#[path = "riot/riot_version.rs"]
+mod riot_version;
 #[path = "riot/sign_in_flow.rs"]
 mod sign_in_flow;
 

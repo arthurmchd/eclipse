@@ -32,7 +32,7 @@ tags: [módulo, interface]
 
 ## Invariantes e decisões
 
-- **Posição medida no Riot Client v142.** O retângulo vai de `200/1536` a `344/1536` da largura e de `418/864` a `450/864` da altura: começa depois do texto "Stay signed in" (que termina em 177 px), acaba na borda direita do formulário (344 px) e cobre a linha da caixa da Riot (426 a 441 px). Medido numa captura de 1536×864, em 2026-11-04, com a mesma base em frações de [[login.ps1]] (`$REMEMBER` 0.0417, 0.5023). A página usa a unidade `100vw / 144` para tudo, então a caixa escala junto com a janela.
+- **Posição medida no Riot Client v142.** O retângulo vai de `200/1536` a `344/1536` da largura e de `418/864` a `450/864` da altura: começa depois do texto "Stay signed in" (que termina em 177 px), acaba na borda direita do formulário (344 px) e cobre a linha da caixa da Riot (426 a 441 px). Medido numa captura de 1536×864, em 2026-11-04, com a mesma base em frações de [[loginForm]] (`$REMEMBER` 0.0417, 0.5023). A página usa a unidade `100vw / 144` para tudo, então a caixa escala junto com a janela.
 - **Visual igual ao da Riot.** Revisão de 2026-11-04, a pedido do usuário ("tamanho, arredondamento, cor, tudo"). Valores tirados da regra `.mobile-checkbox` do CSS da tela de login (lido na cópia privada, sem alterar nada) e conferidos pixel a pixel numa captura: quadrado de 16 px, `border-radius: 20%`, cinza `rgba(126,126,126,.15)` (`.25` com o mouse em cima), marcada `#d53235` (medido na tela; `#bc252a` com o mouse) com visto branco `#f9f9f9` desenhado no mesmo traço da Riot (SVG de 19 px, traço 3, 60% do quadrado, centrado a 35% da altura). Texto Inter (`@fontsource/inter`) de 14 px, `line-height` 120%, cor `#292929`, `#333` marcada e `#111` marcada com o mouse. A Riot declara peso 500, mas o Inter dela é de outra versão e desenha mais fino; com o Inter do projeto, o peso 400 com `letter-spacing` de 0,3 px e o texto 2 px mais perto da caixa que `.75em` deram a mesma largura (33 a 128 px a partir do retângulo), a mesma altura (10 a 23 px) e quase a mesma quantidade de tinta (55,4 mil contra 56,5 mil). `will-change: transform` no rótulo força suavização em tons de cinza, como a da Riot; sem isso o texto saía com franjas coloridas e parecia mais escuro.
 - **Fundo opaco `#fcfcfc`.** É a cor medida do painel de login da Riot. Fundo opaco deixa o texto nítido; se a Riot mudar a cor do painel, a caixa precisa acompanhar.
 - **Começa desmarcada.** A página não lê estado salvo. Cada início do Eclipse cria a página de novo, desmarcada, como foi pedido.
@@ -48,4 +48,4 @@ tags: [módulo, interface]
 
 ## Pontos de atenção
 
-- Uma atualização da tela de login da Riot pode mover o "Stay signed in" ou pôr algo no retângulo. Reveja as frações junto com as de [[login.ps1]].
+- Uma atualização da tela de login da Riot pode mover o "Stay signed in" ou pôr algo no retângulo. Reveja as frações junto com as de [[loginForm]].

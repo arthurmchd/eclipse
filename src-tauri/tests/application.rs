@@ -24,6 +24,8 @@ mod sign_in_service;
 mod store;
 #[path = "application/timers.rs"]
 mod timers;
+#[path = "application/updates.rs"]
+mod updates;
 #[path = "support/manual_timers.rs"]
 mod manual_timers;
 

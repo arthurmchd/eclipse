@@ -16,7 +16,7 @@ Como o aviso funciona, conferido na cópia da interface da Riot em `.client-inte
 - **É um modal dentro da página da Riot**, não uma janela separada: `AFKModal`, aberto pelo `ModalManager` da interface. O Windows não avisa quando ele aparece.
 - **Aparece por tempo.** Abre 20 min depois de a Riot criar a sessão de login (2 min com a opção `afk_modal_timer` ligada pela Riot). Sim recria a sessão e recomeça a contagem.
 - **O serviço local não muda.** A consulta de login do [[riotOverlay]] continua vendo `auth`, por isso os cartões ficam visíveis.
-- **Fundo escurecido na janela inteira.** Todo modal da Riot tem o fundo `.riot-modal-backdrop`, que cobre a janela com `rgba(10, 10, 10, .7)`, inclusive a coluna de login. A coluna de login fica fora da região da sobreposição ([[ADR-013 Caixa para ocultar as contas na coluna de login]]). O ponto `PANEL` (2,6% da largura, metade da altura) é o mesmo que o [[login.ps1]] já exige claro (≥ 240) para considerar o formulário pronto. Ali o branco (≈ 252) passa a ≈ 83 com o aviso aberto.
+- **Fundo escurecido na janela inteira.** Todo modal da Riot tem o fundo `.riot-modal-backdrop`, que cobre a janela com `rgba(10, 10, 10, .7)`, inclusive a coluna de login. A coluna de login fica fora da região da sobreposição ([[ADR-013 Caixa para ocultar as contas na coluna de login]]). O ponto `PANEL` (2,6% da largura, metade da altura) é o mesmo que o [[loginForm]] já exige claro (≥ 240) para considerar o formulário pronto. Ali o branco (≈ 252) passa a ≈ 83 com o aviso aberto.
 
 ## Decisão
 
@@ -33,8 +33,8 @@ Como o aviso funciona, conferido na cópia da interface da Riot em `.client-inte
 ## Alternativas consideradas
 
 - **Copiar o cronômetro da Riot** (esconder 20 min depois do login aparecer): o tempo depende de uma opção remota da Riot (20 ou 2 min). O ponto de partida é a criação da sessão, que o Eclipse não vê. Erraria nos dois sentidos.
-- **Ler o texto do aviso por UI Automation:** lê conteúdo da janela, depende do idioma e da árvore de acessibilidade do Chromium. O [[login.ps1]] já não reconhece a caixa "Manter login" por UIA na Riot 142.
-- **`PrintWindow` da janela inteira**, como o [[login.ps1]]: veria o aviso mesmo com a Riot coberta, mas pede à Riot uma imagem da janela inteira a cada leitura enquanto o Eclipse está aberto. Com a Riot coberta, os cartões também estão, então ler a tela basta.
+- **Ler o texto do aviso por UI Automation:** lê conteúdo da janela, depende do idioma e da árvore de acessibilidade do Chromium. O [[loginForm]] já não reconhece a caixa "Manter login" por UIA na Riot 142.
+- **`PrintWindow` da janela inteira**, como o [[loginForm]]: veria o aviso mesmo com a Riot coberta, mas pede à Riot uma imagem da janela inteira a cada leitura enquanto o Eclipse está aberto. Com a Riot coberta, os cartões também estão, então ler a tela basta.
 - **Serviço local da Riot:** o aviso não muda nenhum estado que o Eclipse consulte.
 - **Mudar a cópia privada da interface:** só vale no modo privado; o padrão é a sobreposição no cliente oficial ([[ADR-009 Sobreposição no cliente oficial]]).
 
@@ -42,7 +42,7 @@ Como o aviso funciona, conferido na cópia da interface da Riot em `.client-inte
 
 - O aviso de inatividade e os outros modais da Riot no login aparecem por inteiro, sem os cartões e sem a caixa por cima. Ao responder, os cartões voltam sozinhos.
 - Ao voltar para a Riot coberta por outro programa com o aviso já aberto, os cartões ainda podem aparecer por até um retrato (180 ms) antes de sumir.
-- Depende da coluna de login continuar clara no ponto `PANEL` e de o fundo dos modais continuar escuro. Se a Riot mudar o layout ou o fundo, os cartões podem não sumir (fundo claro) ou sumir sem aviso (ponto escuro). O mesmo ponto já é conferido pelo [[login.ps1]].
+- Depende da coluna de login continuar clara no ponto `PANEL` e de o fundo dos modais continuar escuro. Se a Riot mudar o layout ou o fundo, os cartões podem não sumir (fundo claro) ou sumir sem aviso (ponto escuro). O mesmo ponto já é conferido pelo [[loginForm]].
 - Cada retrato faz uma cópia de 7 × 7 px da tela. É barato, mas acontece a cada 180 ms enquanto o Eclipse acompanha a Riot.
 - Não foi conferido com o aviso real da Riot: a cor esperada foi calculada a partir do CSS da versão 141.
 

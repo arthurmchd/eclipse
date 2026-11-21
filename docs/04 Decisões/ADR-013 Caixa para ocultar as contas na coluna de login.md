@@ -28,7 +28,7 @@ A caixa precisa ficar fora dos cartões, senão sumiria junto com eles e não da
 
 ## Consequências
 
-- A regra "a sobreposição não toca a coluna de login" passa a ter uma exceção: um retângulo de `144×32` em `1536×864`, sem nenhum controle da Riot embaixo. Se um layout futuro da Riot puser algo nesse ponto, a caixa cobre esse controle. As frações estão em [[overlayToggle]] e precisam de nova medida quando a Riot mudar a tela de login, como as de [[login.ps1]].
+- A regra "a sobreposição não toca a coluna de login" passa a ter uma exceção: um retângulo de `144×32` em `1536×864`, sem nenhum controle da Riot embaixo. Se um layout futuro da Riot puser algo nesse ponto, a caixa cobre esse controle. As frações estão em [[overlayToggle]] e precisam de nova medida quando a Riot mudar a tela de login, como as de [[loginForm]].
 - A caixa só aparece quando os cartões apareceriam: na tela de login, com a Riot visível e sem login em andamento.
 - O teste de geometria agora confere que, na coluna de login, a região contém só o retângulo da caixa.
 - Nenhuma janela ou arquivo da Riot é alterado. O preload da caixa só aceita um booleano e confere o remetente.

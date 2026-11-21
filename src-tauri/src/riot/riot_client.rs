@@ -12,7 +12,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 use uuid::Uuid;
 
 use super::game_ranks::{read_league_lockfile, GameRanks, INSTALLS_FILE};
@@ -22,10 +22,13 @@ use super::riot_interface::{wait_for, InterfaceOpener, SHOW_INTERFACE};
 use super::riot_process::launch_client;
 use super::riot_state::{Look, RiotProbe};
 use super::riot_transport::{ClientPath, RiotTransport, DEFAULT_MAX_BYTES};
+use super::riot_version::{newer_riot_message, version_line, RiotVersion};
 use super::sign_in_flow::{sign_in, Closed, LaunchAnswer, SignInIo, SignInOutcome, SignInRequest, TypeRequest};
 use super::{check, AccountState, Cancel, LocalApi, Response, RiotError, RiotId, RiotResult, RunningGames, DEFAULT_TIMEOUT_MS};
-use crate::paths::windows_helpers_dir;
-use crate::platform::windows::window_controller::{HelperFailure, HelperRunner, PowerShell, WindowController, CREATE_NO_WINDOW};
+use crate::platform::windows::login_form::{FillFailure, FillReport, LoginForm, NativeLoginForm};
+use crate::platform::windows::win32::{file_version, process_names};
+use crate::platform::windows::window_controller::{WindowController, CREATE_NO_WINDOW};
+use crate::platform::windows::window_guard::NativeWindows;
 use crate::platform::windows::windows_environment::local_app_data_for_riot;
 
 pub const LOL_PROCESSES: [&str; 4] = ["LeagueClient.exe", "LeagueClientUx.exe", "LeagueClientUxRender.exe", "League of Legends.exe"];
@@ -40,7 +43,6 @@ pub const QUIT: &str = "/process-control/v1/process/quit";
 pub const ACTIVE_ALIAS: &str = "/player-account/aliases/v1/active";
 pub const FALLBACK_CLIENT: &str = "C:/Riot Games/Riot Client/RiotClientServices.exe";
 pub const SETTINGS_PREFIX: &str = "riotgamesprivatesettings";
-pub const LOGIN_TIMEOUT_MS: u64 = 90_000;
 pub const REPLACE_ATTEMPTS: u32 = 5;
 pub const REPLACE_DELAY_MS: u64 = 100;
 pub const STALE_TEMP: Duration = Duration::from_secs(60);
@@ -69,10 +71,6 @@ pub fn detect_client_path(override_path: &str) -> Option<String> {
     detect_client_path_with(override_path, &|file| file.exists(), &|file| fs::read_to_string(file))
 }
 
-pub fn parse_tasklist(output: &str) -> HashSet<String> {
-    output.lines().map(|line| line.split("\",\"").next().unwrap_or_default().trim_start_matches('"').to_lowercase()).collect()
-}
-
 pub fn running_games_in(processes: &HashSet<String>) -> RunningGames {
     let any = |names: &[&str]| names.iter().any(|name| processes.contains(&name.to_lowercase()));
     RunningGames {
@@ -87,11 +85,11 @@ pub fn running_games_in(processes: &HashSet<String>) -> RunningGames {
 }
 
 pub fn running_processes() -> RiotResult<HashSet<String>> {
-    let output = Command::new("tasklist").args(["/FO", "CSV", "/NH"]).creation_flags(CREATE_NO_WINDOW).output();
-    match output {
-        Ok(output) if output.status.success() => Ok(parse_tasklist(&String::from_utf8_lossy(&output.stdout))),
-        _ => Err(RiotError::new("Could not check running Riot games. No accounts were switched")),
+    let names = process_names();
+    if names.is_empty() {
+        return Err(RiotError::new("Could not check running Riot games. No accounts were switched"));
     }
+    Ok(names)
 }
 
 pub fn running_games() -> RiotResult<RunningGames> {
@@ -529,33 +527,27 @@ pub fn request_launch(api: &dyn LocalApi, game: &str, log: &dyn Fn(&str)) -> Rio
     Ok(LaunchAnswer { status, error_code })
 }
 
-pub fn login_request_json(request: &TypeRequest) -> String {
-    json!({ "action": "type", "username": request.username, "password": request.password, "remember": request.remember }).to_string()
+pub fn report_lines(report: FillReport) -> Vec<String> {
+    vec![format!("input:{}", report.input.name()), format!("remember:{}", report.remember.name()), "ok".to_string()]
 }
 
-pub fn interpret_login_output(code: Option<i32>, output: &str) -> RiotResult<Vec<String>> {
-    let lines: Vec<String> = split_lines(output.trim()).into_iter().map(str::to_string).collect();
-    let last = lines.last().filter(|line| !line.is_empty()).cloned().unwrap_or_else(|| format!("exit code {}", code.map(|code| code.to_string()).unwrap_or_else(|| "null".into())));
-    if code == Some(0) && last == "ok" {
-        return Ok(lines);
+pub fn fill_error(failure: FillFailure) -> RiotError {
+    match failure {
+        FillFailure::Cancelled => RiotError::cancelled(),
+        FillFailure::WindowNotFound => RiotError::new("The Riot Client window did not open"),
+        FillFailure::FormNotReady => RiotError::new("The Riot Client sign-in screen did not load. Finish signing in there"),
+        other => RiotError::new(format!("Riot Client sign-in form failed: {}", other.code())),
     }
-    if output.contains("error:window-not-found") {
-        return Err(RiotError::new("The Riot Client window did not open"));
-    }
-    if output.contains("error:form-not-ready") {
-        return Err(RiotError::new("The Riot Client sign-in screen did not load. Finish signing in there"));
-    }
-    Err(RiotError::new(format!("Riot Client window script failed: {last}")))
 }
 
-pub fn run_login_script(runner: &dyn HelperRunner, script: &Path, request: &TypeRequest, cancel: Option<&Cancel>) -> RiotResult<Vec<String>> {
+pub fn fill_error_for(failure: FillFailure, version: Option<RiotVersion>) -> RiotError {
+    newer_riot_message(version, failure).map(RiotError::new).unwrap_or_else(|| fill_error(failure))
+}
+
+pub fn fill_login_form(form: &dyn LoginForm, request: &TypeRequest, version: Option<RiotVersion>, cancel: Option<&Cancel>, log: &dyn Fn(&str)) -> RiotResult<Vec<String>> {
     check(cancel)?;
-    match runner.run(script, &login_request_json(request), LOGIN_TIMEOUT_MS, cancel) {
-        Ok(output) => interpret_login_output(output.code, &format!("{}{}", output.stdout, output.stderr)),
-        Err(HelperFailure::Cancelled) => Err(RiotError::cancelled()),
-        Err(HelperFailure::TimedOut) => Err(RiotError::new("The Riot Client sign-in form did not respond")),
-        Err(HelperFailure::Spawn(message)) => Err(RiotError::new(message)),
-    }
+    log(&version_line(version));
+    form.fill(&request.username, &request.password, request.remember, cancel).map(report_lines).map_err(|failure| fill_error_for(failure, version))
 }
 
 fn sleep_ms(ms: u64) {
@@ -570,8 +562,7 @@ pub struct RiotClient {
     windows: WindowController,
     interface: InterfaceOpener,
     game_ranks: GameRanks,
-    runner: Arc<dyn HelperRunner>,
-    login_script: PathBuf,
+    login_form: Arc<dyn LoginForm>,
     started: Instant,
 }
 
@@ -583,14 +574,12 @@ impl RiotClient {
         let local_api: Arc<dyn LocalApi> = Arc::new(RiotTransport::for_riot_client(client_path.clone(), None, DEFAULT_MAX_BYTES));
         let league_api: Arc<dyn LocalApi> = Arc::new(RiotTransport::for_riot_client(client_path.clone(), Some(Arc::new(read_league_lockfile)), DEFAULT_MAX_BYTES));
         let riot_api: Arc<dyn LocalApi> = Arc::new(RiotTransport::for_riot_client(client_path, None, 8 * 1024 * 1024));
-        let runner: Arc<dyn HelperRunner> = Arc::new(PowerShell);
-        let helpers = windows_helpers_dir();
         Self {
             selected,
             local_api: local_api.clone(),
             authentication: RiotAuthentication::new(local_api.clone()),
             app_controls: RiotAppControls::new(local_api.clone()),
-            windows: WindowController::new(runner.clone(), helpers.join("windowGuard.ps1"), 15_000),
+            windows: WindowController::new(Arc::new(NativeWindows)),
             interface: InterfaceOpener {
                 running_games: Arc::new(running_games),
                 local_api,
@@ -604,8 +593,7 @@ impl RiotClient {
                 stop_timeout_ms: 10_000,
             },
             game_ranks: GameRanks::new(league_api, riot_api),
-            runner,
-            login_script: helpers.join("login.ps1"),
+            login_form: Arc::new(NativeLoginForm),
             started: Instant::now(),
         }
     }
@@ -786,9 +774,11 @@ impl SignInIo for RiotClient {
     }
 
     fn type_credentials(&self, request: &TypeRequest, cancel: Option<&Cancel>, log: &dyn Fn(&str)) -> RiotResult<Vec<String>> {
-        self.interface.open(&self.selected_or_detected(), cancel, log)?;
+        let exe = self.selected_or_detected();
+        self.interface.open(&exe, cancel, log)?;
         check(cancel)?;
-        run_login_script(self.runner.as_ref(), &self.login_script, request, cancel)
+        let version = file_version(Path::new(&exe)).map(RiotVersion);
+        fill_login_form(self.login_form.as_ref(), request, version, cancel, log)
     }
 
     fn authenticate(&self, account: &Credentials, cancel: Option<&Cancel>, remember: bool) -> RiotResult<Option<AuthOutcome>> {

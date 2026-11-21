@@ -23,7 +23,7 @@ Define que o Eclipse fala `pt` ou `en`, com `pt` como padrão, e tem o catálogo
 | `MESSAGES` | constante | Pares `(inglês, português)`, públicos para o teste conferir o catálogo inteiro |
 | `normalize_language(valor)` | função | Devolve `en` só para `"en"`; qualquer outra coisa vira `pt` |
 | `localize(texto, idioma)` | função | Acha o texto em qualquer lado de um par (ou num dos padrões com parte variável) e devolve a versão no idioma pedido. Texto desconhecido volta igual |
-| `main_text(idioma)` | função | `MainText` com os textos da bandeja, das notificações e das caixas de aviso do [[main]], inclusive "Iniciar com o Windows" / "Start with Windows" |
+| `main_text(idioma)` | função | `MainText` com os textos da bandeja, das notificações e das caixas de aviso do [[main]], inclusive "Iniciar com o Windows" / "Start with Windows" e, desde 2026-11-21, os da atualização ("Procurar atualizações", "Atualizar para a versão X", o balão e os avisos de login em andamento e de falha, [[updates]]) |
 
 ## Dependências
 
@@ -34,7 +34,7 @@ Define que o Eclipse fala `pt` ou `en`, com `pt` como padrão, e tem o catálogo
 
 - **Traduz na saída, não na origem.** As mensagens continuam em inglês em [[signInFlow]], [[signInService]] e no `sign-in.log`. O [[main]] passa `localize` ao [[signInService]] como tradutor e o usa nas notificações e nas caixas de aviso. Assim o log de diagnóstico não muda de língua.
 - **Pares nos dois sentidos.** `localize` aceita o texto em inglês ou em português e devolve o do idioma pedido; o [[main]] tem alguns erros que antes eram escritos em português e agora são escritos em inglês, e qualquer texto antigo em português ainda se traduz. Um mesmo texto não pode aparecer em dois pares; o teste confere.
-- **Padrões com parte variável.** Duas mensagens têm um trecho que vem de fora (código de erro da Riot, código do script da janela). O trecho é mantido como veio.
+- **Padrões com parte variável.** Três mensagens têm um trecho que vem de fora: o código de erro da Riot, o código de falha do formulário de login ([[loginForm]]) e a versão principal de uma Riot mais nova que a conferida ([[riotVersion]], só dígitos). O trecho é mantido como veio.
 - **Sem textos do monitor de janelas.** Desde 2026-11-07 saíram "The background window guard has stopped" e o padrão "The background window guard stopped (motivo). Try Play again", que só o monitor persistente produzia ([[windowController]]). Fica "The background window guard is shutting down", que o controlador ainda usa.
 - **Sem "Show Riot Client".** Desde 2026-11-07 as mensagens em inglês do [[signInFlow]] e do [[signInService]] dizem para olhar ou abrir a janela da Riot, como os textos em português já diziam; o botão era da janela antiga. Saiu também um par sem uso: "Could not bring the Riot Client to the front".
 - **Par usado pelo lado em português conta como usado.** No mesmo dia saíram por engano mais dois pares cujo texto em inglês não aparecia no código: o [[signInFlow]] escrevia "Preparando o login no Riot Client…" e o [[riotWindowObserver]] "Não foi possível acompanhar a janela do Riot…", e com o app em inglês esses textos ficariam em português. Os pares voltaram, e os dois módulos passaram a escrever em inglês, como o resto. Um teste confere que todo status do [[signInFlow]] e o erro do observador têm par.

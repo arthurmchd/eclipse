@@ -63,10 +63,11 @@ fn the_cards_ask_for_riot_window_actions_locally_and_only_from_a_fixed_list() {
     let (host, calls, actions) = host(Ok(json!(true)));
     assert_eq!(host.invoke(&CARDS, "windowAction", &json!(["minimize"])), Ok(json!({ "ok": true })));
     assert_eq!(host.invoke(&CARDS, "windowAction", &json!(["close"])), Ok(json!({ "ok": false })));
-    for args in [json!(["quit"]), json!(["reveal"]), json!([]), json!(["minimize", "close"]), json!([1]), json!([{ "action": "close" }]), json!("minimize")] {
+    assert!(host.invoke(&CARDS, "windowAction", &json!(["drag"])).is_ok());
+    for args in [json!(["quit"]), json!(["reveal"]), json!([]), json!(["minimize", "close"]), json!(["drag", 10, 20]), json!([1]), json!([{ "action": "close" }]), json!("minimize")] {
         assert_eq!(host.invoke(&CARDS, "windowAction", &args), Err(INVALID.to_string()));
     }
-    assert_eq!(*actions.lock().unwrap(), ["minimize", "close"]);
+    assert_eq!(*actions.lock().unwrap(), ["minimize", "close", "drag"]);
     assert!(calls.lock().unwrap().is_empty());
 }
 

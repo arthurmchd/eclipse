@@ -23,7 +23,7 @@ A primeira versão manteve a caixa "Ocultar contas" à vista sobre a cobertura. 
 
 Durante o login, a caixa também precisa sumir.
 
-No primeiro login de cada conta, o Eclipse preenche o formulário nativo da Riot ([[login.ps1]]), e o usuário via usuário e senha sendo digitados na coluna da esquerda. Até aqui, a sobreposição nunca pintava nessa coluna, fora a caixa "Ocultar contas" ([[ADR-013 Caixa para ocultar as contas na coluna de login]]).
+No primeiro login de cada conta, o Eclipse preenche o formulário nativo da Riot ([[loginForm]]), e o usuário via usuário e senha sendo digitados na coluna da esquerda. Até aqui, a sobreposição nunca pintava nessa coluna, fora a caixa "Ocultar contas" ([[ADR-013 Caixa para ocultar as contas na coluna de login]]).
 
 Dois cuidados limitam a cobertura:
 
@@ -40,7 +40,7 @@ Dois cuidados limitam a cobertura:
 
 ## Alternativas consideradas
 
-- **Esconder a janela da Riot durante o login.** O [[login.ps1]] precisa da janela renderizando, e 2FA ou CAPTCHA precisam dela à vista. A cobertura não mexe na Riot.
+- **Esconder a janela da Riot durante o login.** O [[loginForm]] precisa da janela renderizando, e 2FA ou CAPTCHA precisam dela à vista. A cobertura não mexe na Riot.
 - **Desenhar a cobertura na página dos cartões.** A visualização dos cartões começa em `cardsLeft`. Esticá-la para a coluna misturaria a geometria da Riot com a interface dos cartões.
 - **Esticar a página da caixa.** A caixa usa unidades da própria largura para casar com a da Riot. Mudar o tamanho dela durante o login mudaria essas medidas.
 - **Ler o escurecimento por `PrintWindow`, sem furo.** Mudaria o helper do observador, que hoje lê a tela a cada 180 ms, só para atender este caso.
@@ -48,7 +48,7 @@ Dois cuidados limitam a cobertura:
 ## Consequências
 
 - O usuário não vê mais usuário e senha sendo digitados nem os controles da Riot na coluna durante o login. Erros da Riot (senha errada, por exemplo) aparecem quando a operação termina e a cobertura sai.
-- Durante o login, cliques na coluna não chegam à Riot, exceto no furo de 11 × 11 DIP. Também não dá para marcar ou desmarcar "Ocultar contas" até o login terminar. A digitação do [[login.ps1]] não é afetada, porque vai por mensagens direto à janela da Riot e lê a imagem da própria janela.
+- Durante o login, cliques na coluna não chegam à Riot, exceto no furo de 11 × 11 DIP. Também não dá para marcar ou desmarcar "Ocultar contas" até o login terminar. A digitação do [[loginForm]] não é afetada, porque vai por mensagens direto à janela da Riot e lê a imagem da própria janela.
 - O furo mostra o painel da Riot. Se a Riot mudar a cor do painel ou pôr algo nesse ponto, o furo pode aparecer como um quadradinho de outra cor durante o login.
 - A cobertura depende de `needsAttention` chegar a tempo. Nos 12 s de tolerância da checagem automática da Riot ([[signInFlow]]), um CAPTCHA visível na coluna ficaria coberto até o aviso; depois ele aparece.
 

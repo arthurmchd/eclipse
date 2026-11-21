@@ -65,3 +65,5 @@ export function selectionView(account, game, regions, text) {
   const first = GAME_QUEUES[game] ? queueView(account, game, GAME_QUEUES[game][0], text).tier : game === 'riot' ? text.riotOnlyShort : GAME_NAMES[game] || '';
   return { name, detail: [first, region].filter(Boolean).join(' · ') };
 }
+
+export const startupChange = (current, checked) => (typeof current === 'boolean' && checked !== current ? checked : undefined);

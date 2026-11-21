@@ -63,12 +63,31 @@ O `.gitignore` não remove arquivos já versionados nem apaga segredos do histó
 
 Desde 2026-11-20 cada versão sai como release público em `arthurmchd/eclipse`, pedido do usuário ("um release para qualquer um poder baixar"). O primeiro foi o `v2.15.1`. O repositório se chamava `riot-account-manager` e foi renomeado para `eclipse` em 2026-11-20, a pedido do usuário; o GitHub redireciona os endereços antigos. O `gh` (GitHub CLI) está instalado em `C:\Program Files\GitHub CLI\gh.exe`, com login feito pelo próprio usuário (`gh auth login --web`).
 
-1. Com a versão nova já gerada e testada, junte o `migracao/tauri` no `main` por PR, como os anteriores: `gh pr create --base main --head migracao/tauri` e `gh pr merge <n> --merge`.
-2. Calcule o SHA-256: `Get-FileHash src-tauri\target\release\bundle\nsis\Eclipse_<versão>_x64-setup.exe`.
-3. Crie o release com o Setup, a tag `v<versão>` no `main`, as novidades em linguagem de usuário, o SHA-256, o aviso do SmartScreen e o aviso de projeto de fã: `gh release create v<versão> <Setup> --target main --title "Eclipse <versão>" --notes-file <notas> --latest`.
-4. Confira que o `digest` do arquivo no release (`gh release view v<versão> --json assets`) bate com o SHA-256.
+### Antes de publicar
 
-Só o Setup vai no release: nunca dados, logs, `.client-integration/`, `app.asar` ou capturas com contas.
+1. **Testes no GitHub.** O envio para `migracao/tauri` roda `.github/workflows/tests.yml` (clippy sem avisos, `cargo test` e `npm test` no Windows). Só siga com tudo verde: `gh run list --branch migracao/tauri --limit 1`.
+2. **Riot real, sem login.** Com a Riot aberta na tela de login, rode `cargo run --example riot_check` em `src-tauri/`. Ela confere a versão da Riot contra a última conferida ([[riotVersion]]), o observador, o formulário pelas cores e os dois campos do UI Automation, sem digitar nada. Precisa de autorização do usuário a cada vez ([[Testes sem o usuário]]).
+3. **Um login real.** Com o Eclipse instalado da versão nova, entre com uma conta sem 2FA e confira no `sign-in.log` a linha `credentials entered (input:uia, …)` ou a sessão salva e o "Game opened". Também precisa de autorização.
+4. Se a Riot subiu de versão principal e tudo passou, suba `LAST_TESTED_MAJOR` ([[Atualização do Riot Client]]).
+
+### Gerar e publicar
+
+1. Gere o Setup com a chave de assinatura: o `cargo tauri build` lê `TAURI_SIGNING_PRIVATE_KEY` (o caminho de `%USERPROFILE%\.tauri\eclipse-updater.key`, gravado nas variáveis do usuário em 2026-11-21) e cria, ao lado do Setup, o `Eclipse_<versão>_x64-setup.exe.sig` ([[ADR-045 Atualização pelo GitHub]]).
+2. Escreva as novidades em linguagem de usuário num arquivo e gere o manifesto: `node scripts/release/latest-json.js <notas>`. Ele cria `latest.json` na pasta do Setup, apontando para o Setup da tag `v<versão>`, com a assinatura do `.sig`.
+3. Junte o `migracao/tauri` no `main` por PR, como os anteriores: `gh pr create --base main --head migracao/tauri` e `gh pr merge <n> --merge`.
+4. Calcule o SHA-256: `Get-FileHash src-tauri	argeteleaseundle
+sis\Eclipse_<versão>_x64-setup.exe`.
+5. Crie o release com os três arquivos (Setup, `.sig` e `latest.json`), a tag `v<versão>` no `main`, as novidades, o SHA-256, o aviso do SmartScreen e o aviso de projeto de fã: `gh release create v<versão> <Setup> <Setup>.sig <pasta>\latest.json --target main --title "Eclipse <versão>" --notes-file <notas> --latest`.
+6. Confira que o `digest` do Setup no release (`gh release view v<versão> --json assets`) bate com o SHA-256 e que `https://github.com/arthurmchd/eclipse/releases/latest/download/latest.json` abre com a versão nova. Os Eclipse instalados avisam em até 12 horas.
+
+### A chave de assinatura
+
+- Fica em `%USERPROFILE%\.tauri\eclipse-updater.key`, sem senha, com a pública em `eclipse-updater.key.pub` (a mesma do `tauri.conf.json`). Guarde uma cópia fora do PC, num lugar só seu.
+- Nunca vai para o repositório, para um release ou para uma issue. O `.gitignore` barra `*.key`.
+- Perdida, os Eclipse instalados não aceitam mais atualizações: gere outra chave, troque a pública no `tauri.conf.json` e avise no release que essa versão precisa ser baixada à mão.
+- Vazada, gere outra do mesmo jeito: quem tiver a antiga poderia assinar um Setup falso.
+
+No release vão só o Setup, o `.sig` e o `latest.json`: nunca a chave, dados, logs, `.client-integration/`, `app.asar` ou capturas com contas.
 
 ## Capturas do README
 

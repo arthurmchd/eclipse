@@ -22,7 +22,7 @@ sequenceDiagram
   participant RCS as Riot Client Services
 
   M->>O: start(clientPath)
-  O->>W: acompanha a janela da Riot (helper PowerShell)
+  O->>W: acompanha a janela da Riot (thread do Eclipse)
   W-->>O: posição, escala, minimizada, modal, formulário
   loop a cada 750 ms com a janela na tela
     O->>RCS: estado da tela de login (API local)

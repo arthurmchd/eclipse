@@ -7,7 +7,7 @@ tags: [dev]
 
 ## Requisitos
 
-- Windows 10/11 (DPAPI, PowerShell e o Riot Client são requisitos reais, inclusive para parte dos testes)
+- Windows 10/11 (DPAPI, UI Automation e o Riot Client são requisitos reais, inclusive para parte dos testes)
 - Rust pelo `rustup` (`winget install Rustlang.Rustup`), as Build Tools do Visual Studio com C++ e o WebView2, que já vem no Windows 11. `cargo install tauri-cli --version "^2" --locked` dá o `cargo tauri`.
 - Node.js 22 ou mais novo, para as fontes que o Setup leva, a prévia no navegador e os testes JS. `npm ci` na primeira vez.
 
@@ -20,6 +20,7 @@ tags: [dev]
 | `cargo tauri build` (em `src-tauri/`) | Gera o Setup em `src-tauri/target/release/bundle/nsis/` ([[ADR-034 Troca do Electron pelo Tauri]]) |
 | `npm test` | Roda os testes JS (`node --test "test/**/*.test.js"`) |
 | `npm run preview` | Cartões no navegador com contas fictícias em <http://localhost:5178> |
+| `cargo run --example riot_check` (em `src-tauri/`) | Checagem da Riot real antes de publicar, sem login: versão, observador, formulário e campos ([[Publicar no GitHub]]). Só com autorização do usuário |
 
 O Eclipse em Electron saiu na versão 2.0.0, em 2026-11-15; o código está na tag `electron-final`. Os comandos do modo antigo saíram em 2026-11-07 ([[ADR-028 Modo antigo removido]]).
 
@@ -30,16 +31,19 @@ Rodar só uma parte: `cargo test --test riot sign_in_flow` (uma camada e um filt
 ## Testes
 
 - `src-tauri/tests/` espelha `src-tauri/src/`: cada camada é um arquivo (`tests/application.rs`, `tests/riot.rs` e assim por diante) que inclui os testes da pasta dela por `#[path]`.
-- `test/` tem o que continua em JavaScript: os cartões (`test/renderer/`), o [[manager-preload]], os helpers PowerShell ([[login.ps1]], [[windowGuard.ps1]]), a prévia e o `package.json`.
+- `test/` tem o que continua em JavaScript: os cartões (`test/renderer/`), o [[manager-preload]], a prévia e o `package.json`.
 - Não autenticam contas reais nem abrem jogos.
-- Os testes dos helpers PowerShell compilam o C# e rodam autotestes que só tocam janelas próprias, criadas fora da tela. O do [[riotWindowObserver]] roda no `cargo test`.
+- O autoteste do [[riotWindowObserver]] e o do `NativeObserver` só tocam janelas próprias, criadas fora da tela. As regras do [[loginForm]] e do [[windowGuard]] são testadas como funções puras, sem janela.
 - Pastas temporárias são criadas dentro da pasta do próprio teste e removidas no fim; os testes conferem isso antes de apagar.
+- O GitHub roda `cargo clippy -- -D warnings`, `cargo test` e `npm test` no Windows a cada envio e pull request (`.github/workflows/tests.yml`). O clippy só olha o código do app, não os testes.
 - O único teste que fala com a Riot real é marcado com `#[ignore]` e só roda a pedido, com a Riot aberta pelo usuário ([[riotTransport]]).
 - `test/package.test.js` trava o `package.json`: sem Electron, só as fontes como dependências, a versão igual à do Tauri e do Cargo, e o nome `riot-account-manager`.
 
 ## Gerar o instalador
 
-`cargo tauri build` (em `src-tauri/`) compila em modo release e gera `Eclipse_<versão>_x64-setup.exe`, o instalador de um clique, por usuário e sem administrador. O Setup leva o `eclipse.exe` e, por uma lista fechada em `bundle.resources` do `tauri.conf.json`, as páginas, as fontes e os três `.ps1` nos mesmos caminhos relativos do projeto ([[paths]]). `src-tauri/tests/paths.rs` confere que os três `.ps1` vão e nenhum outro script.
+`cargo tauri build` (em `src-tauri/`) compila em modo release e gera `Eclipse_<versão>_x64-setup.exe`, o instalador de um clique, por usuário e sem administrador. O Setup leva o `eclipse.exe` e, por uma lista fechada em `bundle.resources` do `tauri.conf.json`, as páginas e as fontes nos mesmos caminhos relativos do projeto ([[paths]]). `src-tauri/tests/paths.rs` confere que nenhum script vai junto.
+
+Desde a 2.19.0 o build também assina o Setup para a atualização automática ([[ADR-045 Atualização pelo GitHub]]) e precisa da variável `TAURI_SIGNING_PRIVATE_KEY` com o caminho da chave. Num PC sem a chave, para só testar o Setup, gere uma de teste com `cargo tauri signer generate --ci -w <pasta fora do projeto>` e aponte a variável para ela; um Setup assim não serve para publicar.
 
 O instalador e o desinstalador têm passos próprios em `src-tauri/windows/hooks.nsh`: desinstalar o Eclipse em Electron, se houver, mantendo as contas, trocar o caminho do início com o Windows e apagá-lo na desinstalação, menos numa atualização ([[startWithWindows]]).
 

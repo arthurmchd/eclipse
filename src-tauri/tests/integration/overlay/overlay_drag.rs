@@ -1,10 +1,10 @@
 use std::cell::{Cell, RefCell};
 use std::sync::{Arc, Mutex};
 
-use eclipse::integration::overlay::overlay_drag::{start_message, DragPlatform, Outcome, OverlayDrag, Point, WindowsDrag, BEAT_MS, LOOP_BEATS, MAX_RETAKES, START_MESSAGE};
-use eclipse::paths::observer_script;
+use eclipse::integration::overlay::overlay_drag::{request_from_cards, start_message, DragPlatform, Outcome, OverlayDrag, Point, WindowsDrag, BEAT_MS, FROM_CARDS, LOOP_BEATS, MAX_RETAKES, START_MESSAGE};
+use eclipse::platform::windows::observer_thread::DRAG_MESSAGE;
 use windows_sys::Win32::Foundation::{HWND, RECT};
-use windows_sys::Win32::UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, GetWindowRect, SetWindowLongPtrW, GWLP_HWNDPARENT, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP};
+use windows_sys::Win32::UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, GetWindowRect, PeekMessageW, SetWindowLongPtrW, GWLP_HWNDPARENT, MSG, PM_REMOVE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP};
 
 const OVERLAY: isize = 900;
 const RIOT: isize = 700;
@@ -18,6 +18,7 @@ struct Fake {
     origin: Point,
     client: Point,
     joined: Cell<bool>,
+    refuses: Cell<bool>,
     capture: Cell<isize>,
     in_loop: Cell<bool>,
     takes: Cell<u32>,
@@ -38,6 +39,7 @@ impl Fake {
             origin: Point::new(1000, 200),
             client: Point::new(1001, 201),
             joined: Cell::new(true),
+            refuses: Cell::new(false),
             capture: Cell::new(RIOT),
             in_loop: Cell::new(false),
             takes: Cell::new(0),
@@ -92,6 +94,9 @@ impl DragPlatform for Fake {
 
     fn take_capture(&self) {
         self.takes.set(self.takes.get() + 1);
+        if self.refuses.get() {
+            return;
+        }
         if self.joined.get() || self.capture.get() == 0 {
             self.capture.set(OVERLAY);
         }
@@ -102,6 +107,9 @@ impl DragPlatform for Fake {
     }
 
     fn has_capture(&self) -> bool {
+        if self.refuses.get() {
+            return false;
+        }
         self.capture.get() == OVERLAY || (!self.joined.get() && self.takes.get() > self.releases.get())
     }
 
@@ -331,6 +339,72 @@ fn the_beat_takes_the_capture_back_when_it_went_to_nobody_and_stops_after_three_
     assert!(!drag.dragging());
 }
 
+fn grabbed() -> (Fake, OverlayDrag) {
+    let fake = Fake::new();
+    fake.caption.set(false);
+    let mut drag = OverlayDrag::new();
+    assert!(drag.grab(&fake));
+    (fake, drag)
+}
+
+#[test]
+fn a_press_on_the_cards_area_moves_both_windows_from_the_grabbed_point_without_asking_riot_for_its_title_bar() {
+    let (fake, mut drag) = grabbed();
+    assert!(drag.dragging());
+    assert_eq!(fake.capture.get(), OVERLAY);
+    assert!(fake.beating.get());
+    assert_eq!(fake.last_move(), Some((RIOT, Point::new(1000, 200), Point::new(1001, 201))));
+    fake.cursor.set(Some(Point::new(1400, 515)));
+    drag.moved(&fake);
+    assert_eq!(fake.last_move(), Some((RIOT, Point::new(1300, 500), Point::new(1301, 501))));
+    assert_eq!(fake.logs(), vec![Outcome::TakenFromCards.line()]);
+    fake.down.set(false);
+    drag.released(&fake);
+    assert!(!drag.dragging());
+    assert!(!fake.beating.get());
+    assert_eq!(fake.capture.get(), 0);
+}
+
+#[test]
+fn a_press_on_the_cards_area_moves_nothing_when_hidden_without_an_owner_or_with_the_button_already_up() {
+    let cases: [fn(&Fake); 3] = [|fake| fake.visible.set(false), |fake| fake.owner.set(0), |fake| fake.down.set(false)];
+    for setup in cases {
+        let fake = Fake::new();
+        setup(&fake);
+        let mut drag = OverlayDrag::new();
+        assert!(!drag.grab(&fake));
+        assert!(!drag.dragging());
+        assert_eq!(fake.takes.get(), 0);
+        assert!(fake.moves.borrow().is_empty());
+        assert!(fake.logs().is_empty());
+    }
+}
+
+#[test]
+fn a_press_on_the_cards_area_that_cannot_take_the_capture_moves_nothing_and_is_logged_once() {
+    let fake = Fake::new();
+    fake.refuses.set(true);
+    let mut drag = OverlayDrag::new();
+    assert!(!drag.grab(&fake));
+    assert!(!drag.grab(&fake));
+    assert!(!drag.dragging());
+    assert!(!fake.beating.get());
+    assert!(fake.moves.borrow().is_empty());
+    assert_eq!(fake.logs(), vec![Outcome::CardsKeptCapture.line()]);
+}
+
+#[test]
+fn a_press_on_the_cards_area_during_a_drag_is_ignored_and_the_beat_keeps_it_going_without_a_riot_loop() {
+    let (fake, mut drag) = grabbed();
+    assert!(!drag.grab(&fake));
+    assert!(!drag.start(&fake, RIOT));
+    assert_eq!(fake.takes.get(), 1);
+    fake.cursor.set(Some(Point::new(1200, 300)));
+    drag.beat(&fake);
+    assert!(drag.dragging());
+    assert_eq!(fake.last_move(), Some((RIOT, Point::new(1100, 285), Point::new(1101, 286))));
+}
+
 #[test]
 fn a_second_start_during_a_drag_is_ignored() {
     let (fake, mut drag) = taken();
@@ -361,10 +435,10 @@ fn timing_and_message_match_the_decision_and_the_helper() {
     assert_eq!(BEAT_MS, 15);
     assert_eq!(MAX_RETAKES, 3);
     assert_eq!(LOOP_BEATS, 3);
-    let helper = std::fs::read_to_string(observer_script()).unwrap();
-    assert!(helper.contains(&format!("RegisterWindowMessage(\"{START_MESSAGE}\")")));
+    assert_eq!(DRAG_MESSAGE, START_MESSAGE);
     assert!(start_message() >= 0xC000);
     assert_eq!(start_message(), start_message());
+    assert_eq!(FROM_CARDS, 1);
 }
 
 fn test_window(x: i32, y: i32) -> HWND {
@@ -406,6 +480,10 @@ fn the_windows_platform_moves_two_real_windows_together_off_screen() {
     assert!(!platform.has_capture());
     platform.start_beat();
     platform.stop_beat();
+    assert!(request_from_cards(cards as isize));
+    let mut message: MSG = unsafe { std::mem::zeroed() };
+    assert_ne!(unsafe { PeekMessageW(&mut message, cards, start_message(), start_message(), PM_REMOVE) }, 0);
+    assert_eq!((message.wParam, message.lParam), (0, FROM_CARDS));
     unsafe {
         DestroyWindow(cards);
         DestroyWindow(riot);

@@ -16,6 +16,14 @@ Para testar o Eclipse sem o usuário, o agente usa só capturas de tela pelo Pow
 
 Exceção pontual: em 2026-11-20 o usuário autorizou, só para as capturas do README, abrir uma cópia de teste com contas fictícias e capturar a janela da Riot na tela de login ([[Publicar no GitHub#Capturas do README]]). A autorização não vale para outras vezes.
 
+Exceção pontual: em 2026-11-21 o usuário autorizou, para medir a velocidade do login, testes na Riot real com login e League aberto, numa cópia temporária da pasta de dados e só com contas sem 2FA. Também vale só para aquela medição.
+
+Exceção pontual: ainda em 2026-11-21 o usuário autorizou reproduzir na Riot real o login travado com a conta já conectada, nas mesmas condições (cópia temporária dos dados, só contas sem 2FA, Eclipse instalado fechado durante o teste). Vale só para aquela reprodução.
+
+Exceção pontual: ainda em 2026-11-21 o usuário autorizou testar na Riot real o preenchimento por UI Automation da 2.18.0, nas mesmas condições. O agente também preencheu e apagou um valor fictício no campo de usuário, sem enviar, para achar a falha. Vale só para aquele teste.
+
+Exceção pontual: ainda em 2026-11-21 o usuário pediu "faça todos os testes que falou" para conferir a 2.19 na Riot real: o `riot_check` e logins com contas sem 2FA, numa cópia temporária dos dados, com o Eclipse instalado fechado. Vale só para aquela conferência.
+
 ## Relacionado
 
 - [[Memória]]

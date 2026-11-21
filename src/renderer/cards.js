@@ -3,13 +3,15 @@ import { SORTS, ACCOUNT_GAMES, sortOf, gamesOf, toggleGame, tierOptions, visible
 import { VAL_GROUPS } from './ranks.js';
 import { textFor, translatePage } from './cardsText.js';
 import { createSounds, hoverSound, clickSound, changeSound } from './sounds.js';
+import { dragSpot } from './windowDrag.js';
+import { startupChange } from './cardView.js';
 
 const api = window.api;
 const $ = selector => document.querySelector(selector);
 const sounds = createSounds();
 let entered = '';
 let hovered = null;
-const state = { accounts: [], selectedId: null, game: 'lol', stats: 'lol', operation: null, regions: {}, settings: {}, editing: null, submitting: false, lastRefresh: null, refreshing: false, seenAccount: null, filters: { query: '', region: '', tier: '' }, addMode: 'single' };
+const state = { accounts: [], selectedId: null, game: 'lol', stats: 'lol', operation: null, regions: {}, settings: {}, editing: null, submitting: false, lastRefresh: null, refreshing: false, seenAccount: null, startWithWindows: null, filters: { query: '', region: '', tier: '' }, addMode: 'single' };
 const drag = { id: null, pointer: null, startX: 0, startY: 0, active: false, target: null, after: false, ended: false };
 const t = () => textFor(state.settings.language);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -166,7 +168,7 @@ function row(view, text) {
 
 async function reload() {
   const data = await api.init();
-  Object.assign(state, { accounts: data.accounts || [], regions: data.regions || {}, settings: data.settings || {}, operation: data.operation, lastRefresh: data.lastRefresh || null, seenAccount: data.seenAccount || null });
+  Object.assign(state, { accounts: data.accounts || [], regions: data.regions || {}, settings: data.settings || {}, operation: data.operation, lastRefresh: data.lastRefresh || null, seenAccount: data.seenAccount || null, startWithWindows: typeof data.startWithWindows === 'boolean' ? data.startWithWindows : null });
   render();
 }
 
@@ -430,7 +432,10 @@ $('#settings-form').addEventListener('submit', async event => {
   submit.disabled = true;
   try {
     const input = { refreshMinutes: Number(form.elements.refreshMinutes.value), staySignedIn: form.elements.staySignedIn.checked, uiSounds: form.elements.uiSounds.checked, language: form.elements.language.value === 'en' ? 'en' : 'pt' };
-    const saved = await api.saveSettings(input); state.settings = { ...state.settings, ...saved }; $('#settings-dialog').close(); render(); await api.refresh(); await reload();
+    const startup = startupChange(state.startWithWindows, form.elements.startWithWindows.checked);
+    if (startup !== undefined) input.startWithWindows = startup;
+    const { startWithWindows, ...saved } = await api.saveSettings(input); state.settings = { ...state.settings, ...saved };
+    if (startWithWindows !== undefined) state.startWithWindows = startWithWindows; $('#settings-dialog').close(); render(); await api.refresh(); await reload();
   } catch { form.querySelector('.form-error').textContent = t().saveSettingsFailed; }
   finally { submit.disabled = false; }
 });
@@ -449,7 +454,7 @@ $('#filter-region').addEventListener('change', event => { state.filters.region =
 $('#filter-tier').addEventListener('change', event => { state.filters.tier = event.target.value; render(); });
 $('#sort').addEventListener('change', event => { if (SORTS.includes(event.target.value) && !busy()) saveView('cardSort', event.target.value); });
 $('#add-account').addEventListener('click', () => { if (!busy()) editAccount(); });
-$('#settings').addEventListener('click', () => { const form = $('#settings-form'); form.reset(); form.querySelector('.form-error').textContent = ''; form.elements.refreshMinutes.value = state.settings.refreshMinutes ?? 30; form.elements.staySignedIn.checked = state.settings.staySignedIn !== false; form.elements.uiSounds.checked = state.settings.uiSounds !== false; form.elements.language.value = state.settings.language === 'en' ? 'en' : 'pt'; $('#settings-dialog').showModal(); });
+$('#settings').addEventListener('click', () => { const form = $('#settings-form'); form.reset(); form.querySelector('.form-error').textContent = ''; form.elements.refreshMinutes.value = state.settings.refreshMinutes ?? 30; form.elements.staySignedIn.checked = state.settings.staySignedIn !== false; form.elements.uiSounds.checked = state.settings.uiSounds !== false; $('#start-with-windows').hidden = typeof state.startWithWindows !== 'boolean'; form.elements.startWithWindows.checked = state.startWithWindows === true; form.elements.language.value = state.settings.language === 'en' ? 'en' : 'pt'; $('#settings-dialog').showModal(); });
 $('#refresh').addEventListener('click', () => { if (state.refreshing) return; state.refreshing = true; notice(); render(); api.refresh().catch(() => { state.refreshing = false; notice(t().refreshFailed); render(); }); });
 $('#games').addEventListener('click', event => {
   const button = event.target.closest('[data-game]');
@@ -467,6 +472,11 @@ for (const button of document.querySelectorAll('[data-close]')) button.addEventL
 for (const dialog of document.querySelectorAll('dialog')) dialog.addEventListener('close', () => { for (const input of dialog.querySelectorAll('input[type=password], textarea[name=batch]')) input.value = ''; });
 $('#riot-minimize').addEventListener('click', () => { api.minimizeRiot().catch(() => {}); });
 $('#riot-close').addEventListener('click', () => { api.closeRiot().catch(() => {}); });
+document.addEventListener('pointerdown', event => {
+  if (!dragSpot(event, { modal: Boolean(document.querySelector('dialog[open]')) })) return;
+  event.preventDefault();
+  api.dragRiot().catch(() => {});
+});
 document.addEventListener('keydown', event => {
   if (event.defaultPrevented || $('#toolbar').hidden || document.querySelector('dialog[open]')) return;
   if (startsSearch(event, Boolean(event.target.closest?.('input:not([type=radio]):not([type=checkbox]), select, textarea')))) $('#search').focus();

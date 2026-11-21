@@ -39,6 +39,7 @@ fn ports(changed: Arc<Mutex<Vec<Value>>>, opened: Arc<Mutex<Vec<String>>>) -> (A
         }),
         settings_changed: Box::new(move |settings| changed.lock().unwrap().push(Value::Object(settings.clone()))),
         seen_account: Box::new(|| Some(RiotId::new("Seen", "BR1"))),
+        startup: Box::new(|turn| Some(turn.unwrap_or(false))),
         version: "1.0.0".into(),
     };
     (ports, timers, dir)
@@ -57,6 +58,8 @@ fn the_cards_get_regions_version_and_refresh_times_from_the_app() {
     assert_eq!(context["nextRefresh"], json!("1970-01-01T00:30:00.000Z"));
     assert_eq!(ports.operation(), Value::Null);
     assert_eq!(ports.active_account_id(), None);
+    assert_eq!(ports.start_with_windows(None), Some(false));
+    assert_eq!(ports.start_with_windows(Some(true)), Some(true));
 }
 
 #[test]

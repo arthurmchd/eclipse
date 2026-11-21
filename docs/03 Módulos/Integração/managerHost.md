@@ -23,7 +23,7 @@ Valida cada chamada do comando `manager`: só a webview `cards`, no endereço ex
 | `open_external(url)` | método | Manda um link `https:` ao serviço como `openExternal` |
 | `trusted(quem)` | função | Só a webview `cards` (`CARDS_LABEL`) no endereço exato dos cartões |
 | `bridge_script()` | função | O [[manager-preload]] embutido, ligado ao `invoke` do Tauri |
-| `COMMAND`, `METHODS`, `WINDOW_ACTIONS` | constantes | `manager`, os onze métodos e `minimize`/`close` |
+| `COMMAND`, `METHODS`, `WINDOW_ACTIONS` | constantes | `manager`, os métodos e `minimize`/`close`/`drag` |
 | `MAX_ARGS`, `MAX_BYTES` | constantes | 4 argumentos e 32 KB |
 | `UNTRUSTED`, `INVALID`, `FAILED` | constantes | As mensagens fixas de recusa e de falha |
 
@@ -43,12 +43,12 @@ Valida cada chamada do comando `manager`: só a webview `cards`, no endereço ex
 - **Permissões negadas.** A webview recusa todos os pedidos de permissão do navegador.
 - **Comandos fechados.** Só os métodos de gerenciamento conhecidos, com lista de até quatro argumentos e até 32 KB, atravessam o comando. O [[managerService]] faz a validação semântica adicional.
 - **Coluna de login livre.** A posição e o tamanho da webview vêm do `cards_rect` do [[riotOverlay]], que deixa a coluna de login livre ([[ADR-013 Caixa para ocultar as contas na coluna de login]]).
-- **Ações na janela do Riot são locais.** Revisão de 2026-11-04 ([[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]): `windowAction` com exatamente um texto de `WINDOW_ACTIONS` chama `window_action`, que vai ao [[riotOverlay]], e não chega ao serviço de contas. Responde `{ ok: true }` só quando o handler devolve `true`; falha ou outro valor vira `{ ok: false }`, sem detalhes. Outros formatos são recusados como comando inválido. Substitui o aviso `setModal`, que saiu junto com a região própria de diálogo do [[riotOverlay]]. Desde 2026-11-06 a lista tem só `minimize` e `close`: `reveal` saiu com a cópia do perfil dos [[cards]] e passou a ser recusado como comando inválido.
+- **Ações na janela do Riot são locais.** Revisão de 2026-11-04 ([[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]]): `windowAction` com exatamente um texto de `WINDOW_ACTIONS` chama `window_action`, que vai ao [[riotOverlay]], e não chega ao serviço de contas. Responde `{ ok: true }` só quando o handler devolve `true`; falha ou outro valor vira `{ ok: false }`, sem detalhes. Outros formatos são recusados como comando inválido. Substitui o aviso `setModal`, que saiu junto com a região própria de diálogo do [[riotOverlay]]. Desde 2026-11-06 a lista tem só `minimize` e `close`: `reveal` saiu com a cópia do perfil dos [[cards]] e passou a ser recusado como comando inválido. Desde 2026-11-21 inclui `drag`, o arraste pela área dos cartões ([[ADR-041 Arraste da Riot pela área do Eclipse]]), também sem argumentos além do nome.
 - **Falha sem dados do formulário.** Erros do transporte voltam com uma mensagem fixa, sem ecoar argumentos de cadastro, senhas ou chaves.
 
 ## Testes
 
-`src-tauri/tests/integration/manager/manager_host.rs` confere: comandos aceitos só da webview `cards` no endereço exato; comandos inválidos e cargas grandes demais sem chegar ao serviço; `windowAction` tratado localmente e só com as duas ações; falhas do serviço com mensagem genérica, sem ecoar credenciais; só links `https:` abertos fora; e o `bridge_script` reaproveitando o [[manager-preload]] sobre o comando `manager`. A criação da webview e suas proteções não têm teste automático. Não carregam contas reais nem autenticam na Riot.
+`src-tauri/tests/integration/manager/manager_host.rs` confere: comandos aceitos só da webview `cards` no endereço exato; comandos inválidos e cargas grandes demais sem chegar ao serviço; `windowAction` tratado localmente e só com as três ações; falhas do serviço com mensagem genérica, sem ecoar credenciais; só links `https:` abertos fora; e o `bridge_script` reaproveitando o [[manager-preload]] sobre o comando `manager`. A criação da webview e suas proteções não têm teste automático. Não carregam contas reais nem autenticam na Riot.
 
 ## Pontos de atenção
 

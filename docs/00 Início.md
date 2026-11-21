@@ -7,7 +7,7 @@ tags: [moc]
 
 Nome do app desde 2026-11-04 (antes Riot Account Manager). A pasta do projeto, o `name` do `package.json` e a pasta de dados continuam `riot-account-manager`; ver [[main]].
 
-Desde 2026-11-15, na versão 2.0.0, o Eclipse é só Tauri e Rust (`src-tauri/`); o Electron saiu e está na tag `electron-final` ([[ADR-032 Migração para Tauri e Rust]], [[ADR-034 Troca do Electron pelo Tauri]], [[Migração para Tauri]]). Em `src/` ficam os cartões, a caixa, a cobertura, o preload dos cartões e os `.ps1`, que o Tauri serve ou roda.
+Desde 2026-11-15, na versão 2.0.0, o Eclipse é só Tauri e Rust (`src-tauri/`); o Electron saiu e está na tag `electron-final` ([[ADR-032 Migração para Tauri e Rust]], [[ADR-034 Troca do Electron pelo Tauri]], [[Migração para Tauri]]). Em `src/` ficam os cartões, a caixa, a cobertura e o preload dos cartões, que o Tauri serve. Desde a 2.19.0 não há mais `.ps1`: os helpers do Windows são Rust ([[ADR-044 Helpers do Windows em Rust]]).
 
 Este vault é o cérebro do projeto. O código não tem comentários: o **porquê** de cada decisão, as regras de segurança e o mapa dos módulos ficam aqui. Antes de mudar um módulo, leia a nota dele; depois de mudar, atualize a nota.
 
@@ -31,10 +31,10 @@ Um modo só desde 2026-11-07 ([[ADR-028 Modo antigo removido]]): os [[cards]] so
 
 | Camada | Notas |
 |---|---|
-| Aplicação | [[main]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] · [[opgg]] · [[rankWatcher]] · [[timers]] · [[refresher]] · [[appPorts]] · [[notices]] (Tauri) |
-| Riot | [[riotClient]] · [[riotState]] · [[gameRanks]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] |
-| Windows | [[safeStorage]] (Tauri) · [[windowController]] · [[windowGuard.ps1]] · [[login.ps1]] · [[windowsEnvironment]] · [[riotWindowObserver]] · [[startWithWindows]] · [[toasts]] · [[electronInstance]] (Tauri) |
-| Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[overlayDrag]] (Tauri) · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] · [[assetProtocol]] (Tauri) |
+| Aplicação | [[main]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] · [[opgg]] · [[rankWatcher]] · [[timers]] · [[refresher]] · [[appPorts]] · [[notices]] · [[updates]] (Tauri) |
+| Riot | [[riotClient]] · [[riotState]] · [[gameRanks]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] · [[riotVersion]] |
+| Windows | [[safeStorage]] (Tauri) · [[windowController]] · [[windowGuard]] · [[loginForm]] · [[win32]] · [[windowsEnvironment]] · [[riotWindowObserver]] · [[startWithWindows]] · [[toasts]] · [[electronInstance]] (Tauri) |
+| Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[overlayDrag]] (Tauri) · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] · [[assetProtocol]] · [[appUpdater]] (Tauri) |
 | Interface | [[cards]] · [[sounds]] |
 
 Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como histórico.
@@ -73,6 +73,9 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-038 TFT, 2XKO e Runeterra no Eclipse]]
 - [[ADR-039 Aparecer offline pelo chat da Riot]]
 - [[ADR-040 Visual da Riot e sons da interface]]
+- [[ADR-041 Arraste da Riot pela área do Eclipse]]
+- [[ADR-042 CAPTCHA do formulário não bloqueia conta autorizada]]
+- [[ADR-043 Preenchimento do login por UI Automation]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]
@@ -84,6 +87,7 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-008 Recuperação visual sem reexibir o Riot]] (substituída)
 - [[Estudo - Comparação com o Rose]]
 - [[Estudo - Gerenciadores no GitHub]]
+- [[Estudo - Regras da Riot para vender o Eclipse]]
 - [[Estudo - Visual da Riot]]
 
 ## Guias

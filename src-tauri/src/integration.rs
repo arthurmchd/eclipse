@@ -1,3 +1,4 @@
+pub mod app_updater;
 pub mod asar;
 pub mod asset_protocol;
 pub mod backend;

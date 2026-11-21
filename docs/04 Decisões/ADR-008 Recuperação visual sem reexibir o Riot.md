@@ -37,5 +37,5 @@ Um worker com timeout continua impedindo restauração simultânea dentro do mes
 
 ## Relacionado
 
-- [[windowController]] · [[windowGuard.ps1]] · [[signInFlow]]
+- [[windowController]] · [[windowGuard]] · [[signInFlow]]
 - [[ADR-004 Monitor persistente de janelas]] · [[Segurança e privacidade]]

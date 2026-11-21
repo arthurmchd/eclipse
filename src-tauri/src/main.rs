@@ -16,7 +16,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_
 use eclipse::application::app_ports::{save_leaving_session, AppPorts, Leaving};
 use eclipse::application::language::{localize, main_text, normalize_language};
 use eclipse::application::manager_service::{ManagerEvents, ManagerService};
-use eclipse::application::notices::{error_notice, operation_notice, status_notice, Notifier, APP_NAME};
+use eclipse::application::notices::{error_notice, operation_notice, status_notice, Notice, Notifier, APP_NAME};
 use eclipse::application::rank_api::RankApi;
 use eclipse::application::rank_watcher::{RankHooks, RankWatcher, POLL_MS, RESAVE_MS};
 use eclipse::application::refresher::{RefreshHooks, Refresher};
@@ -25,14 +25,17 @@ use eclipse::application::session_keeper::{KeeperHooks, KeeperTiming, SessionKee
 use eclipse::application::sign_in_service::{SignInObservers, SignInService};
 use eclipse::application::store::{client_path, ServiceStore, Store};
 use eclipse::application::timers::ThreadTimers;
+use eclipse::application::updates::{checks_enabled, InstallOutcome, UpdateHooks, Updates, UPDATE_CHECKS};
+use eclipse::integration::app_updater::AppUpdater;
 use eclipse::integration::asset_protocol::{is_page, resolve, SCHEME, TOGGLE_PAGE};
 use eclipse::integration::manager::manager_host::{Caller, ManagerHost, FAILED};
 use eclipse::integration::overlay::overlay_window::{create, TOGGLE_LABEL};
 use eclipse::integration::overlay::riot_overlay::{OverlayHooks, RiotOverlay};
-use eclipse::paths::{data_dir, observer_script, project_root, user_data_dir};
+use eclipse::paths::{data_dir, project_root, user_data_dir};
 use eclipse::platform::windows::dpapi::Dpapi;
 use eclipse::platform::windows::electron_instance::electron_running;
-use eclipse::platform::windows::riot_window_observer::{ObserverHooks, PowerShellObserver, RiotWindowObserver};
+use eclipse::platform::windows::observer_thread::NativeObserver;
+use eclipse::platform::windows::riot_window_observer::{ObserverHooks, RiotWindowObserver};
 use eclipse::platform::windows::safe_storage::SafeStorage;
 use eclipse::platform::windows::start_with_windows::{StartWithWindows, UserRegistry};
 use eclipse::platform::windows::toasts::{app_id, WindowsToasts};
@@ -56,7 +59,8 @@ struct Eclipse {
     host: Arc<ManagerHost>,
     overlay: Arc<OnceLock<RiotOverlay>>,
     opening: Mutex<()>,
-    startup: StartWithWindows,
+    startup: Arc<StartWithWindows>,
+    updates: Updates,
     ready: Arc<AtomicBool>,
 }
 
@@ -109,6 +113,7 @@ impl Eclipse {
     }
 
     fn quit(&self) {
+        self.updates.stop();
         self.refresher.stop();
         self.sign_in.cancel();
         self.keeper.stop();
@@ -121,7 +126,7 @@ impl Eclipse {
     }
 }
 
-fn build_menu(app: &AppHandle, language: &'static str, startup: Option<bool>) -> tauri::Result<Menu<tauri::Wry>> {
+fn build_menu(app: &AppHandle, language: &'static str, startup: Option<bool>, update: Option<String>, checks: bool) -> tauri::Result<Menu<tauri::Wry>> {
     let text = main_text(Some(language));
     let accounts = MenuItem::with_id(app, "accounts", text.tray_accounts, true, None::<&str>)?;
     let riot = MenuItem::with_id(app, "riot", text.tray_open_riot, true, None::<&str>)?;
@@ -129,19 +134,28 @@ fn build_menu(app: &AppHandle, language: &'static str, startup: Option<bool>) ->
     let first = PredefinedMenuItem::separator(app)?;
     let second = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", text.tray_quit, true, None::<&str>)?;
-    let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![&accounts, &riot, &cancel, &first];
+    let install = update.map(|version| MenuItem::with_id(app, "update", format!("{}{version}", text.tray_update_to), true, None::<&str>)).transpose()?;
+    let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![&accounts, &riot, &cancel];
+    if let Some(item) = &install {
+        items.push(item);
+    }
+    items.push(&first);
     let start_with_windows = startup.map(|checked| CheckMenuItem::with_id(app, "startup", text.tray_start_with_windows, true, checked, None::<&str>)).transpose()?;
     if let Some(item) = &start_with_windows {
         items.push(item);
-        items.push(&second);
     }
+    let update_checks = CheckMenuItem::with_id(app, "update-checks", text.tray_update_checks, true, checks, None::<&str>)?;
+    items.push(&update_checks);
+    items.push(&second);
     items.push(&quit);
     Menu::with_items(app, &items)
 }
 
 fn refresh_menu(app: &AppHandle, language: &'static str) {
-    let startup = app.try_state::<Arc<Eclipse>>().and_then(|eclipse| eclipse.startup.available().then(|| eclipse.startup.enabled()));
-    if let (Some(tray), Ok(menu)) = (app.tray_by_id("eclipse"), build_menu(app, language, startup)) {
+    let Some(eclipse) = app.try_state::<Arc<Eclipse>>().map(|eclipse| eclipse.inner().clone()) else { return };
+    let startup = eclipse.startup.available().then(|| eclipse.startup.enabled());
+    let checks = checks_enabled(&eclipse.store.lock().unwrap().data.settings);
+    if let (Some(tray), Ok(menu)) = (app.tray_by_id("eclipse"), build_menu(app, language, startup, eclipse.updates.available(), checks)) {
         let _ = tray.set_menu(Some(menu));
     }
 }
@@ -285,6 +299,50 @@ fn start(app: &AppHandle) -> Result<(), String> {
             now: Box::new(|| chrono::Utc::now().timestamp_millis()),
         },
     ));
+    let startup = Arc::new(StartWithWindows::new(Arc::new(UserRegistry), std::env::current_exe().unwrap_or_default(), APP_NAME, !cfg!(debug_assertions), {
+        let store = store.clone();
+        Box::new(move |line| store.lock().unwrap().log(line))
+    }));
+    let updates = Updates::new(
+        Arc::new(AppUpdater::new(
+            app.clone(),
+            Arc::new({
+                let app = app.clone();
+                move || {
+                    if let Some(eclipse) = app.try_state::<Arc<Eclipse>>() {
+                        eclipse.quit();
+                    }
+                }
+            }),
+        )),
+        timers.clone(),
+        UpdateHooks {
+            enabled: Box::new({
+                let store = store.clone();
+                move || checks_enabled(&store.lock().unwrap().data.settings)
+            }),
+            busy: Box::new({
+                let sign_in = sign_in.clone();
+                move || sign_in.is_busy()
+            }),
+            on_available: Box::new({
+                let (app, notifier, language) = (app.clone(), notifier.clone(), language.clone());
+                move |version| {
+                    let language = language();
+                    let text = main_text(Some(language));
+                    notifier.show(&Notice { title: text.update_title.to_string(), text: format!("{}{version}", text.update_available) });
+                    refresh_menu(&app, language);
+                }
+            }),
+            log: Box::new({
+                let store = store.clone();
+                move |line| store.lock().unwrap().log(line)
+            }),
+            spawn: Box::new(|task| {
+                std::thread::spawn(task);
+            }),
+        },
+    );
     let app_handle = app.clone();
     let ports = AppPorts {
         sign_in: sign_in.clone(),
@@ -304,6 +362,18 @@ fn start(app: &AppHandle) -> Result<(), String> {
         seen_account: Box::new({
             let seen = seen_account.clone();
             move || seen.lock().unwrap().clone()
+        }),
+        startup: Box::new({
+            let startup = startup.clone();
+            move |turn| {
+                if !startup.available() {
+                    return None;
+                }
+                Some(match turn {
+                    Some(on) => startup.set(on),
+                    None => startup.enabled(),
+                })
+            }
         }),
         version: app.package_info().version.to_string(),
     };
@@ -362,12 +432,8 @@ fn start(app: &AppHandle) -> Result<(), String> {
     ));
     let _ = watcher_slot.set(watcher.clone());
     watcher.start();
-    let startup = StartWithWindows::new(Arc::new(UserRegistry), std::env::current_exe().unwrap_or_default(), APP_NAME, !cfg!(debug_assertions), {
-        let store = store.clone();
-        Box::new(move |line| store.lock().unwrap().log(line))
-    });
     let ready = Arc::new(AtomicBool::new(false));
-    let eclipse = Arc::new(Eclipse { store, riot: riot.clone(), sign_in, refresher: refresher.clone(), keeper, wakeup, watcher, host: host.clone(), overlay: overlay.clone(), opening: Mutex::new(()), startup, ready: ready.clone() });
+    let eclipse = Arc::new(Eclipse { store, riot: riot.clone(), sign_in, refresher: refresher.clone(), keeper, wakeup, watcher, host: host.clone(), overlay: overlay.clone(), opening: Mutex::new(()), startup, updates: updates.clone(), ready: ready.clone() });
     app.manage(eclipse.clone());
     let window = Arc::new(create(app, host, Arc::new(sign_in_log.clone())).map_err(|error| error.to_string())?);
     let handle = window.handle();
@@ -384,8 +450,7 @@ fn start(app: &AppHandle) -> Result<(), String> {
     riot_overlay.set_language(language());
     let _ = overlay.set(riot_overlay.clone());
     let observer = Arc::new(RiotWindowObserver::new(
-        Arc::new(PowerShellObserver),
-        observer_script(),
+        Arc::new(NativeObserver),
         std::process::id(),
         timers.clone(),
         ObserverHooks {
@@ -404,7 +469,8 @@ fn start(app: &AppHandle) -> Result<(), String> {
         },
     ));
     let startup_state = eclipse.startup.available().then(|| eclipse.startup.enabled());
-    let menu = build_menu(app, eclipse.language(), startup_state).map_err(|error| error.to_string())?;
+    let checks = checks_enabled(&eclipse.store.lock().unwrap().data.settings);
+    let menu = build_menu(app, eclipse.language(), startup_state, None, checks).map_err(|error| error.to_string())?;
     let mut tray = TrayIconBuilder::with_id("eclipse")
         .tooltip(APP_NAME)
         .menu(&menu)
@@ -420,6 +486,30 @@ fn start(app: &AppHandle) -> Result<(), String> {
                 in_background(&app.clone(), move |eclipse| {
                     eclipse.startup.set(!eclipse.startup.enabled());
                     refresh_menu(&app, eclipse.language());
+                });
+            }
+            "update" => in_background(app, |eclipse| {
+                let text = main_text(Some(eclipse.language()));
+                match eclipse.updates.install() {
+                    InstallOutcome::Busy => alert(APP_NAME, text.update_busy),
+                    InstallOutcome::Failed => alert(APP_NAME, text.update_failed),
+                    InstallOutcome::Started | InstallOutcome::NoUpdate => {}
+                }
+            }),
+            "update-checks" => {
+                let app = app.clone();
+                in_background(&app.clone(), move |eclipse| {
+                    let enabled = {
+                        let mut store = eclipse.store.lock().unwrap();
+                        let enabled = !checks_enabled(&store.data.settings);
+                        store.data.settings.insert(UPDATE_CHECKS.to_string(), Value::Bool(enabled));
+                        let _ = store.save();
+                        enabled
+                    };
+                    refresh_menu(&app, eclipse.language());
+                    if enabled {
+                        eclipse.updates.check_now();
+                    }
                 });
             }
             "quit" => {
@@ -444,6 +534,7 @@ fn start(app: &AppHandle) -> Result<(), String> {
         riot_overlay.start(observer.clone());
         observer.start(&client, Some(&handle));
         refresher.start();
+        updates.start();
         ready.store(true, Ordering::SeqCst);
     });
     Ok(())
@@ -456,6 +547,7 @@ fn main() {
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| open_accounts_when_ready(app)))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .register_uri_scheme_protocol(SCHEME, |_context, request| serve(&request.uri().to_string()))
         .invoke_handler(tauri::generate_handler![manager, overlay_toggle])
         .setup(|app| {

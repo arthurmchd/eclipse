@@ -29,7 +29,7 @@ sequenceDiagram
     RC->>RCS: fecha a conta de outra pessoa com a saída normal, se houver
     RC->>RCS: abre a interface oficial no formulário de login
     RC->>RCS: login pela API local
-    Note over RC,RCS: API indisponível ou CAPTCHA antes da senha:<br/>login.ps1 preenche o formulário visível
+    Note over RC,RCS: API indisponível ou CAPTCHA antes da senha:<br/>loginForm preenche o formulário visível
   end
   RC->>RCS: confere o Riot ID autenticado
   RC->>RCS: pede a abertura do jogo
@@ -47,7 +47,7 @@ sequenceDiagram
 4. **Pedidos da Riot ficam com o usuário.** 2FA, CAPTCHA ou outro pedido de atenção tiram a cobertura, e o usuário conclui na tela da Riot. Erros comuns não repetem a senha.
 5. **Abre o jogo.** Só depois de verificar a conta. O sucesso exige uma **janela visível do jogo** (para LoL/TFT, o lobby do League), não apenas um processo. Depois o Eclipse guarda a sessão e fecha a janela da Riot. Com o ícone da Riot, a Riot fica aberta e conectada, sem jogo.
 
-Até 2026-11-07 havia também o login escondido do modo privado, com o monitor de janelas (`windowGuard.ps1`) escondendo o Riot do começo ao fim ([[ADR-008 Recuperação visual sem reexibir o Riot]]). Os ramos dele saíram do [[signInFlow]] no mesmo dia, e o monitor saiu do [[windowGuard.ps1]].
+Até 2026-11-07 havia também o login escondido do modo privado, com o monitor de janelas (`windowGuard.ps1`) escondendo o Riot do começo ao fim ([[ADR-008 Recuperação visual sem reexibir o Riot]]). Os ramos dele saíram do [[signInFlow]] no mesmo dia, e o monitor saiu do [[windowGuard]].
 
 ## Regras que não podem quebrar
 

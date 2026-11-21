@@ -11,3 +11,4 @@ pub mod session_keeper;
 pub mod sign_in_service;
 pub mod store;
 pub mod timers;
+pub mod updates;

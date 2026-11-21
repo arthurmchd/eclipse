@@ -5,7 +5,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use bundle::{bundled_files, same_file};
-use eclipse::paths::{data_dir_from, observer_script, project_root, root_from, windows_helpers_dir};
+use eclipse::paths::{data_dir_from, project_root, root_from};
 
 #[test]
 fn a_development_build_only_runs_on_a_data_folder_chosen_by_hand_and_the_installed_app_always_uses_the_real_one() {
@@ -21,12 +21,6 @@ fn a_development_build_only_runs_on_a_data_folder_chosen_by_hand_and_the_install
 }
 
 #[test]
-fn the_window_observer_helper_is_found_next_to_the_other_windows_helpers() {
-    assert_eq!(observer_script(), windows_helpers_dir().join("riotWindowObserver.ps1"));
-    assert!(observer_script().is_file());
-}
-
-#[test]
 fn the_project_folder_is_the_root_in_development_and_the_folder_of_the_executable_once_installed() {
     let manifest = Path::new("C:/Projects/eclipse/src-tauri");
     let exe = Some(PathBuf::from("C:/Users/synthetic/AppData/Local/Eclipse/Eclipse.exe"));
@@ -36,15 +30,25 @@ fn the_project_folder_is_the_root_in_development_and_the_folder_of_the_executabl
 }
 
 #[test]
-fn the_setup_carries_the_three_windows_helpers_at_the_same_paths_and_no_other_script() {
-    let root = project_root();
-    let helpers: Vec<_> = bundled_files().into_iter().filter(|file| file.target.ends_with(".ps1")).collect();
-    let targets: Vec<&str> = helpers.iter().map(|file| file.target.as_str()).collect();
-    assert_eq!(targets.len(), 3);
-    for name in ["login.ps1", "windowGuard.ps1", "riotWindowObserver.ps1"] {
-        let target = format!("src/platform/windows/{name}");
-        let file = helpers.iter().find(|file| file.target == target).unwrap_or_else(|| panic!("{target}"));
-        assert!(same_file(&file.source, &windows_helpers_dir().join(name)));
-        assert!(same_file(&root.join(&target), &windows_helpers_dir().join(name)));
+fn the_setup_carries_no_script_and_the_app_never_starts_powershell() {
+    let scripts: Vec<String> = bundled_files().into_iter().map(|file| file.target).filter(|target| [".ps1", ".bat", ".cmd", ".vbs"].iter().any(|kind| target.ends_with(kind))).collect();
+    assert!(scripts.is_empty(), "{scripts:?}");
+    for file in bundled_files() {
+        assert!(same_file(&file.source, &project_root().join(&file.target)), "{}", file.target);
+    }
+    assert!(!project_root().join("src/platform/windows").exists());
+    let mut sources = vec![project_root().join("src-tauri/src")];
+    while let Some(folder) = sources.pop() {
+        for entry in std::fs::read_dir(&folder).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                sources.push(path);
+            } else if path.extension().is_some_and(|kind| kind == "rs") {
+                let text = std::fs::read_to_string(&path).unwrap().to_lowercase();
+                for launch in ["powershell.exe", "\"powershell", "pwsh", ".ps1", "-executionpolicy"] {
+                    assert!(!text.contains(launch), "{} {launch}", path.display());
+                }
+            }
+        }
     }
 }

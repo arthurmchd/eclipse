@@ -94,6 +94,10 @@ impl OverlayWindow for Window {
         self.push(format!("language {language}"));
     }
 
+    fn begin_drag(&self) {
+        self.push("drag".into());
+    }
+
     fn close(&self) {
         *self.visible.lock().unwrap() = false;
         self.push("close".into());
@@ -500,6 +504,27 @@ fn the_copies_of_the_riot_controls_minimize_and_close_the_way_the_riot_button_wo
     assert!(!setup.overlay.window_action("close"));
     assert_eq!(*setup.observer.commands.lock().unwrap(), ["minimize", "close", "close"]);
     assert_eq!(*setup.riot.closes.lock().unwrap(), 3);
+}
+
+#[test]
+fn a_press_on_the_cards_area_asks_the_window_to_drag_only_while_the_cards_are_shown() {
+    let setup = Setup::started();
+    let drags = |setup: &Setup| setup.window.events().iter().filter(|event| *event == "drag").count();
+    assert!(!setup.overlay.window_action("drag"));
+    setup.sample(Some(target("1", 0, 0, 1536, 864)));
+    setup.checks();
+    assert!(setup.window.visible());
+    assert!(setup.overlay.window_action("drag"));
+    assert_eq!(drags(&setup), 1);
+    assert!(setup.observer.commands.lock().unwrap().is_empty());
+    setup.overlay.set_hidden(true);
+    assert!(!setup.overlay.window_action("drag"));
+    setup.overlay.set_hidden(false);
+    assert!(setup.overlay.window_action("drag"));
+    assert_eq!(drags(&setup), 2);
+    setup.overlay.stop();
+    assert!(!setup.overlay.window_action("drag"));
+    assert_eq!(drags(&setup), 2);
 }
 
 #[test]

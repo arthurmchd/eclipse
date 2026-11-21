@@ -54,4 +54,4 @@ Automatizar o Riot Client é zona cinzenta nos termos da Riot. O risco é do usu
 
 ## Stack
 
-Electron 44, Node.js 22+, JavaScript sem etapa de build, interface em HTML/CSS/JS puro com ES modules, auxiliares em PowerShell com C# compilado via `Add-Type`, testes com `node:test`. Sem dependências de runtime além das fontes `@fontsource/*`.
+Tauri 2 e Rust (desde a 2.0.0, [[ADR-034 Troca do Electron pelo Tauri]]), cartões em HTML/CSS/JS puro com ES modules e sem etapa de build, chamadas ao Windows direto do Rust (desde a 2.19.0, [[ADR-044 Helpers do Windows em Rust]]), testes com `cargo test` e `node:test`. Sem dependências de runtime além das fontes `@fontsource/*`.

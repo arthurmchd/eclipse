@@ -7,7 +7,7 @@ tags: [adr, windows]
 
 # ADR-004 Monitor persistente de janelas
 
-> Substituída em 2026-11-07 pela [[ADR-028 Modo antigo removido]]. Só o login escondido do modo antigo armava o monitor; ele saiu do código, e o [[windowGuard.ps1]] ficou só com pedidos avulsos.
+> Substituída em 2026-11-07 pela [[ADR-028 Modo antigo removido]]. Só o login escondido do modo antigo armava o monitor; ele saiu do código, e o [[windowGuard]] ficou só com pedidos avulsos.
 
 ## Contexto
 
@@ -15,7 +15,7 @@ A primeira versão escondia uma única janela do Riot e vigiava por três minuto
 
 ## Decisão
 
-Um auxiliar PowerShell com C# ([[windowGuard.ps1]]) fica vivo durante toda a sessão de jogo, controlado por comandos em stdin ([[windowController]]):
+Um auxiliar PowerShell com C# ([[windowGuard]]) fica vivo durante toda a sessão de jogo, controlado por comandos em stdin ([[windowController]]):
 
 - reconhece `Riot Client`, `RiotClientUx`, `RiotClientUxRender` e `RiotClientServices`;
 - acompanha eventos de criação, exibição e foco (`SetWinEventHook`) e faz varreduras de segurança;

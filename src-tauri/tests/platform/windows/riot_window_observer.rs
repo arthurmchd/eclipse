@@ -1,11 +1,10 @@
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 
-use eclipse::paths::windows_helpers_dir;
+use eclipse::platform::windows::login_form;
+use eclipse::platform::windows::observer_thread::{self, NativeObserver};
 use eclipse::platform::windows::riot_window_observer::{read_line, BadLine, request_line, valid_target, ObserverChild, ObserverHooks, ObserverSpawn, Output, RiotWindowObserver, Target, FOLLOW_FAILED, KILL_DELAY_MS, PANEL_POINT, STALE_CHECK_MS};
-use regex::Regex;
 use serde_json::{json, Value};
 
 use super::ManualTimers;
@@ -28,7 +27,6 @@ impl Write for Input {
 struct Spawner {
     input: Input,
     output: Mutex<Option<Output>>,
-    script: Mutex<Option<PathBuf>>,
     killed: Arc<Mutex<bool>>,
     fail: bool,
 }
@@ -50,11 +48,10 @@ impl Spawner {
 }
 
 impl ObserverSpawn for Spawner {
-    fn spawn(&self, script: &Path, output: Output) -> io::Result<ObserverChild> {
+    fn spawn(&self, output: Output) -> io::Result<ObserverChild> {
         if self.fail {
             return Err(io::Error::other("synthetic spawn failure"));
         }
-        *self.script.lock().unwrap() = Some(script.to_path_buf());
         *self.output.lock().unwrap() = Some(output);
         let killed = self.killed.clone();
         Ok(ObserverChild { input: Box::new(self.input.clone()), kill: Box::new(move || *killed.lock().unwrap() = true) })
@@ -82,7 +79,7 @@ fn setup(spawner: Spawner) -> Setup {
         on_error: Box::new(move |error| failed.lock().unwrap().push(error.to_string())),
         now: Box::new(move || *clock.lock().unwrap()),
     };
-    let observer = RiotWindowObserver::new(spawner.clone(), windows_helpers_dir().join("riotWindowObserver.ps1"), 77, timers.clone(), hooks);
+    let observer = RiotWindowObserver::new(spawner.clone(), 77, timers.clone(), hooks);
     Setup { observer, spawner, timers, states, errors, time }
 }
 
@@ -94,7 +91,6 @@ fn target(id: &str) -> Target {
 fn the_observer_reads_fragmented_lines_fails_on_bad_metadata_hides_when_stale_and_ends_its_own_helper() {
     let setup = setup(Spawner::default());
     setup.observer.start("C:/Riot/RiotClientServices.exe", None);
-    assert_eq!(*setup.spawner.script.lock().unwrap(), Some(windows_helpers_dir().join("riotWindowObserver.ps1")));
     let message = json!({ "target": { "id": "123", "x": -100, "y": 10, "width": 1000, "height": 800 } }).to_string();
     setup.spawner.send(&message[..10]);
     assert!(setup.states.lock().unwrap().is_empty());
@@ -207,59 +203,67 @@ fn a_target_needs_a_numeric_id_a_real_size_and_explicit_flags() {
 }
 
 #[test]
-fn the_panel_point_left_uncovered_is_the_one_the_helper_reads_and_the_box_matches_the_login_helper() {
-    let source = std::fs::read_to_string(windows_helpers_dir().join("riotWindowObserver.ps1")).unwrap();
-    assert!(source.contains(&format!("const double PANEL_X = {}, PANEL_Y = {};", PANEL_POINT.0, PANEL_POINT.1)));
+fn the_panel_point_left_uncovered_is_the_one_the_observer_reads_and_the_box_matches_the_login_form() {
     assert_eq!(PANEL_POINT, (0.026, 0.5));
-    let box_point = Regex::new(r"const double BOX_X = ([\d.]+), BOX_Y = ([\d.]+);").unwrap().captures(&source).map(|found| (found[1].to_string(), found[2].to_string()));
-    let login = std::fs::read_to_string(windows_helpers_dir().join("login.ps1")).unwrap();
-    let remember = Regex::new(r"\$REMEMBER = @\(([\d.]+), ([\d.]+)\)").unwrap().captures(&login).map(|found| (found[1].to_string(), found[2].to_string()));
-    assert!(box_point.is_some());
-    assert_eq!(box_point, remember);
-    assert_eq!(box_point, Some(("0.0417".to_string(), "0.5023".to_string())));
-}
-
-fn self_test() -> (Option<i32>, String) {
-    let mut child = Command::new("powershell.exe")
-        .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"])
-        .arg(windows_helpers_dir().join("riotWindowObserver.ps1"))
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    child.stdin.take().unwrap().write_all(b"{\"action\":\"self-test\"}
-").unwrap();
-    let output = child.wait_with_output().unwrap();
-    (output.status.code(), String::from_utf8_lossy(&output.stdout).trim().to_string())
+    assert_eq!(observer_thread::PANEL, PANEL_POINT);
+    assert_eq!(login_form::PANEL, PANEL_POINT);
+    assert_eq!(observer_thread::BOX, login_form::REMEMBER);
+    assert_eq!(observer_thread::BOX, (0.0417, 0.5023));
 }
 
 #[test]
-fn the_helper_self_test_passes_using_only_its_own_off_screen_windows() {
-    let mut result = self_test();
+fn the_observer_self_test_passes_using_only_its_own_off_screen_windows() {
+    let mut result = observer_thread::self_test();
     for _ in 1..3 {
-        if result.0 == Some(0) {
+        if result.is_ok() {
             break;
         }
-        result = self_test();
+        result = observer_thread::self_test();
     }
-    assert_eq!(result, (Some(0), "ok".to_string()));
+    assert_eq!(result, Ok(()));
 }
 
 #[test]
-fn the_real_helper_ends_on_its_own_when_its_input_closes_and_reports_no_riot_window() {
+fn the_native_observer_ends_on_its_own_when_its_input_closes_and_reports_no_riot_window() {
     let missing = std::env::temp_dir().join("eclipse-no-riot").join("RiotClientServices.exe");
-    let mut child = Command::new("powershell.exe")
-        .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"])
-        .arg(windows_helpers_dir().join("riotWindowObserver.ps1"))
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let request = request_line(std::process::id(), &missing.display().to_string(), None);
-    child.stdin.take().unwrap().write_all(request.as_bytes()).unwrap();
-    let output = child.wait_with_output().unwrap();
-    assert_eq!(output.status.code(), Some(0));
-    let text = String::from_utf8(output.stdout).unwrap();
+    let (sender, received) = mpsc::channel::<Option<Vec<u8>>>();
+    let sender = Mutex::new(sender);
+    let output: Output = Arc::new(move |chunk| {
+        let _ = sender.lock().unwrap().send(chunk.map(<[u8]>::to_vec));
+    });
+    let mut child = NativeObserver.spawn(output).unwrap();
+    child.input.write_all(request_line(std::process::id(), &missing.display().to_string(), None).as_bytes()).unwrap();
+    let first = received.recv_timeout(Duration::from_secs(10)).unwrap().unwrap();
+    drop(child.input);
+    let mut text = String::from_utf8(first).unwrap();
+    loop {
+        match received.recv_timeout(Duration::from_secs(10)).unwrap() {
+            Some(chunk) => text.push_str(&String::from_utf8(chunk).unwrap()),
+            None => break,
+        }
+    }
     assert!(text.lines().count() >= 1);
     assert!(text.lines().all(|line| read_line(line.as_bytes()) == Ok(None)), "{text}");
+}
+
+#[test]
+fn the_native_observer_refuses_a_bad_request_with_its_one_fixed_error() {
+    for request in ["{}
+", "{\"ownerPid\":0,\"clientPath\":\"C:/Riot/RiotClientServices.exe\"}
+", "{\"ownerPid\":5,\"clientPath\":\"relative.exe\"}
+", "{\"ownerPid\":5,\"clientPath\":\"C:/Riot/x.exe\",\"overlayWindow\":\"12a\"}
+"] {
+        let (sender, received) = mpsc::channel::<Option<Vec<u8>>>();
+        let sender = Mutex::new(sender);
+        let output: Output = Arc::new(move |chunk| {
+            let _ = sender.lock().unwrap().send(chunk.map(<[u8]>::to_vec));
+        });
+        let mut child = NativeObserver.spawn(output).unwrap();
+        child.input.write_all(request.as_bytes()).unwrap();
+        let line = received.recv_timeout(Duration::from_secs(10)).unwrap().unwrap();
+        assert_eq!(String::from_utf8(line).unwrap(), "{\"error\":\"observer-unavailable\"}
+", "{request}");
+        assert_eq!(read_line(b"{\"error\":\"observer-unavailable\"}"), Err(BadLine));
+        assert_eq!(received.recv_timeout(Duration::from_secs(10)).unwrap(), None);
+    }
 }

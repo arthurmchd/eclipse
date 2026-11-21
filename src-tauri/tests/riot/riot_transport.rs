@@ -6,25 +6,25 @@ use std::time::{Duration, Instant};
 use eclipse::integration::backend::Backend;
 use eclipse::riot::riot_app_controls::FLAG;
 use eclipse::riot::riot_client::detect_client_path;
-use eclipse::riot::riot_transport::{HttpsClient, HttpsRequest, RiotTransport, DEFAULT_MAX_BYTES, FAILED};
+use eclipse::riot::riot_transport::{HttpsClient, HttpsRequest, RiotTransport, SendFailure, DEFAULT_MAX_BYTES, FAILED};
 use eclipse::riot::{Cancel, LocalApi, Response};
 use serde_json::json;
 
 struct Https {
     sent: Mutex<Vec<HttpsRequest>>,
-    answer: Result<(u16, Vec<u8>), ()>,
+    answer: Result<(u16, Vec<u8>), SendFailure>,
     delay: Duration,
 }
 
 impl HttpsClient for Https {
-    fn send(&self, request: &HttpsRequest) -> Result<(u16, Vec<u8>), ()> {
+    fn send(&self, request: &HttpsRequest) -> Result<(u16, Vec<u8>), SendFailure> {
         self.sent.lock().unwrap().push(request.clone());
         thread::sleep(self.delay);
         self.answer.clone()
     }
 }
 
-fn https(answer: Result<(u16, Vec<u8>), ()>, delay: Duration) -> Arc<Https> {
+fn https(answer: Result<(u16, Vec<u8>), SendFailure>, delay: Duration) -> Arc<Https> {
     Arc::new(Https { sent: Mutex::new(Vec::new()), answer, delay })
 }
 
@@ -90,7 +90,7 @@ fn cancelled_requests_never_start_or_stop_immediately() {
 
 #[test]
 fn network_errors_are_generic() {
-    let api = transport(https(Err(()), Duration::ZERO), backend(), 1024);
+    let api = transport(https(Err(SendFailure), Duration::ZERO), backend(), 1024);
     assert_eq!(api.get("/state").unwrap_err().message, FAILED);
     let cancel = Cancel::new();
     assert_eq!(api.request("GET", "/state", None, 4000, Some(&cancel)).unwrap_err().message, FAILED);

@@ -7,6 +7,49 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-21 · Eclipse 2.19.1: cartões voltam a acompanhar a Riot
+
+- O observador em Rust da 2.19.0 nunca reconhecia a janela da Riot, porque comparava o caminho do `RiotClientInstalls.json` (com `/`) com o do processo (com `\`). Agora os dois lados são normalizados ([[riotWindowObserver]]). Achado pelo `riot_check` na Riot real, com autorização do usuário.
+- `riot_check` e o preenchimento esperam os campos do UI Automation pelo mesmo laço de até 3 s; a checagem tentava uma vez só e falhava enquanto o Chromium ligava a árvore de acessibilidade ([[loginForm]]).
+- Conferido na Riot real com uma cópia temporária dos dados e contas sem 2FA: `riot_check` todo verde; login com a Riot na tela de login em 33,7 s e com a Riot fechada em 36,7 s e 44,7 s, sempre `input:uia` e com o jogo percebido. Uma primeira tentativa, com a Riot parada na tela de login havia muito tempo, não achou o formulário pronto em 60 s ("authenticator captcha: hcaptcha"); não se repetiu nas três seguintes, e a busca da janela é a mesma do `.ps1`. Numa das tentativas a caixa "Stay signed in" saiu `remember:unknown`.
+
+## 2026-11-21 · Eclipse 2.19.0: sem PowerShell
+
+- Pedido do usuário: deixar o Eclipse pronto para muita gente usar. Os três helpers em PowerShell com C# embutido viraram Rust dentro do próprio Eclipse ([[ADR-044 Helpers do Windows em Rust]]): o preenchimento do login ([[loginForm]]), trazer a Riot à frente e procurar a janela do jogo ([[windowGuard]]) e o acompanhamento da janela da Riot ([[riotWindowObserver]]). Some o 1 a 2 s de abrir o PowerShell e compilar o C# a cada login e a cada pergunta pela janela do jogo (a cada 500 ms), e some o `powershell.exe -ExecutionPolicy Bypass` com credenciais no stdin, que antivírus costumam marcar. As credenciais não saem mais do processo do Eclipse, e a lista de processos não abre mais o `tasklist` ([[win32]], [[riotClient]], [[windowController]], [[paths]], [[Segurança e privacidade]]). O comportamento é o mesmo, regra por regra; ainda falta conferir na Riot real.
+- Testes automáticos no GitHub: `.github/workflows/tests.yml` roda `cargo clippy -- -D warnings`, `cargo test` e `npm test` no Windows a cada envio e pull request. Para o clippy passar, o envio HTTPS da [[riotTransport]] devolve um tipo de erro próprio (`SendFailure`).
+- Aviso de Riot atualizada: o `sign-in.log` mostra a versão do Riot Client a cada preenchimento do formulário, e se o formulário falha numa Riot mais nova que a última conferida (143), o erro diz isso e pede para procurar uma atualização do Eclipse, em vez de só "a tela de login não carregou" ([[riotVersion]], [[riotClient]], [[language]], [[Atualização do Riot Client]]).
+- Atualização pelo GitHub: o Eclipse procura uma versão nova 1 minuto depois de abrir e a cada 12 horas, avisa por um balão e mostra "Atualizar para a versão X" na bandeja. Só instala com o clique, nunca no meio de um login, e só um Setup assinado pela chave do projeto. "Procurar atualizações" na bandeja desliga ([[ADR-045 Atualização pelo GitHub]], [[updates]], [[appUpdater]], [[main]], [[Segurança e privacidade]]). Passa a valer quando um release trouxer o `latest.json` ([[Publicar no GitHub]]); no Eclipse instalado, a primeira pergunta saiu 1 minuto depois de abrir e deu 404, como esperado, porque o último release ainda é o `v2.15.1`. Quem tem a 2.18 ou anterior baixa a 2.19.0 à mão uma vez.
+- Checagem antes de publicar: `cargo run --example riot_check` confere, sem login, a versão da Riot, o observador, o formulário de login e os campos que o preenchimento usa ([[Publicar no GitHub]], [[loginForm]]).
+- Estudo das regras da Riot para vender o Eclipse ([[Estudo - Regras da Riot para vender o Eclipse]]): cobrar exige produto registrado e aprovado no portal de desenvolvedores da Riot; a recomendação é manter grátis e perguntar à Riot antes.
+
+## 2026-11-21 · Eclipse 2.18.1: preenchimento por UI Automation funcionando na Riot real
+
+- Testada na Riot real com autorização do usuário, a 2.18.0 entrou nas 6 tentativas, mas sempre pela digitação antiga (`input:keys`): o Chromium aplica o valor uns 200 ms depois do `SetValue`, e o campo de busca dos cartões aparece dentro da janela da Riot. Agora o [[loginForm]] só considera campos de processos da Riot, preenche a senha antes do usuário e espera o usuário aparecer ([[ADR-043 Preenchimento do login por UI Automation]]). No reteste, 6 de 6 com `input:uia`: do formulário ao envio caiu de 8,2 s para 4,1 s, e o login com League de 41,4–42,3 s para 37,1–37,8 s (Riot na tela de login) e de 45,4–46,3 s para 42,3–42,5 s (Riot fechada).
+
+## 2026-11-21 · Eclipse 2.18.0: senha preenchida sem digitar letra por letra
+
+- Pedido do usuário: aplicar o ganho da digitação medido no [[Laboratório de velocidade do login]]. O [[loginForm]] preenche usuário e senha pelos campos que a janela da Riot expõe ao UI Automation, e só cai na digitação por mensagens de antes se não achar exatamente um campo de senha e um outro campo, ou se o usuário não ficar igual. No laboratório, o envio caiu de 6,9 s para 0,3 s. O `sign-in.log` diz qual caminho foi usado ([[ADR-043 Preenchimento do login por UI Automation]], [[signInFlow]], [[Segurança e privacidade]]). Ainda não conferido com a versão instalada na Riot real.
+
+## 2026-11-21 · Eclipse 2.17.2: login com a conta já conectada não trava
+
+- Clicar em Jogar com a conta já conectada na Riot podia mostrar "A Riot ainda não terminou o login" e expirar em 180 s. Reproduzido com autorização do usuário: o autenticador ativa o hCaptcha do formulário do próximo login cerca de 1 s depois, com a conta autorizada e a sessão do jogador liberada. Agora o CAPTCHA do formulário só bloqueia enquanto a autorização não responde 200; com ela, quem decide é a sessão do jogador ([[ADR-042 CAPTCHA do formulário não bloqueia conta autorizada]], [[riotAuthentication]], [[signInFlow]], [[Segurança e privacidade]]).
+
+## 2026-11-21 · Eclipse 2.17.1: fonte do login não terminado no log
+
+- Pedido do usuário: investigar o login que travou com a conta já conectada no laboratório de velocidade ([[Laboratório de velocidade do login]]). O fluxo via `challenge` com a Riot autorizada e esperava 180 s. Primeiro passo, só diagnóstico: o `sign-in.log` agora diz de onde veio o `challenge` (CAPTCHA do autenticador, tipo desconhecido dele ou estado da sessão do jogador), sempre com nomes de lista fixa ([[riotAuthentication]], [[signInFlow]], [[Segurança e privacidade]]). O comportamento do login não mudou.
+
+## 2026-11-21 · Eclipse 2.17.0: iniciar com o Windows nas configurações
+
+- Pedido do usuário: uma caixa nas configurações para abrir o Eclipse junto com o Windows. "Iniciar com o Windows" aparece no diálogo de configurações dos [[cards]] do app instalado e usa o mesmo registro da opção da bandeja ([[startWithWindows]], [[appPorts]], [[managerService]]). Continua desligada até o usuário marcar.
+
+## 2026-11-21 · Eclipse 2.16.0: arrastar a Riot pela área do Eclipse
+
+- Pedido do usuário: arrastar o Riot Client e o Eclipse juntos pela parte de cima e pelo meio da área dos cartões. Apertar num espaço vazio da página dos [[cards]] começa o arraste conjunto do [[overlayDrag]], o mesmo da barra da Riot; botões, campos, cartões, diálogos e a barra de rolagem continuam como estão ([[ADR-041 Arraste da Riot pela área do Eclipse]]). Pedido novo `windowAction` `drag` no [[managerHost]] e `dragRiot()` no [[manager-preload]].
+
+## 2026-11-21 · Eclipse 2.15.2: cartões fora da abertura da Riot
+
+- Relato do usuário: ao abrir a Riot, às vezes o Eclipse aparecia sozinho por 2 a 3 s sobre a "mãozinha". O observador escolhia a janela de abertura da Riot (600 × 600, "sempre por cima"); agora ignora janelas da Riot com `WS_EX_TOPMOST` ([[riotWindowObserver]]).
+
 ## 2026-11-20 · README novo
 
 - Pedido do usuário: "arrume o readme como algo bem profissional", sem o nome antigo. Logo, frase de apresentação, selos de versão e downloads, capturas com contas fictícias da prévia (`.github/assets/`), recursos, instalação, como funciona, segurança, perguntas frequentes, seção para desenvolvedores e aviso legal da Riot. Os detalhes técnicos continuam no vault.
@@ -106,7 +149,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 
 - Pedido do usuário, com a captura da barra lateral do Riot Client ([[cards]], [[ADR-038 TFT, 2XKO e Runeterra no Eclipse]]).
 - Rodapé só com ícones, num bloco escuro como o da Riot: League of Legends, VALORANT, Teamfight Tactics, 2XKO, Legends of Runeterra e, separado, o Riot Client. Ícones redesenhados em SVG a partir da captura.
-- O Jogar abre cada jogo pelo seu próprio produto da Riot e espera o processo dele ([[signInFlow]], [[riotClient]], [[windowGuard.ps1]], [[riotState]], [[appPorts]], [[managerService]]). O TFT passou a abrir o `teamfighttactics`, não mais o League.
+- O Jogar abre cada jogo pelo seu próprio produto da Riot e espera o processo dele ([[signInFlow]], [[riotClient]], [[windowGuard]], [[riotState]], [[appPorts]], [[managerService]]). O TFT passou a abrir o `teamfighttactics`, não mais o League.
 - Cartões do TFT com Ranqueada e Dupla. 2XKO e Runeterra não têm elo e mostram o último jogo com elo.
 - Testes novos em `riot_client.rs`, `sign_in_flow.rs`, `riot_state.rs`, `app_ports.rs`, `cardView.test.js` e `cardList.test.js`.
 - Versão 2.10.0, gerada e instalada por cima nesta máquina. 2XKO e Runeterra não estão instalados aqui, então o login deles não foi visto funcionando.
@@ -335,8 +378,8 @@ Mudanças relevantes, da mais nova para a mais antiga.
 
 - A pedido do usuário, fecha o item 17 do [[Backlog]].
 - **[[riotInterface]] e [[riotProcess]]:** saem a opção `visible` do `openInterface` e o `interfaceRequired` do `launchClient`. A interface só é pedida com a janela visível.
-- **[[riotClient]]:** sai o ramo `error:focus`, que o [[login.ps1]] nunca emitia.
-- **[[signInFlow]] e [[login.ps1]]:** saem o `dryRun` e o campo `submit`; o script sempre clica em entrar.
+- **[[riotClient]]:** sai o ramo `error:focus`, que o [[loginForm]] nunca emitia.
+- **[[signInFlow]] e [[loginForm]]:** saem o `dryRun` e o campo `submit`; o script sempre clica em entrar.
 - **[[signInService]]:** sai `signIn(id, game)`, usado só nos testes. O app continua chamando `startFromManager`.
 - **[[language]]:** as mensagens em inglês param de citar o botão "Show Riot Client" e dizem para olhar ou abrir a janela da Riot, como as traduções já diziam. Saem três traduções sem uso.
 - [[ADR-003 Sem contornar CAPTCHA ou 2FA]] ganha uma nota: o desafio é concluído na própria tela da Riot, sem botão nem monitor. A regra não muda.
@@ -347,7 +390,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 
 - A pedido do usuário, depois de o login escondido sair do [[signInFlow]]: ninguém mais armava o monitor que escondia a Riot.
 - **[[windowController]]:** fica só com `reveal`, `closeClient`, `gameWindow` e `stop`, cada um num PowerShell avulso e um de cada vez. Saem `hide`, `conceal`, `park`, `assertHealthy`, `drainIncidents`, o monitor persistente, a recuperação (`handoff`, `maxRecoveries`, `recoveryWindowMs`, `guardReason`) e a restauração final no `stop`.
-- **[[windowGuard.ps1]]:** fica só com `reveal` (antes `restore`), `close-client`, `game-window` e `self-test`. Saem o modo `watch`, os ganchos de eventos, as varreduras, o snapshot e a troca de estilos, o worker com prazo, `park`, `hide-auxiliary`, `inspect` e `diagnostics`. A classe C# passa a se chamar `RiotWindowHelper`.
+- **[[windowGuard]]:** fica só com `reveal` (antes `restore`), `close-client`, `game-window` e `self-test`. Saem o modo `watch`, os ganchos de eventos, as varreduras, o snapshot e a troca de estilos, o worker com prazo, `park`, `hide-auxiliary`, `inspect` e `diagnostics`. A classe C# passa a se chamar `RiotWindowHelper`.
 - **[[language]]:** saem "The background window guard has stopped" e o padrão "…stopped (motivo). Try Play again".
 - [[ADR-004 Monitor persistente de janelas]] e [[ADR-008 Recuperação visual sem reexibir o Riot]] passam a substituídas pela [[ADR-028 Modo antigo removido]].
 - O comportamento do app não muda: o login visível já só trazia a Riot à frente, fechava a janela dela e procurava o jogo.
@@ -360,7 +403,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 - **[[signInService]] e [[main]]:** param de passar essas opções. **[[riotClient]]:** o formulário sempre abre a interface visível. **[[language]]:** sai "Finishing sign-in through the hidden Riot interface…".
 - O comportamento do app não muda.
 - Testes: os do signInFlow passam a partir do login visível; saem os que só testavam o esconder (park, queda do monitor, espera de 2FA na restauração escondida, troca de conta escondida). 339 testes.
-- Fica para depois ([[Backlog]], item 17): o monitor de ocultação no [[windowController]] e no [[windowGuard.ps1]], o `visible: false` do [[riotInterface]] e as mensagens em inglês com "Show Riot Client".
+- Fica para depois ([[Backlog]], item 17): o monitor de ocultação no [[windowController]] e no [[windowGuard]], o `visible: false` do [[riotInterface]] e as mensagens em inglês com "Show Riot Client".
 
 ## 2026-11-07 · Modo antigo removido
 
@@ -419,11 +462,11 @@ Mudanças relevantes, da mais nova para a mais antiga.
 
 ## 2026-11-06 · Leitura da caixa "Stay signed in" na Riot v142
 
-- Pedido do usuário: corrigir a leitura da caixa no [[login.ps1]] ("Sim, corrija"). Cinco logins visíveis de 2026-11-06 registraram `remember:unknown` no `sign-in.log`.
+- Pedido do usuário: corrigir a leitura da caixa no [[loginForm]] ("Sim, corrija"). Cinco logins visíveis de 2026-11-06 registraram `remember:unknown` no `sign-in.log`.
 - Duas causas:
   - as cores eram as da v141 (marcada = escura), e a caixa marcada da v142 é vermelha;
   - a grade de amostras era lida no quadro da janela inteira, que tem 8 px de borda invisível à esquerda, e caía 7 px à esquerda e 4 px abaixo do centro da caixa.
-- [[login.ps1]]: lê os pixels no quadro da área cliente, o mesmo dos cliques, e reconhece a caixa pelas cores da v142 (cinza → `off`, vermelha → `on`). Painel sem caixa agora dá `unknown`; antes contava como `off` e podia receber o clique.
+- [[loginForm]]: lê os pixels no quadro da área cliente, o mesmo dos cliques, e reconhece a caixa pelas cores da v142 (cinza → `off`, vermelha → `on`). Painel sem caixa agora dá `unknown`; antes contava como `off` e podia receber o clique.
 - Efeito: com "Manter login" ligado, o resultado não muda (a caixa cinza já era marcada). Com ele desligado, a caixa marcada da Riot agora é desmarcada. O log passa a mostrar `remember:on` ou `remember:off`.
 - Testes: `test/platform/windows/login.test.js` (novo) roda o `self-test` e confere o quadro da leitura. Conferido também numa réplica do formulário (janela Electron com a mesma borda invisível) em 1280×720 e 1024×576: cinza → `off`, vermelha → `on`, sem caixa → `unknown`, e o formulário reconhecido como pronto. `npm test`: 447 testes, 446 passam e 1 é pulado.
 - Ainda não conferido num login real.
@@ -692,9 +735,9 @@ Mudanças relevantes, da mais nova para a mais antiga.
 
 - Durante o login, o botão Jogar vira **Cancelar**. Saiu a faixa "Entrando na conta e preparando seu jogo…"; ela só aparece quando a Riot pede verificação.
 - O gerenciador some assim que a conta entra, sem esperar o jogo: o fluxo marca os status seguintes com `signedIn` e o [[riotOverlay]] se esconde. A leitura da tela de login também passou a conferir `/rso-auth/v1/authorization`, para não mostrar os cartões sobre a página inicial do Riot.
-- Nova opção **Manter login** nas configurações (marcada por padrão). Desmarcada: login direto e formulário nativo enviam `remember: false`, o [[login.ps1]] desmarca "Stay signed in" quando reconhece a caixa, e o app não restaura nem grava sessões.
+- Nova opção **Manter login** nas configurações (marcada por padrão). Desmarcada: login direto e formulário nativo enviam `remember: false`, o [[loginForm]] desmarca "Stay signed in" quando reconhece a caixa, e o app não restaura nem grava sessões.
 - 6 testes novos ou ampliados (autenticação, fluxo, serviço, sobreposição, configurações, armazenamento e Electron); 333 passam. Conferido no `npm run preview`.
-- Teste real em 2026-11-04 12:29 (horário local), app reiniciado às 12:29:37 com o código novo e "Manter login" no padrão (ligado): formulário nativo preenchido em 7 s, conta autorizada em 11 s ("Signed in" às 12:29:58), cliente do League às 12:30:10, sessão guardada e "Game opened" às 12:30:22. O log não registra quando os cartões somem; isso depende da observação do usuário. A caixa "Stay signed in" saiu como `remember:unknown`, como nos testes anteriores: com "Manter login" desmarcado, o [[login.ps1]] não conseguiria desmarcá-la. Ver [[Backlog]].
+- Teste real em 2026-11-04 12:29 (horário local), app reiniciado às 12:29:37 com o código novo e "Manter login" no padrão (ligado): formulário nativo preenchido em 7 s, conta autorizada em 11 s ("Signed in" às 12:29:58), cliente do League às 12:30:10, sessão guardada e "Game opened" às 12:30:22. O log não registra quando os cartões somem; isso depende da observação do usuário. A caixa "Stay signed in" saiu como `remember:unknown`, como nos testes anteriores: com "Manter login" desmarcado, o [[loginForm]] não conseguiria desmarcá-la. Ver [[Backlog]].
 
 ## 2026-11-04 · Cartão sem avatar de iniciais
 
@@ -824,14 +867,14 @@ Mudanças relevantes, da mais nova para a mais antiga.
 - **Diagnóstico ao vivo autorizado:** a Riot aguardava MFA enquanto a janela estava oculta; a recuperação também falhava ao restaurar estilos. Na repetição, o monitor falhou após enviar credenciais e antes de consultar o desafio.
 - **Correção:** [[signInFlow]] revela uma vez a interface nativa para verificação e preserva sua recuperação no timeout. O bloco de erro consulta o estado sanitizado se o monitor falhar durante autenticação nativa. Cancelamento oculta novamente; erro posterior de abertura do jogo não vira desafio de login.
 - **Estado e recuperação:** [[signInService]] mantém flags explícitas de atenção em falha, ignora progresso tardio e libera o mutex. [[main]] recupera a interface original inclusive após timeout; consulta [[riotClient]] para permitir voltar às contas depois da verificação.
-- **Janelas:** [[windowGuard.ps1]] restaura somente os bits que controla, preservando alterações do cliente. A espera pelo worker continua processando mensagens, com prazo limitado. Diagnóstico opcional informa metadados de estilo, sem conteúdo ou credenciais. Complemento registrado na [[ADR-008 Recuperação visual sem reexibir o Riot]].
+- **Janelas:** [[windowGuard]] restaura somente os bits que controla, preservando alterações do cliente. A espera pelo worker continua processando mensagens, com prazo limitado. Diagnóstico opcional informa metadados de estilo, sem conteúdo ou credenciais. Complemento registrado na [[ADR-008 Recuperação visual sem reexibir o Riot]].
 - **Validação:** suíte completa com 313 testes: 312 passaram e 1 foi pulado com Riot aberto. Teste real de 28/10 às 18:03–18:04 (São Paulo) concluiu autenticação, verificou identidade, abriu LeagueClientUx e salvou sessão; operação terminou `succeeded` às 18:04:55.
 - **Limitação confirmada:** ainda ocorreram recuperações por `window-style-timeout` e `window-style-denied` durante a tentativa bem-sucedida. Não há comprovação de ausência absoluta de reaparecimento; a abertura do jogo e a recuperação de MFA foram confirmadas.
 
 ## 2026-10-27 · Recuperação sem reaparecimento intermediário do Riot
 
 - **Problema observado:** após Entrar e jogar, o cliente reaparecia rapidamente antes de o jogo abrir. Os registros confirmam quedas do monitor por `window-style-denied` e `window-style-timeout`; o encerramento anterior podia restaurar a visibilidade durante sua substituição.
-- **Correção:** [[windowGuard.ps1]] verifica somente os bits de estilo que controla ao ocultar e entrega snapshots sem restaurar em falha/`handoff` com dono vivo. O substituto recebe `initialMode` e já arma a ocultação antes de `ready`.
+- **Correção:** [[windowGuard]] verifica somente os bits de estilo que controla ao ocultar e entrega snapshots sem restaurar em falha/`handoff` com dono vivo. O substituto recebe `initialMode` e já arma a ocultação antes de `ready`.
 - **Recuperação preservada:** [[windowController]] mantém o encerramento definitivo idempotente, aguarda tarefas em curso e restaura snapshots retidos com helper sem ativação. Recuperação manual continua trazendo a interface para frente; jogos e Vanguard continuam fora do filtro.
 - **Decisão:** [[ADR-008 Recuperação visual sem reexibir o Riot]], registrada antes do código. Autenticação, CAPTCHA/2FA e verificação de conta não mudam.
 - **Validação:** `npm test`: 297 passaram, 1 teste do instalador legado foi pulado porque o Riot estava aberto. Testes de protocolo e concorrência usam processos falsos; self-test do C# não toca no desktop. Não foi executado login real para confirmar a ausência completa da piscada.
@@ -850,7 +893,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 
 ## 2026-10-26 · Monitor de janelas que se recupera
 
-- **Problema:** depois do preenchimento nativo, o monitor de janelas ([[windowGuard.ps1]]) caía, e a primeira checagem do [[signInFlow]] abortava o login. A senha já tinha sido digitada, e o jogo nunca era pedido. Três falhas reais no `sign-in.log` (11:33, 18:40 e 23:00); o motivo da queda não era registrado em lugar nenhum.
+- **Problema:** depois do preenchimento nativo, o monitor de janelas ([[windowGuard]]) caía, e a primeira checagem do [[signInFlow]] abortava o login. A senha já tinha sido digitada, e o jogo nunca era pedido. Três falhas reais no `sign-in.log` (11:33, 18:40 e 23:00); o motivo da queda não era registrado em lugar nenhum.
 - **Correção:** o [[windowController]] reergue um monitor perdido no mesmo modo (até 3 vezes por minuto), repete uma vez os comandos interrompidos, usa helper avulso no `gameWindow` quando o monitor está morto e só deixa `assertHealthy` falhar quando não consegue recuperar.
 - **Diagnóstico:** cada queda vira um código fixo (`window-style-timeout`, `no-response`, `exit-1`…), gravado no `sign-in.log` e incluído na mensagem final de erro. Texto livre do .NET vira `unknown`.
 - 8 testes novos ou reescritos; 246 passando (1 pulado por exigir o Riot fechado). **Ainda não validado com o Riot real.**
@@ -858,7 +901,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 
 ## 2026-10-26 · "The Riot Client window did not open"
 
-- **Causa:** quando a Riot exige CAPTCHA antes da senha, o login cai no formulário nativo escondido. Para abrir a interface, o código chamava `RiotClientServices.exe` de novo, mas os serviços já rodavam em `--headless`, e a chamada não abria janela. O [[login.ps1]] esperava 60 s e falhava. Acontecia em toda troca de conta sem sessão salva válida, inclusive pelo painel MINHAS CONTAS.
+- **Causa:** quando a Riot exige CAPTCHA antes da senha, o login cai no formulário nativo escondido. Para abrir a interface, o código chamava `RiotClientServices.exe` de novo, mas os serviços já rodavam em `--headless`, e a chamada não abria janela. O [[loginForm]] esperava 60 s e falhava. Acontecia em toda troca de conta sem sessão salva válida, inclusive pelo painel MINHAS CONTAS.
 - **Correção:** novo módulo [[riotInterface]]. Ele pede a interface aos serviços (`POST /riot-client-lifecycle/v1/show`) e, se ela não aparecer em 10 s, reinicia os serviços com interface (oculta pelo monitor). É seguro porque nenhuma senha foi enviada nesse ponto.
 - O caminho usado vai para o `sign-in.log`. 7 testes novos; 240 passando (1 pulado por exigir o Riot fechado).
 - Diagnóstico registrado em [[Solução de problemas]], incluindo a cópia virtualizada do `sign-in.log` vista por apps empacotados.

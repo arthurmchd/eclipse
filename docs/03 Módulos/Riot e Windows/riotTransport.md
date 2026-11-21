@@ -52,6 +52,7 @@ tags: [módulo]
 - **Limite de tamanho.** Uma resposta grande demais nunca é entregue pela metade.
 - **Cancelamento.** Com cancelamento, o pedido roda numa thread e o chamador confere o cancelamento a cada 25 ms; a thread termina sozinha no prazo do pedido.
 - **Conferido na Riot real.** Em 2026-11-14, com permissão do usuário: um único `GET` do sinalizador de segundo plano ([[riotAppControls]]) voltou 200, com o TLS do Windows aceitando o certificado da Riot em `127.0.0.1` e a validação ligada. O teste é o `the_real_riot_client_certificate_is_accepted_on_a_single_read`, marcado com `#[ignore]`: roda só a pedido, com a Riot aberta pelo usuário (`cargo test --test riot the_real_riot_client_certificate -- --ignored --nocapture`), e imprime só o status.
+- **Falha de envio com tipo próprio (2026-11-21).** `HttpsClient::send` devolve `Result<(status, corpo), SendFailure>`. Antes o erro era `()`, que o clippy recusa em função pública (`result_unit_err`) e que a CI roda com `-D warnings`. A falha continua sem detalhe nenhum: a mensagem que sai é o texto fixo de sempre.
 
 ## Testes
 

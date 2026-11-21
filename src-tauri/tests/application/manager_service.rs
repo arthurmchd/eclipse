@@ -13,6 +13,7 @@ struct Ports {
     active: Mutex<Option<String>>,
     failing_settings: bool,
     seen: Option<Value>,
+    startup: Mutex<Option<bool>>,
 }
 
 impl Ports {
@@ -78,6 +79,15 @@ impl ManagerPorts for Ports {
             panic!("tray unavailable");
         }
         self.record(json!(["changed", settings["language"]]));
+    }
+
+    fn start_with_windows(&self, turn: Option<bool>) -> Option<bool> {
+        let mut startup = self.startup.lock().unwrap();
+        if let (Some(on), Some(current)) = (turn, startup.as_mut()) {
+            self.record(json!(["startup", on]));
+            *current = on;
+        }
+        *startup
     }
 }
 
@@ -229,6 +239,32 @@ fn settings_return_masked_keys_and_restart_the_refresh_schedule() {
     assert!(settings.get("riotApiKey").is_none());
     assert!(!settings.to_string().contains("fixture-key-0123456789"));
     assert_eq!(f.ports.names(), vec!["schedule", "changed"]);
+}
+
+#[test]
+fn start_with_windows_is_read_on_init_and_changed_only_when_the_settings_ask_for_it() {
+    let f = fixture_with(Ports { startup: Mutex::new(Some(false)), ..Ports::default() });
+    assert_eq!(f.service.dispatch("init", &[]).unwrap()["startWithWindows"], false);
+    let settings = f.service.dispatch("saveSettings", &[json!({ "staySignedIn": true })]).unwrap();
+    assert!(settings.get("startWithWindows").is_none());
+    assert_eq!(f.ports.names(), vec!["schedule", "changed"]);
+    let settings = f.service.dispatch("saveSettings", &[json!({ "startWithWindows": true })]).unwrap();
+    assert_eq!(settings["startWithWindows"], true);
+    assert_eq!(f.ports.names(), vec!["schedule", "changed", "startup", "schedule", "changed"]);
+    assert_eq!(f.service.dispatch("init", &[]).unwrap()["startWithWindows"], true);
+    assert!(f.store.lock().unwrap().public_settings().get("startWithWindows").is_none());
+    for bad in [json!("yes"), json!(1), Value::Null] {
+        assert!(f.service.dispatch("saveSettings", &[json!({ "startWithWindows": bad })]).is_err());
+    }
+    assert_eq!(f.ports.names().iter().filter(|name| *name == "startup").count(), 1);
+}
+
+#[test]
+fn start_with_windows_is_null_where_the_app_is_not_installed() {
+    let f = fixture();
+    assert_eq!(f.service.dispatch("init", &[]).unwrap()["startWithWindows"], Value::Null);
+    let settings = f.service.dispatch("saveSettings", &[json!({ "startWithWindows": true })]).unwrap();
+    assert_eq!(settings["startWithWindows"], Value::Null);
 }
 
 #[test]

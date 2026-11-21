@@ -6,7 +6,7 @@ use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, GetCapture, ReleaseCapture, SetCapture, VK_LBUTTON, VK_RBUTTON};
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    BeginDeferWindowPos, DeferWindowPos, EndDeferWindowPos, GetCursorPos, GetGUIThreadInfo, GetSystemMetrics, GetWindow, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible, KillTimer, RegisterWindowMessageW, SendMessageTimeoutW, SetTimer, GUITHREADINFO,
+    BeginDeferWindowPos, DeferWindowPos, EndDeferWindowPos, GetCursorPos, GetGUIThreadInfo, GetSystemMetrics, GetWindow, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible, KillTimer, PostMessageW, RegisterWindowMessageW, SendMessageTimeoutW, SetTimer, GUITHREADINFO,
     GUI_INMOVESIZE, GW_OWNER, HTCAPTION, SMTO_ABORTIFHUNG, SM_SWAPBUTTON, SWP_NOACTIVATE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, WM_CAPTURECHANGED, WM_LBUTTONUP, WM_MOUSEMOVE, WM_NCDESTROY, WM_NCHITTEST, WM_RBUTTONUP, WM_TIMER,
 };
 
@@ -16,6 +16,7 @@ pub const BEAT_ID: usize = 0x4543_4c44;
 pub const MAX_RETAKES: u32 = 3;
 pub const LOOP_BEATS: u32 = 3;
 pub const HIT_TEST_MS: u32 = 100;
+pub const FROM_CARDS: LPARAM = 1;
 pub const UNAVAILABLE: &str = "riot drag: could not watch the cards window; the cards follow the Riot window as before";
 const SUBCLASS_ID: usize = 0x4543_4c53;
 
@@ -45,10 +46,12 @@ pub enum Outcome {
     KeptByRiot,
     RiotKeptLoop,
     NotCaption,
+    TakenFromCards,
+    CardsKeptCapture,
 }
 
 impl Outcome {
-    pub const ALL: [Outcome; 4] = [Outcome::Taken, Outcome::KeptByRiot, Outcome::RiotKeptLoop, Outcome::NotCaption];
+    pub const ALL: [Outcome; 6] = [Outcome::Taken, Outcome::KeptByRiot, Outcome::RiotKeptLoop, Outcome::NotCaption, Outcome::TakenFromCards, Outcome::CardsKeptCapture];
 
     pub fn line(self) -> &'static str {
         match self {
@@ -56,6 +59,8 @@ impl Outcome {
             Outcome::KeptByRiot => "riot drag: the Riot window kept the mouse capture; the cards follow it as before",
             Outcome::RiotKeptLoop => "riot drag: the Riot window stayed in its own drag; Eclipse let go",
             Outcome::NotCaption => "riot drag: the grabbed point was not the Riot title bar",
+            Outcome::TakenFromCards => "riot drag: Eclipse moved the Riot window and the cards together from the cards area",
+            Outcome::CardsKeptCapture => "riot drag: the cards area could not take the mouse capture; nothing moved",
         }
     }
 }
@@ -92,7 +97,7 @@ struct Drag {
 #[derive(Default)]
 pub struct OverlayDrag {
     drag: Option<Drag>,
-    logged: [bool; 4],
+    logged: [bool; 6],
 }
 
 impl OverlayDrag {
@@ -167,6 +172,26 @@ impl OverlayDrag {
         self.drag = Some(Drag { riot, grab: cursor.minus(origin), client: client.minus(origin), retakes: 0, looped: 0 });
         platform.start_beat();
         self.note(platform, Outcome::Taken);
+        self.follow_cursor(platform);
+        true
+    }
+
+    pub fn grab(&mut self, platform: &dyn DragPlatform) -> bool {
+        let riot = platform.overlay_owner();
+        if self.drag.is_some() || riot == 0 || !platform.overlay_visible() || !platform.primary_down() {
+            return false;
+        }
+        let (Some(cursor), Some(origin), Some(client)) = (platform.cursor(), platform.window_origin(riot), platform.client_origin(riot)) else {
+            return false;
+        };
+        platform.take_capture();
+        if !platform.has_capture() {
+            self.note(platform, Outcome::CardsKeptCapture);
+            return false;
+        }
+        self.drag = Some(Drag { riot, grab: cursor.minus(origin), client: client.minus(origin), retakes: 0, looped: 0 });
+        platform.start_beat();
+        self.note(platform, Outcome::TakenFromCards);
         self.follow_cursor(platform);
         true
     }
@@ -370,7 +395,11 @@ impl Installed {
     fn handle(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> Option<LRESULT> {
         let platform = &self.platform;
         if message == self.start {
-            self.drag.start(platform, wparam as isize);
+            if lparam == FROM_CARDS {
+                self.drag.grab(platform);
+            } else {
+                self.drag.start(platform, wparam as isize);
+            }
             return Some(0);
         }
         if message == WM_TIMER && wparam == BEAT_ID {
@@ -417,6 +446,11 @@ unsafe extern "system" fn subclass(window: HWND, message: u32, wparam: WPARAM, l
         Some(result) => result,
         None => DefSubclassProc(window, message, wparam, lparam),
     }
+}
+
+pub fn request_from_cards(overlay: isize) -> bool {
+    let message = start_message();
+    message != 0 && unsafe { PostMessageW(hwnd(overlay), message, 0, FROM_CARDS) } != 0
 }
 
 pub fn start_message() -> u32 {
