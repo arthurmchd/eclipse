@@ -59,6 +59,7 @@ Comandos de `dispatch`: `init`, `events`, `operation`, `saveAccount`, `deleteAcc
 - **Ações externas limitadas.** Links exigem HTTPS sem usuário ou senha na URL e abrem no navegador padrão.
 - **Idioma só `pt` ou `en`.** `saveSettings` aceita `language` apenas com um valor de `LANGUAGES` do [[language]]; o resto recusa com `Invalid setting`. Depois de salvar, chama o aviso `settings_changed` das portas, que o [[main]] usa para refazer a bandeja e avisar a sobreposição. Uma falha nesse aviso não desfaz o salvamento. Adicionado em 2026-11-04 ([[ADR-014 Interface em português e inglês]]).
 - **Visual só `plates` ou `list`.** Desde 2026-11-15, `saveSettings` aceita `cardLayout` apenas com um valor de `CARD_LAYOUTS`; o resto recusa com `Invalid setting`. Como toda configuração salva, reagenda a atualização e chama `settings_changed`.
+- **Fundo só `light` ou `dark`.** Desde 2026-11-23 ([[ADR-049 Fundo escuro opcional]]), `saveSettings` aceita `pageTheme` apenas com um valor de `PAGE_THEMES`; o resto recusa com `Invalid setting`.
 - **Portas e limites.** O que o serviço pede ao resto do app vem pela trait `ManagerPorts`; no app é o `AppPorts` ([[appPorts]]), e a fila de atualização é o [[refresher]]. Um pânico no aviso `settings_changed` é contido e não derruba o comando. O tamanho de texto é contado em unidades UTF-16, como os cartões contam no formulário, para os limites baterem.
 
 ## Testes

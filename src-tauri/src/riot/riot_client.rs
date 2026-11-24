@@ -37,6 +37,7 @@ pub const TFT_PROCESSES: [&str; 2] = ["TFTClient.exe", "TFTClient-Win64-Shipping
 pub const XKO_PROCESSES: [&str; 2] = ["Lion.exe", "Lion-Win64-Shipping.exe"];
 pub const LOR_PROCESSES: [&str; 1] = ["LoR.exe"];
 pub const GAME_PROCESSES: [&str; 11] = ["LeagueClient.exe", "LeagueClientUx.exe", "LeagueClientUxRender.exe", "League of Legends.exe", "VALORANT.exe", "VALORANT-Win64-Shipping.exe", "TFTClient.exe", "TFTClient-Win64-Shipping.exe", "Lion.exe", "Lion-Win64-Shipping.exe", "LoR.exe"];
+pub const STAY_SIGNED_IN_NOTICE: &str = "/data-store/v1/install-settings/stay-signed-in-modal-shown";
 pub const CLIENT_PROCESSES: [&str; 4] = ["RiotClientServices.exe", "Riot Client.exe", "RiotClientUx.exe", "RiotClientUxRender.exe"];
 pub const CLIENT_WINDOWS: [&str; 2] = ["Riot Client.exe", "RiotClientUx.exe"];
 pub const QUIT: &str = "/process-control/v1/process/quit";
@@ -544,6 +545,14 @@ pub fn fill_error_for(failure: FillFailure, version: Option<RiotVersion>) -> Rio
     newer_riot_message(version, failure).map(RiotError::new).unwrap_or_else(|| fill_error(failure))
 }
 
+pub fn skip_stay_signed_in_notice(api: &dyn LocalApi, log: &dyn Fn(&str)) {
+    if api.get(STAY_SIGNED_IN_NOTICE).is_ok_and(|response| response.accepted() && response.json == Value::Bool(true)) {
+        return;
+    }
+    let marked = api.request("POST", STAY_SIGNED_IN_NOTICE, Some(&Value::Bool(true)), DEFAULT_TIMEOUT_MS, None).is_ok_and(|response| response.accepted());
+    log(if marked { "marked the Riot stay signed in notice as seen" } else { "could not mark the Riot stay signed in notice as seen" });
+}
+
 pub fn fill_login_form(form: &dyn LoginForm, request: &TypeRequest, version: Option<RiotVersion>, cancel: Option<&Cancel>, log: &dyn Fn(&str)) -> RiotResult<Vec<String>> {
     check(cancel)?;
     log(&version_line(version));
@@ -775,6 +784,9 @@ impl SignInIo for RiotClient {
 
     fn type_credentials(&self, request: &TypeRequest, cancel: Option<&Cancel>, log: &dyn Fn(&str)) -> RiotResult<Vec<String>> {
         let exe = self.selected_or_detected();
+        if request.remember {
+            skip_stay_signed_in_notice(self.local_api.as_ref(), log);
+        }
         self.interface.open(&exe, cancel, log)?;
         check(cancel)?;
         let version = file_version(Path::new(&exe)).map(RiotVersion);

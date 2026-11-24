@@ -51,6 +51,7 @@ pub struct SettingsInput {
     pub riot_client_path: Option<String>,
     pub language: Option<String>,
     pub card_layout: Option<String>,
+    pub page_theme: Option<String>,
     pub card_sort: Option<String>,
     pub ui_sounds: Option<bool>,
     pub riot_api_key: Option<String>,
@@ -553,6 +554,8 @@ impl Store {
         public.insert("language".into(), Value::String(language.into()));
         let layout = if settings.get("cardLayout").and_then(Value::as_str) == Some("list") { "list" } else { "plates" };
         public.insert("cardLayout".into(), Value::String(layout.into()));
+        let theme = if settings.get("pageTheme").and_then(Value::as_str) == Some("dark") { "dark" } else { "light" };
+        public.insert("pageTheme".into(), Value::String(theme.into()));
         let sort = settings.get("cardSort").and_then(Value::as_str).filter(|sort| ["rank", "name", "recent"].contains(sort)).unwrap_or("manual");
         public.insert("cardSort".into(), Value::String(sort.into()));
         public.insert("uiSounds".into(), Value::Bool(settings.get("uiSounds") != Some(&Value::Bool(false))));
@@ -577,6 +580,9 @@ impl Store {
         }
         if let Some(layout) = input.card_layout {
             self.data.settings.insert("cardLayout".into(), Value::String(layout));
+        }
+        if let Some(theme) = input.page_theme {
+            self.data.settings.insert("pageTheme".into(), Value::String(theme));
         }
         if let Some(sort) = input.card_sort {
             self.data.settings.insert("cardSort".into(), Value::String(sort));

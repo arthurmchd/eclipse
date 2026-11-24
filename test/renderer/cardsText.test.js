@@ -17,7 +17,8 @@ test('the card texts have the same keys in Portuguese and English', async () => 
 test('the filter and sort labels stay short so the toolbar fits a 636 px Riot', async () => {
   const { TEXT } = await import(pathToFileURL(path.join(RENDERER_DIR, 'cardsText.js')).href);
   for (const text of [TEXT.pt, TEXT.en]) {
-    for (const key of ['allRegions', 'allTiers']) assert.ok(text[key].length <= 10, `${key}: ${text[key]}`);
+    for (const key of ['allRegions', 'allTiers', 'filters', 'allOption']) assert.ok(text[key].length <= 10, `${key}: ${text[key]}`);
+    assert.ok(text.addAccount.length <= 16, text.addAccount);
     for (const label of Object.values(text.sorts)) assert.ok(label.length <= 15, label);
     assert.ok(text.searchPlaceholder.length <= 24, text.searchPlaceholder);
   }

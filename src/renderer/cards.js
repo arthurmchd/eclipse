@@ -1,4 +1,4 @@
-import { GAME_QUEUES, GAME_NAMES, LAYOUTS, layoutOf, accountView, selectionView, queueLabel } from './cardView.js';
+import { GAME_QUEUES, GAME_NAMES, GAME_SHORT, LAYOUTS, RIOT_GAMES, layoutOf, pageThemeOf, otherPageTheme, accountView, riotView, selectionView, queueLabel } from './cardView.js';
 import { SORTS, ACCOUNT_GAMES, sortOf, gamesOf, toggleGame, tierOptions, visibleAccounts, canReorder, moveId, usage, parseBatch, countLabel, startsSearch, toggleSelection, keptSelection } from './cardList.js';
 import { VAL_GROUPS } from './ranks.js';
 import { textFor, translatePage } from './cardsText.js';
@@ -49,16 +49,39 @@ function fillSelect(select, options, value) {
   return select.value;
 }
 
+function fillChips(box, options, value) {
+  const chosen = options.some(([id]) => id === value) ? value : '';
+  const key = JSON.stringify([options, chosen]);
+  if (box.dataset.key !== key) {
+    box.innerHTML = options.map(([id, label]) => `<button type="button" class="filter-chip" data-value="${esc(id)}" aria-pressed="${id === chosen}">${esc(label)}</button>`).join('');
+    box.dataset.key = key;
+  }
+  return chosen;
+}
+
+function showFilters(open) {
+  $('#filter-panel').hidden = !open;
+  $('#filters').setAttribute('aria-expanded', String(open));
+}
+
 function renderToolbar(text) {
   const regionIds = [...new Set(state.accounts.map(account => account.region).filter(Boolean))].sort((a, b) => (state.regions[a]?.label || a).localeCompare(state.regions[b]?.label || b));
-  state.filters.region = fillSelect($('#filter-region'), [['', text.allRegions], ...regionIds.map(id => [id, state.regions[id]?.label || id])], state.filters.region);
-  $('#filter-region').hidden = regionIds.length < 2 && !state.filters.region;
-  state.filters.tier = fillSelect($('#filter-tier'), [['', text.allTiers], ...tierOptions(state.stats).map(id => [id, tierLabel(id, text)])], state.filters.tier);
-  for (const [id, value] of [['#filter-region', state.filters.region], ['#filter-tier', state.filters.tier]]) $(id).classList.toggle('is-active', Boolean(value));
+  state.filters.region = fillChips($('#filter-region'), [['', text.allOption], ...regionIds.map(id => [id, state.regions[id]?.label || id])], state.filters.region);
+  state.filters.tier = state.game === 'riot' ? '' : fillChips($('#filter-tier'), [['', text.allOption], ...tierOptions(state.stats).map(id => [id, tierLabel(id, text)])], state.filters.tier);
+  const regionShown = regionIds.length >= 2 || Boolean(state.filters.region);
+  const tierShown = state.game !== 'riot';
+  $('#filter-region-group').hidden = !regionShown;
+  $('#filter-tier-group').hidden = !tierShown;
+  const active = [state.filters.region, state.filters.tier].filter(Boolean).length;
+  $('#filters').hidden = !regionShown && !tierShown;
+  $('#filters').classList.toggle('is-active', active > 0);
+  $('#filter-count').textContent = active ? String(active) : '';
+  $('#filter-count').hidden = !active;
+  if ($('#filters').hidden || busy()) showFilters(false);
   const sort = fillSelect($('#sort'), SORTS.map(id => [id, text.sorts[id]]), sortOf(state.settings));
   $('#sort').title = sort === 'manual' ? text.dragHint : text.sortLabel;
   $('#toolbar').hidden = !state.accounts.length;
-  for (const element of document.querySelectorAll('#toolbar select, #toolbar input')) element.disabled = busy();
+  for (const element of document.querySelectorAll('#toolbar select, #toolbar input, #toolbar button')) element.disabled = busy();
 }
 
 function render() {
@@ -88,19 +111,26 @@ function render() {
   $('#selected-name').title = chosen.name;
   $('#selected-detail').title = chosen.detail;
   document.body.dataset.theme = state.game;
+  const page = pageThemeOf(state.settings);
+  document.documentElement.dataset.page = page;
+  const pageLabel = page === 'dark' ? text.lightPage : text.darkPage;
+  $('#page-theme').title = pageLabel;
+  $('#page-theme').setAttribute('aria-label', pageLabel);
   for (const button of document.querySelectorAll('[data-game]')) button.setAttribute('aria-pressed', String(button.dataset.game === state.game));
   for (const button of document.querySelectorAll('#layout [data-layout]')) button.setAttribute('aria-pressed', String(button.dataset.layout === layout));
   const cards = $('#cards');
   cards.dataset.view = layout;
-  cards.dataset.game = state.stats;
+  const riot = state.game === 'riot';
+  cards.dataset.game = riot ? 'riot' : state.stats;
   cards.classList.toggle('can-reorder', reorderable() && !busy());
   const now = Date.now();
   const body = shown.map((account, index) => {
-    const view = { ...accountView(account, state.stats, text), pinned: account.pinned === true, usage: usage(account, text, now), recent: usage(account, text, now, false) };
+    const base = riot ? riotView(account, gamesOf(account), state.regions[account.region]?.label || account.region, text) : accountView(account, state.stats, text);
+    const view = { ...base, pinned: account.pinned === true, usage: usage(account, text, now), recent: usage(account, text, now, false) };
     const playing = state.operation?.accountId === view.id && busy();
     return `<article class="account ${layout === 'list' ? 'list-card' : 'plate-card'} ${view.id === state.selectedId ? 'is-selected' : ''} ${playing ? 'is-playing' : ''}" data-id="${esc(view.id)}" data-tier="${esc(view.accent)}">
       <input class="account-radio" type="radio" name="account" id="account-${index}" data-account="${esc(view.id)}" ${view.id === state.selectedId ? 'checked' : ''} ${busy() ? 'disabled' : ''}>
-      <label class="account-content" for="account-${index}" title="${esc(text.playHint)}">${layout === 'list' ? row(view, text) : plate(view, text)}</label>
+      <label class="account-content" for="account-${index}" title="${esc(text.playHint)}">${riot ? (layout === 'list' ? riotRow(view, text) : riotPlate(view, text)) : layout === 'list' ? row(view, text) : plate(view, text)}</label>
       <button class="pin" data-action="pin" aria-pressed="${view.pinned}" aria-label="${esc(text.pinNamed(view.name, view.pinned))}" title="${esc(view.pinned ? text.unpin : text.pin)}" ${busy() ? 'disabled' : ''}>${view.pinned ? '★' : '☆'}</button>
       <button class="edit" data-action="edit" aria-label="${esc(text.editNamed(view.name))}" title="${esc(text.editAccount)}" ${busy() ? 'disabled' : ''}>···</button>
     </article>`;
@@ -135,22 +165,61 @@ function climb(queue) {
   return value ? `<span class="climb" title="${esc(value.title)}"><img src="${esc(value.crest)}" alt="${esc(value.tier)}" loading="lazy"><span>${esc(value.label)}</span></span>` : '';
 }
 
+function hero(view, level) {
+  if (view.art) {
+    const badge = view.border?.badge ? ` data-badge="${esc(view.border.badge)}"` : '';
+    return `<span class="hero hero-art"><img class="art" src="${esc(view.art)}" width="268" height="640" alt="" loading="lazy"></span>${level ? `<span class="art-level${badge ? ' has-badge' : ''}"${badge}>${level}</span>` : ''}`;
+  }
+  if (state.game === 'tft') {
+    const picture = view.board ? `<img src="${esc(view.board)}" alt="" loading="lazy">` : '<span class="board-empty"></span>';
+    return `<span class="hero hero-board"><span class="board-ring">${picture}</span>${level}</span>`;
+  }
+  const banner = view.banner ? `<img class="banner" src="${esc(view.banner)}" width="580" height="1480" alt="" loading="lazy">` : '';
+  const frame = view.border ? `<img class="frame" src="${esc(view.border.src)}" alt="" loading="lazy">` : '';
+  return `<span class="hero hero-banner">${banner}<span class="avatar${view.border ? ` has-border border-${view.border.kind}` : ''}"${view.border?.badge ? ` data-badge="${esc(view.border.badge)}"` : ''}>${avatar(view, 'portrait')}${frame}${level}</span></span>`;
+}
+
 function plate(view, text) {
   const { main } = view;
   const level = view.level === null ? '' : `<span class="level"><span class="sr-only">${esc(text.level)} </span>${view.level}</span>`;
   const label = queueLabel(state.game, state.stats, GAME_QUEUES[state.stats][0], text);
-  const crest = main.ranked ? `<img class="crest" src="${esc(main.crest)}" alt="" loading="lazy">` : '';
+  const crest = main.crest ? `<img class="crest" src="${esc(main.crest)}" alt="" loading="lazy">` : '';
   const points = main.ranked ? ` · <span class="points">${esc(main.points)}</span>` : '';
+  const backdrop = view.splash ? `<img class="backdrop" src="${esc(view.splash)}" alt="" loading="lazy">` : '';
   return `<span class="plate">
-      <span class="avatar${view.border ? ` has-border border-${view.border.kind}` : ''}"${view.border?.badge ? ` data-badge="${esc(view.border.badge)}"` : ''}>${avatar(view, 'portrait')}${view.border ? `<img class="frame" src="${esc(view.border.src)}" alt="" loading="lazy">` : ''}${level}</span>
+      ${backdrop}${hero(view, level)}
       <strong class="name">${esc(view.name)}</strong>
       <span class="usage" title="${esc(view.usage)}">#${esc(view.tag)} · ${esc(view.recent)}</span>
-      <span class="rank${main.ranked ? '' : ' none'}">${crest}<strong class="tier">${esc(main.tier)}</strong><span class="rank-line"><small class="queue-name"${label.title ? ` title="${esc(label.title)}"` : ''}>${esc(label.label)}</small>${points}</span></span>
+      <span class="rank${main.ranked ? '' : ' none'}"><span class="rank-head">${crest}<strong class="tier">${esc(main.tier)}</strong></span><span class="rank-line"><small class="queue-name"${label.title ? ` title="${esc(label.title)}"` : ''}>${esc(label.label)}</small>${points}</span></span>
       ${main.played ? `<span class="played">${esc(main.played)}</span>` : ''}${climb(main)}${rr(main)}
     </span>`;
 }
 
+function riotRank(rank, text) {
+  return `<span class="riot-rank${rank.ranked ? '' : ' none'}" title="${esc(`${rank.gameName}: ${rank.tier}`)}"><img class="riot-game" src="${esc(rank.icon)}" alt="${esc(rank.gameName)}"><img class="riot-crest" src="${esc(rank.crest)}" alt="" loading="lazy"><span class="riot-tier"><strong>${esc(rank.tier)}</strong>${rank.points ? `<small>${esc(rank.points)}</small>` : ''}</span></span>`;
+}
+
+function riotPlate(view, text) {
+  const ranks = view.ranks.filter(rank => rank.shown);
+  const where = [`#${view.tag}`, view.region].filter(Boolean).join(' · ');
+  return `<span class="plate riot-plate">
+      <span class="riot-head" aria-hidden="true"></span>
+      <span class="riot-avatar">${avatar(view, 'portrait')}</span>
+      <strong class="name">${esc(view.name)}</strong>
+      <span class="usage">${esc(where)}</span>
+      <span class="riot-ranks">${ranks.length ? ranks.map(rank => riotRank(rank, text)).join('') : `<span class="riot-only">${esc(text.riotOnlyShort)}</span>`}</span>
+      <span class="riot-foot" title="${esc(view.usage)}">${esc(view.recent)}</span>
+    </span>`;
+}
+
+function riotRow(view, text) {
+  const head = `<span class="who-cell">${avatar(view, 'portrait')}<span><span class="who-line">${who(view)}</span><small>${esc([view.region, view.usage].filter(Boolean).join(' · '))}</small></span></span>`;
+  const cells = view.ranks.map(rank => rank.shown ? `<span class="queue-cell${rank.ranked ? '' : ' none'}"><img src="${esc(rank.crest)}" alt="" loading="lazy"><span><strong>${esc(rank.tier)}</strong><small>${esc(rank.ranked ? rank.points : text.noGames)}</small></span></span>` : '<span class="queue-cell off">—</span>').join('');
+  return `<span class="row">${head}${cells}</span>`;
+}
+
 function listHead(text) {
+  if (state.game === 'riot') return `<div class="list-head" aria-hidden="true"><span class="row">${[text.listAccount, ...RIOT_GAMES.map(game => GAME_SHORT[game])].map(name => `<span>${esc(name)}</span>`).join('')}</span><span></span><span></span></div>`;
   const columns = [text.listAccount, ...GAME_QUEUES[state.stats].map(queue => queueLabel(state.game, state.stats, queue, text).column), state.stats === 'val' ? text.listProgress : text.listWins];
   return `<div class="list-head" aria-hidden="true"><span class="row">${columns.map(name => `<span>${esc(name)}</span>`).join('')}</span><span></span><span></span></div>`;
 }
@@ -450,8 +519,20 @@ async function saveView(key, value) {
 
 $('#search').addEventListener('input', event => { state.filters.query = event.target.value; render(); });
 $('#search').addEventListener('keydown', event => { if (event.key === 'Escape' && event.target.value) { event.preventDefault(); event.stopPropagation(); clearFilters(); } });
-$('#filter-region').addEventListener('change', event => { state.filters.region = event.target.value; render(); });
-$('#filter-tier').addEventListener('change', event => { state.filters.tier = event.target.value; render(); });
+$('#filters').addEventListener('click', () => showFilters($('#filter-panel').hidden));
+$('#filter-panel').addEventListener('click', event => {
+  const chip = event.target.closest('.filter-chip');
+  if (!chip) return;
+  state.filters[chip.parentElement.id === 'filter-region' ? 'region' : 'tier'] = chip.dataset.value;
+  render();
+});
+document.addEventListener('pointerdown', event => { if (!$('#filter-panel').hidden && !event.target.closest?.('.filter-menu')) showFilters(false); });
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || $('#filter-panel').hidden) return;
+  event.preventDefault();
+  showFilters(false);
+  $('#filters').focus();
+});
 $('#sort').addEventListener('change', event => { if (SORTS.includes(event.target.value) && !busy()) saveView('cardSort', event.target.value); });
 $('#add-account').addEventListener('click', () => { if (!busy()) editAccount(); });
 $('#settings').addEventListener('click', () => { const form = $('#settings-form'); form.reset(); form.querySelector('.form-error').textContent = ''; form.elements.refreshMinutes.value = state.settings.refreshMinutes ?? 30; form.elements.staySignedIn.checked = state.settings.staySignedIn !== false; form.elements.uiSounds.checked = state.settings.uiSounds !== false; $('#start-with-windows').hidden = typeof state.startWithWindows !== 'boolean'; form.elements.startWithWindows.checked = state.startWithWindows === true; form.elements.language.value = state.settings.language === 'en' ? 'en' : 'pt'; $('#settings-dialog').showModal(); });
@@ -460,8 +541,13 @@ $('#games').addEventListener('click', event => {
   const button = event.target.closest('[data-game]');
   if (!button || busy() || !GAME_NAMES[button.dataset.game]) return;
   state.game = button.dataset.game;
+  if (state.game === 'riot') state.filters.tier = '';
   if (GAME_QUEUES[state.game] && state.stats !== state.game) { state.stats = state.game; state.filters.tier = ''; }
   render();
+});
+$('#page-theme').addEventListener('click', () => {
+  if (busy()) return;
+  saveView('pageTheme', otherPageTheme(pageThemeOf(state.settings)));
 });
 $('#layout').addEventListener('click', event => {
   const layout = event.target.closest('[data-layout]')?.dataset.layout;

@@ -99,6 +99,7 @@ O preenchimento real precisa da janela do Riot e não tem teste automatizado. O 
 
 ## Pontos de atenção
 
+- **Aviso do "Manter login".** Na primeira vez que a caixa é ligada numa instalação da Riot, a Riot abre um aviso que cobre o botão de entrar. O [[riotClient]] marca o aviso como visto antes de chamar o preenchimento ([[ADR-046 Aviso do Manter login marcado como visto]]); se a marca falhar, o clique em entrar se perde e o login espera o usuário.
 - **Layout fixo.** As coordenadas e as cores dependem do tema do cliente: [[Atualização do Riot Client]].
 - **Precisa da janela renderizando.** A janela não pode estar em `SW_HIDE` para receber a digitação; o login é sempre visível desde 2026-11-07.
 - **Tempo total.** Até 60 s para achar o formulário, mais até 4,5 s do UI Automation e a digitação de recuo. Não há mais o limite de 90 s do processo externo; o cancelamento do [[signInFlow]] é conferido entre as etapas.

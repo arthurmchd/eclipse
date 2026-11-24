@@ -6,7 +6,7 @@ use std::sync::Arc;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use eclipse::integration::backend::Backend;
-use eclipse::riot::game_ranks::{league_border, league_folders_with, parse_league, parse_valorant, prestige_theme, read_league_lockfile_with, val_tier_name, GameRanks};
+use eclipse::riot::game_ranks::{background_skin, champion_route, chosen_banner, chosen_companion, inventory_banner, skin_splash, league_banner, league_border, league_folders_with, parse_league, parse_valorant, prestige_theme, read_league_lockfile_with, val_tier_name, GameRanks};
 use eclipse::riot::{RiotError, RiotId};
 use serde_json::{json, Map, Value};
 
@@ -165,7 +165,7 @@ fn the_reader_only_sends_get_requests_stops_at_the_first_failing_answer_and_read
     assert_eq!(ranks.league().unwrap().lol.unwrap()["solo"]["tier"], "GOLD");
     assert_eq!(ranks.valorant().unwrap().val.unwrap()["tierName"], "Silver 1");
     assert!(league.routes().iter().chain(riot.routes().iter()).all(|(method, _)| method == "GET"));
-    assert_eq!(league.routes().len() + riot.routes().len(), 5);
+    assert_eq!(league.routes().len() + riot.routes().len(), 7);
     assert!(ranks.league().unwrap().lol.unwrap().get("border").is_none());
 
     let league = answering(map(json!({ "/lol-summoner/v1/current-summoner": { "status": 404, "json": { "message": "nope" } } })));
@@ -221,8 +221,9 @@ fn the_equipped_league_border_is_the_chosen_level_border_or_the_ranked_one_and_a
     assert_eq!(league_border(&json!({ "crestType": "prestige", "selectedPrestigeCrest": 6 }), &level), json!({ "kind": "level", "theme": 6 }));
     assert_eq!(league_border(&json!({ "crestType": "prestige", "selectedPrestigeCrest": 0 }), &level), json!({ "kind": "level", "theme": 13 }));
     assert_eq!(league_border(&json!({ "crestType": "prestige", "selectedPrestigeCrest": 99, "summonerLevel": 40 }), &Value::Null), json!({ "kind": "level", "theme": 2 }));
-    assert_eq!(league_border(&json!({ "crestType": "ranked", "lastSeasonHighestRank": "gold", "highestRankedEntry": { "tier": "DIAMOND" } }), &level), json!({ "kind": "ranked", "tier": "GOLD" }));
+    assert_eq!(league_border(&json!({ "crestType": "ranked", "lastSeasonHighestRank": "gold", "highestRankedEntry": { "tier": "DIAMOND" } }), &level), json!({ "kind": "ranked", "tier": "DIAMOND" }));
     assert_eq!(league_border(&json!({ "crestType": "ranked", "lastSeasonHighestRank": "", "highestRankedEntry": { "tier": "EMERALD" } }), &level), json!({ "kind": "ranked", "tier": "EMERALD" }));
+    assert_eq!(league_border(&json!({ "crestType": "ranked", "lastSeasonHighestRank": "gold", "highestRankedEntry": { "tier": "NONE" } }), &level), json!({ "kind": "ranked", "tier": "GOLD" }));
     assert_eq!(league_border(&json!({ "crestType": "ranked", "lastSeasonHighestRank": "../x" }), &level), Value::Null);
     assert_eq!(league_border(&json!({ "crestType": "none" }), &level), Value::Null);
     assert_eq!(league_border(&json!({}), &level), Value::Null);
@@ -236,9 +237,12 @@ fn the_league_reading_carries_the_equipped_border_with_one_more_get() {
         "/lol-regalia/v2/current-summoner/regalia": { "status": 200, "json": { "crestType": "prestige", "selectedPrestigeCrest": 9 } },
     })));
     let ranks = GameRanks::new(league.clone(), answering(Map::new()));
-    assert_eq!(ranks.league().unwrap().lol.unwrap()["border"], json!({ "kind": "level", "theme": 9 }));
+    let lol = ranks.league().unwrap().lol.unwrap();
+    assert_eq!(lol["border"], json!({ "kind": "level", "theme": 9 }));
+    assert_eq!(lol["banner"], json!("default"));
     assert!(league.routes().iter().all(|(method, _)| method == "GET"));
-    assert_eq!(league.routes().len(), 3);
+    assert_eq!(league.routes().len(), 6);
+    assert!(lol.get("splash").is_none() && lol.get("companion").is_none());
 }
 
 #[test]
@@ -250,4 +254,86 @@ fn the_valorant_border_is_the_chosen_one_or_the_level_one_and_absent_when_the_pr
     assert_eq!(read(json!({ "competitiveTier": 9, "preferredLevelBorderId": "00000000-0000-0000-0000-000000000000" }))["border"], "level");
     assert_eq!(read(json!({ "competitiveTier": 9, "preferredLevelBorderId": "../../x" }))["border"], "level");
     assert!(read(json!({ "competitiveTier": 9 })).get("border").is_none());
+}
+
+#[test]
+fn the_league_banner_is_the_chosen_one_the_last_season_rank_only_when_chosen_and_the_default_otherwise() {
+    let regalia = json!({ "lastSeasonHighestRank": "GOLD", "bannerType": "lastSeasonHighestRank" });
+    assert_eq!(league_banner(&regalia, None, None), json!("default"));
+    assert_eq!(league_banner(&json!({ "lastSeasonHighestRank": "grandmaster" }), Some("2"), None), json!("grandmaster"));
+    assert_eq!(league_banner(&json!({ "lastSeasonHighestRank": "GOLD", "bannerType": "blank" }), None, None), json!("default"));
+    assert_eq!(league_banner(&json!({ "lastSeasonHighestRank": "../x" }), Some("2"), None), json!("default"));
+    assert_eq!(league_banner(&json!({}), None, None), json!("default"));
+    assert_eq!(league_banner(&regalia, Some("1"), None), json!("default"));
+    assert_eq!(league_banner(&regalia, Some("2"), None), json!("gold"));
+    let inventory = json!({ "3": { "items": [{ "isSelectable": false, "assetPath": "/lol-game-data/assets/ASSETS/Regalia/BannerSkins/other.png" }, { "isSelectable": true, "assetPath": "/lol-game-data/assets/ASSETS/Regalia/BannerSkins/LNY2023.png" }] } });
+    assert_eq!(league_banner(&regalia, Some("3"), Some(&inventory)), json!("lny2023"));
+    assert_eq!(league_banner(&regalia, Some("9"), Some(&inventory)), json!("default"));
+    assert_eq!(league_banner(&regalia, Some("3"), None), json!("default"));
+}
+
+#[test]
+fn only_a_numeric_banner_id_with_a_challenge_level_and_a_known_banner_path_are_accepted() {
+    assert_eq!(chosen_banner(&json!({ "overallChallengeLevel": "GOLD", "bannerId": "12" })), Some("12".to_string()));
+    for odd in [json!({ "bannerId": "12" }), json!({ "overallChallengeLevel": "", "bannerId": "12" }), json!({ "overallChallengeLevel": "GOLD", "bannerId": "../1" }), json!({ "overallChallengeLevel": "GOLD", "bannerId": 12 }), json!({ "overallChallengeLevel": "GOLD", "bannerId": "" })] {
+        assert_eq!(chosen_banner(&odd), None);
+    }
+    for path in ["https://evil.example/x.png", "/lol-game-data/assets/ASSETS/Regalia/BannerSkins/../x.png", "/lol-game-data/assets/ASSETS/Regalia/Crests/x.png", "/lol-game-data/assets/"] {
+        assert_eq!(inventory_banner(&json!({ "5": { "items": [{ "isSelectable": true, "assetPath": path }] } }), "5"), None);
+    }
+    assert_eq!(inventory_banner(&json!({ "5": { "items": "x" } }), "5"), None);
+}
+
+#[test]
+fn the_league_reading_asks_for_the_banner_inventory_only_when_a_custom_banner_is_chosen() {
+    let routes = |summary: Value| map(json!({
+        "/lol-summoner/v1/current-summoner": { "status": 200, "json": summoner() },
+        "/lol-ranked/v1/current-ranked-stats": { "status": 200, "json": ranked() },
+        "/lol-regalia/v2/current-summoner/regalia": { "status": 200, "json": { "crestType": "none", "lastSeasonHighestRank": "SILVER" } },
+        "/lol-challenges/v1/summary-player-data/local-player": { "status": 200, "json": summary },
+        "/lol-regalia/v3/inventory/REGALIA_BANNER": { "status": 200, "json": { "7": { "items": [{ "isSelectable": true, "assetPath": "/lol-game-data/assets/ASSETS/Regalia/BannerSkins/worlds2026_banner.png" }] } } },
+    }));
+    let custom = answering(routes(json!({ "overallChallengeLevel": "GOLD", "bannerId": "7" })));
+    assert_eq!(GameRanks::new(custom.clone(), answering(Map::new())).league().unwrap().lol.unwrap()["banner"], json!("worlds2026_banner"));
+    assert_eq!(custom.routes().len(), 7);
+    assert!(custom.routes().iter().all(|(method, _)| method == "GET"));
+    let rank = answering(routes(json!({ "overallChallengeLevel": "GOLD", "bannerId": "2" })));
+    assert_eq!(GameRanks::new(rank.clone(), answering(Map::new())).league().unwrap().lol.unwrap()["banner"], json!("silver"));
+    assert_eq!(rank.routes().len(), 6);
+}
+
+#[test]
+fn the_league_reading_carries_the_profile_splash_and_the_tft_companion_with_get_only() {
+    let league = answering(map(json!({
+        "/lol-summoner/v1/current-summoner": { "status": 200, "json": summoner() },
+        "/lol-ranked/v1/current-ranked-stats": { "status": 200, "json": ranked() },
+        "/lol-summoner/v1/current-summoner/summoner-profile": { "status": 200, "json": { "backgroundSkinId": 103001 } },
+        "/lol-game-data/assets/v1/champions/103.json": { "status": 200, "json": { "skins": [
+            { "id": 103000, "splashPath": "/lol-game-data/assets/ASSETS/Characters/Ahri/Skins/Base/Images/ahri_splash_centered_0.jpg" },
+            { "id": 103001, "splashPath": "/lol-game-data/assets/ASSETS/Characters/Ahri/Skins/Skin01/Images/ahri_splash_centered_1.jpg" },
+        ] } },
+        "/lol-cosmetics/v1/inventories/tft/companions": { "status": 200, "json": { "selectedLoadoutItem": { "loadoutsIcon": "/lol-game-data/assets/ASSETS/Loadouts/Companions/Tooltip_ChibiAhri_Base_Classic_Tier1.png" } } },
+    })));
+    let lol = GameRanks::new(league.clone(), answering(Map::new())).league().unwrap().lol.unwrap();
+    assert_eq!(lol["splash"], json!("characters/ahri/skins/skin01/images/ahri_splash_centered_1.jpg"));
+    assert_eq!(lol["companion"], json!("tooltip_chibiahri_base_classic_tier1"));
+    assert!(league.routes().iter().all(|(method, _)| method == "GET"));
+}
+
+#[test]
+fn only_a_known_skin_with_a_game_data_splash_path_and_a_known_companion_path_are_kept() {
+    assert_eq!(background_skin(&json!({ "backgroundSkinId": 222037 })), Some(222037));
+    for odd in [json!({}), json!({ "backgroundSkinId": 0 }), json!({ "backgroundSkinId": 999 }), json!({ "backgroundSkinId": "103000" }), json!({ "backgroundSkinId": 10_000_000 })] {
+        assert_eq!(background_skin(&odd), None);
+    }
+    assert_eq!(champion_route(222037), "/lol-game-data/assets/v1/champions/222.json");
+    let champion = |path: &str| json!({ "skins": [{ "id": 103000, "splashPath": path }] });
+    for path in ["https://evil.example/x.jpg", "/lol-game-data/assets/ASSETS/Characters/Ahri/Skins/../x.jpg", "/lol-game-data/assets/ASSETS/Characters/Ahri/Skins/Base/Images/x.png", "/lol-game-data/assets/v1/champion-splashes/103/103000.jpg"] {
+        assert_eq!(skin_splash(&champion(path), 103000), None);
+    }
+    assert_eq!(skin_splash(&champion("/lol-game-data/assets/ASSETS/Characters/Ahri/Skins/Base/Images/ahri_splash_centered_0.jpg"), 103001), None);
+    assert_eq!(skin_splash(&json!({ "skins": "x" }), 103000), None);
+    for odd in [json!({}), json!({ "selectedLoadoutItem": { "loadoutsIcon": "https://evil.example/x.png" } }), json!({ "selectedLoadoutItem": { "loadoutsIcon": "/lol-game-data/assets/ASSETS/Loadouts/Companions/../x.png" } }), json!({ "selectedLoadoutItem": { "loadoutsIcon": 5 } })] {
+        assert_eq!(chosen_companion(&odd), None);
+    }
 }

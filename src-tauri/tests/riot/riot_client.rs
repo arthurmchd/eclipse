@@ -10,7 +10,8 @@ use base64::Engine;
 use eclipse::platform::windows::login_form::{FillFailure, FillReport, InputMethod, LoginForm, Remember};
 use eclipse::riot::riot_client::{
     authorization_of, close_everything, detect_client_path_with, fill_error, fill_error_for, fill_login_form, has_persisted_login, lockfile_change, persisted_riot_id, persisted_subject,
-    replace_file_with, report_lines, request_launch, running_games_in, settings_change, start_client, strip_persisted_login, taskkill_args, CloseIo, DiskFiles, SettingsFiles, StartIo, FALLBACK_CLIENT, QUIT,
+    replace_file_with, report_lines, request_launch, running_games_in, settings_change, skip_stay_signed_in_notice, start_client, strip_persisted_login, taskkill_args, CloseIo, DiskFiles, SettingsFiles, StartIo, FALLBACK_CLIENT, QUIT,
+    STAY_SIGNED_IN_NOTICE,
 };
 use eclipse::riot::riot_state::RiotProbe;
 use eclipse::riot::riot_version::{RiotVersion, NEWER_RIOT};
@@ -19,7 +20,7 @@ use eclipse::riot::{AccountState, Cancel, Response, RiotError, RiotId, RiotResul
 use serde_json::{json, Value};
 use tempfile::TempDir;
 
-use crate::{reply, FakeApi};
+use crate::{reply, route, FakeApi};
 
 const SUBJECT: &str = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 const TOKEN_SUBJECT: &str = "9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f";
@@ -727,4 +728,21 @@ fn a_form_that_fails_on_a_riot_newer_than_the_last_tested_says_so_and_names_its_
     let log = |line: &str| lines.borrow_mut().push(line.to_string());
     assert_eq!(fill_login_form(&failing, &typed(), newer, None, &log).unwrap_err().message, message);
     assert_eq!(*lines.borrow(), ["Riot Client 144.0.2.7 (newer than the last tested, 143)"]);
+}
+
+#[test]
+fn the_riot_stay_signed_in_notice_is_marked_as_seen_before_the_form_so_it_never_covers_the_sign_in_button() {
+    let lines = RefCell::new(Vec::<String>::new());
+    let log = |line: &str| lines.borrow_mut().push(line.to_string());
+    let fresh = FakeApi::new(|method, _, _| if method == "GET" { reply(404, Value::Null) } else { reply(204, Value::Null) });
+    skip_stay_signed_in_notice(fresh.as_ref(), &log);
+    assert_eq!(fresh.routes(), [route("GET", STAY_SIGNED_IN_NOTICE), route("POST", STAY_SIGNED_IN_NOTICE)]);
+    assert_eq!(fresh.calls()[1].2, Some(Value::Bool(true)));
+    let seen = FakeApi::new(|_, _, _| reply(200, Value::Bool(true)));
+    skip_stay_signed_in_notice(seen.as_ref(), &log);
+    assert_eq!(seen.routes(), [route("GET", STAY_SIGNED_IN_NOTICE)]);
+    let refused = FakeApi::new(|method, _, _| if method == "GET" { reply(200, json!("")) } else { Err(RiotError::new("offline")) });
+    skip_stay_signed_in_notice(refused.as_ref(), &log);
+    assert_eq!(refused.routes().len(), 2);
+    assert_eq!(*lines.borrow(), ["marked the Riot stay signed in notice as seen", "could not mark the Riot stay signed in notice as seen"]);
 }

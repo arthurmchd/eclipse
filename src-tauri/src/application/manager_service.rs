@@ -7,6 +7,7 @@ use serde_json::{json, Map, Value};
 use super::language::LANGUAGES;
 
 pub const CARD_LAYOUTS: [&str; 2] = ["plates", "list"];
+pub const PAGE_THEMES: [&str; 2] = ["light", "dark"];
 pub const CARD_SORTS: [&str; 4] = ["manual", "rank", "name", "recent"];
 pub const MAX_BATCH: usize = 50;
 use super::store::{account_riot_id, AccountInput, SettingsInput, Store, ACCOUNT_GAMES};
@@ -427,7 +428,7 @@ impl ManagerService {
     }
 
     fn save_settings(&self, input: &Value) -> Result<Value, Failure> {
-        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "cardLayout", "cardSort", "uiSounds", "startWithWindows", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
+        keys(input, &["refreshMinutes", "staySignedIn", "riotClientPath", "language", "cardLayout", "cardSort", "pageTheme", "uiSounds", "startWithWindows", "riotApiKey", "riotTftApiKey", "henrikApiKey"])?;
         let mut clean = SettingsInput::default();
         let mut startup = None;
         for (key, value) in input.as_object().unwrap() {
@@ -446,6 +447,10 @@ impl ManagerService {
                 "cardLayout" => {
                     let layout = value.as_str().filter(|layout| CARD_LAYOUTS.contains(layout)).ok_or_else(|| Failure::new("Invalid setting", 400))?;
                     clean.card_layout = Some(layout.to_string());
+                }
+                "pageTheme" => {
+                    let theme = value.as_str().filter(|theme| PAGE_THEMES.contains(theme)).ok_or_else(|| Failure::new("Invalid setting", 400))?;
+                    clean.page_theme = Some(theme.to_string());
                 }
                 "cardSort" => {
                     let sort = value.as_str().filter(|sort| CARD_SORTS.contains(sort)).ok_or_else(|| Failure::new("Invalid setting", 400))?;

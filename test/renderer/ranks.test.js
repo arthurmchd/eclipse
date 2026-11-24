@@ -34,6 +34,32 @@ test('the VALORANT card art is the small square art of the saved card, or the de
   for (const card of [null, undefined, '', 'https://example.com/card.png', { small: 'x' }]) assert.equal(valCardArt(card), `${base}/9fb348bc-41a0-91ad-8a3e-818035c4e561/smallart.png`);
 });
 
+test('every League account gets the default level border of its level', async () => {
+  const { levelTheme, lolLevelBorder } = await load('ranks.js');
+  assert.deepEqual([1, 29, 30, 49, 50, 74, 75, 100, 499, 500, 2000].map(levelTheme), [1, 1, 2, 2, 3, 3, 4, 5, 20, 21, 21]);
+  assert.match(lolLevelBorder(143).src, /themed-borders\/theme-6-border\.png$/);
+  for (const odd of [null, undefined, 0, -3, 1.5, '40']) assert.equal(lolLevelBorder(odd), null);
+});
+
+test('the VALORANT large art is the tall art of the same card, or of the default card', async () => {
+  const { valLargeArt } = await load('ranks.js');
+  const base = 'https://media.valorant-api.com/playercards';
+  assert.equal(valLargeArt(`${base}/CEC2424B-483E-DA2E-4369-F0A8822F96B5/smallart.png`), `${base}/cec2424b-483e-da2e-4369-f0a8822f96b5/largeart.png`);
+  for (const card of [null, '', 'https://example.com/card.png']) assert.equal(valLargeArt(card), `${base}/9fb348bc-41a0-91ad-8a3e-818035c4e561/largeart.png`);
+});
+
+test('the League banner is the one read from the game (rank, event or challenge banner), or else the default League banner', async () => {
+  const { lolBanner } = await load('ranks.js');
+  const base = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/regalia/bannerskins';
+  assert.equal(lolBanner('gold'), `${base}/gold.png`);
+  assert.equal(lolBanner('default'), `${base}/default.png`);
+  assert.equal(lolBanner('worlds2026_banner'), `${base}/worlds2026_banner.png`);
+  assert.equal(lolBanner('LNY2023'), `${base}/lny2023.png`);
+  assert.equal(lolBanner(undefined), `${base}/default.png`);
+  assert.equal(lolBanner('../x'), `${base}/default.png`);
+  assert.equal(lolBanner({ name: 'gold' }), `${base}/default.png`);
+});
+
 test('a VALORANT rank read from the game has no RR, and the card shows the tier without one', async () => {
   const { rankOf } = await load('ranks.js');
   const fromGame = rankOf({ stats: { val: { tier: 16, tierName: 'Platinum 2', rr: null, level: 80 } } }, 'val', 'competitive');
@@ -69,4 +95,13 @@ test('the VALORANT border is the chosen one or the one of the account level, wit
   assert.deepEqual(valBorder('level', 39), at('5156a90d-4d65-58d0-f6a8-48a0c003878a'));
   assert.deepEqual(valBorder('level', 40), at('9c4afb15-40d7-3557-062a-4bb198cb9958'));
   for (const [border, level] of [[undefined, 50], [null, 50], ['level', null], ['level', 0], ['../../x', 50], [{}, 50]]) assert.equal(valBorder(border, level), null);
+});
+
+test('the profile splash and the TFT companion only become CommunityDragon images from safe saved names', async () => {
+  const { lolSplash, tftCompanion } = await load('ranks.js');
+  const base = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets';
+  assert.equal(lolSplash('characters/ahri/skins/skin01/images/ahri_splash_centered_1.jpg'), `${base}/characters/ahri/skins/skin01/images/ahri_splash_centered_1.jpg`);
+  for (const odd of [undefined, 5, '', 'characters/ahri/../x.jpg', 'https://evil.example/x.jpg', 'characters/Ahri/skins/base/images/a.jpg', 'characters/ahri/skins/base/images/a.png']) assert.equal(lolSplash(odd), null);
+  assert.equal(tftCompanion('tooltip_chibiahri_base_classic_tier1'), `${base}/loadouts/companions/tooltip_chibiahri_base_classic_tier1.png`);
+  for (const odd of [undefined, null, '', '../x', 'Tooltip_A', 'a/b']) assert.equal(tftCompanion(odd), null);
 });

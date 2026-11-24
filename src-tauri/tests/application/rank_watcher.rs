@@ -310,3 +310,30 @@ fn a_reading_with_a_border_replaces_the_saved_one_and_a_reading_without_it_keeps
     assert_eq!(replaced["lol"]["border"], Value::Null);
     assert_eq!(replaced["val"]["border"], "aabbccdd-0000-1111-2222-333344445555");
 }
+
+#[test]
+fn a_reading_with_a_banner_replaces_the_saved_one_and_a_reading_without_it_keeps_it() {
+    let riot_id = RiotId { game_name: "Synthetic".into(), tag_line: "BR1".into() };
+    let before = json!({ "lol": { "level": 1, "banner": "gold" } });
+    let without = Reading { riot_id: riot_id.clone(), lol: Some(json!({ "level": 2 })), tft: None, val: None };
+    assert_eq!(merge_reading(Some(&before), &without, AT)["lol"]["banner"], "gold");
+    let odd = Reading { riot_id: riot_id.clone(), lol: Some(json!({ "level": 2, "banner": 7 })), tft: None, val: None };
+    assert_eq!(merge_reading(Some(&before), &odd, AT)["lol"]["banner"], "gold");
+    let with = Reading { riot_id, lol: Some(json!({ "level": 2, "banner": "worlds2026_banner" })), tft: None, val: None };
+    assert_eq!(merge_reading(Some(&before), &with, AT)["lol"]["banner"], "worlds2026_banner");
+    assert_eq!(merge_reading(None, &with, AT)["lol"]["banner"], "worlds2026_banner");
+}
+
+#[test]
+fn a_reading_with_a_splash_or_a_companion_replaces_the_saved_one_and_a_reading_without_them_keeps_them() {
+    let riot_id = RiotId { game_name: "Synthetic".into(), tag_line: "BR1".into() };
+    let before = json!({ "lol": { "level": 1, "splash": "characters/a/skins/base/images/a.jpg", "companion": "tooltip_a" } });
+    let without = Reading { riot_id: riot_id.clone(), lol: Some(json!({ "level": 2 })), tft: None, val: None };
+    let kept = merge_reading(Some(&before), &without, AT);
+    assert_eq!(kept["lol"]["splash"], "characters/a/skins/base/images/a.jpg");
+    assert_eq!(kept["lol"]["companion"], "tooltip_a");
+    let with = Reading { riot_id, lol: Some(json!({ "level": 2, "splash": "characters/b/skins/base/images/b.jpg", "companion": "tooltip_b" })), tft: None, val: None };
+    let next = merge_reading(Some(&before), &with, AT);
+    assert_eq!(next["lol"]["splash"], "characters/b/skins/base/images/b.jpg");
+    assert_eq!(next["lol"]["companion"], "tooltip_b");
+}

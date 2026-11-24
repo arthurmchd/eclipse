@@ -7,6 +7,8 @@ tags: [adr, interface, segurança]
 
 # ADR-040 Visual da Riot e sons da interface
 
+Revisada em 2026-11-23 pela [[ADR-047 Fundo claro e estilo do jogo só nos cartões]]: o tema escuro e o estilo da página inteira por aba saíram; o estilo do jogo ficou só nos cartões, sobre um fundo claro. Os sons, a Inter, o movimento e as cores de aviso continuam.
+
 ## Contexto
 
 Pedido do usuário em 2026-11-20: "quero deixar o Eclipse com mais cara de Riot Games". O [[Estudo - Visual da Riot]] levantou nove itens. O usuário os comparou numa página fora do projeto e escolheu "todas as mudanças menos a da arte no fundo": tema escuro do Riot Client, fonte Inter, movimento da Riot, estilo próprio em cada aba, sons de interface (opcionais), cantos e sombras do Riot Client, cores de aviso da Riot e rótulos em maiúsculas.

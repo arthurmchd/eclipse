@@ -9,16 +9,26 @@ const load = () => import(pathToFileURL(path.join(RENDERER_DIR, 'windowDrag.js')
 function element(matches = [], size = {}) {
   return { closest: (selector) => (matches.some((name) => selector.split(', ').includes(name)) ? {} : null), clientWidth: 600, offsetWidth: 600, clientHeight: 400, offsetHeight: 400, ...size };
 }
-const press = (target, extra = {}) => ({ button: 0, isPrimary: true, pointerType: 'mouse', target, offsetX: 10, offsetY: 10, ...extra });
+const press = (target, extra = {}) => ({ button: 0, isPrimary: true, pointerType: 'mouse', target, offsetX: 10, offsetY: 10, clientY: 10, ...extra });
 
-test('a press on empty space of the cards page starts the Riot drag', async () => {
-  const { dragSpot } = await load();
-  assert.equal(dragSpot(press(element())), true);
+test('a press on the empty top strip starts the Riot drag', async () => {
+  const { dragSpot, TOP_STRIP } = await load();
+  assert.equal(TOP_STRIP, 30);
+  assert.equal(dragSpot(press(element(), { clientY: 0 })), true);
+  assert.equal(dragSpot(press(element(), { clientY: TOP_STRIP - 1 })), true);
+});
+
+test('empty space below the top strip does not drag the Riot', async () => {
+  const { dragSpot, TOP_STRIP } = await load();
+  assert.equal(dragSpot(press(element(), { clientY: TOP_STRIP })), false);
+  assert.equal(dragSpot(press(element(), { clientY: 300 })), false);
+  assert.equal(dragSpot(press(element(), { clientY: -1 })), false);
+  assert.equal(dragSpot(press(element(), { clientY: undefined })), false);
 });
 
 test('controls, cards, the Riot control copies and dialogs keep their own press', async () => {
   const { dragSpot } = await load();
-  for (const name of ['button', 'input', 'select', 'textarea', 'label', 'a', 'dialog', '[role=button]', '[data-account]', '.account', '.riot-controls']) {
+  for (const name of ['button', 'input', 'select', 'textarea', 'label', 'a', 'dialog', '[role=button]', '[data-account]', '.account', '.riot-controls', '.status', '#notice']) {
     assert.equal(dragSpot(press(element([name]))), false, name);
   }
   assert.equal(dragSpot(press(element()), { modal: true }), false);

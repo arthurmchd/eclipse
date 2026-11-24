@@ -134,7 +134,7 @@ pub fn league_border(regalia: &Value, level: &Value) -> Value {
         Some("ranked") => {
             let last = regalia.get("lastSeasonHighestRank").and_then(Value::as_str);
             let highest = regalia.get("highestRankedEntry").and_then(|entry| entry.get("tier")).and_then(Value::as_str);
-            [last, highest]
+            [highest, last]
                 .into_iter()
                 .flatten()
                 .map(str::to_uppercase)
@@ -144,6 +144,63 @@ pub fn league_border(regalia: &Value, level: &Value) -> Value {
         }
         _ => Value::Null,
     }
+}
+
+pub const CHALLENGES_SUMMARY: &str = "/lol-challenges/v1/summary-player-data/local-player";
+pub const BANNER_INVENTORY: &str = "/lol-regalia/v3/inventory/REGALIA_BANNER";
+const BANNER_DEFAULT: &str = "1";
+const BANNER_PAST_RANK: &str = "2";
+
+pub fn chosen_banner(summary: &Value) -> Option<String> {
+    let level = summary.get("overallChallengeLevel").and_then(Value::as_str).filter(|level| !level.is_empty());
+    let id = summary.get("bannerId").and_then(Value::as_str).filter(|id| (1..=12).contains(&id.len()) && id.bytes().all(|byte| byte.is_ascii_digit()));
+    level.and(id).map(str::to_string)
+}
+
+pub fn inventory_banner(inventory: &Value, id: &str) -> Option<String> {
+    static PATH: OnceLock<Regex> = OnceLock::new();
+    let path = PATH.get_or_init(|| Regex::new(r"(?i)^/lol-game-data/assets/ASSETS/Regalia/BannerSkins/([a-z0-9_]{1,80})\.png$").unwrap());
+    let items = inventory.get(id)?.get("items")?.as_array()?;
+    let asset = items.iter().find(|item| item.get("isSelectable").and_then(Value::as_bool) == Some(true))?.get("assetPath")?.as_str()?;
+    path.captures(asset).map(|found| found[1].to_lowercase())
+}
+
+fn rank_banner(regalia: &Value) -> String {
+    regalia.get("lastSeasonHighestRank").and_then(Value::as_str).map(str::to_uppercase).filter(|tier| LOL_TIERS.contains(&tier.as_str())).map(|tier| tier.to_lowercase()).unwrap_or_else(|| "default".to_string())
+}
+
+pub fn league_banner(regalia: &Value, chosen: Option<&str>, inventory: Option<&Value>) -> Value {
+    let banner = match chosen {
+        Some(BANNER_DEFAULT) => "default".to_string(),
+        Some(BANNER_PAST_RANK) => rank_banner(regalia),
+        Some(id) => inventory.and_then(|inventory| inventory_banner(inventory, id)).unwrap_or_else(|| "default".to_string()),
+        None => "default".to_string(),
+    };
+    Value::String(banner)
+}
+
+pub const SUMMONER_PROFILE: &str = "/lol-summoner/v1/current-summoner/summoner-profile";
+pub const TFT_COMPANIONS: &str = "/lol-cosmetics/v1/inventories/tft/companions";
+
+pub fn background_skin(profile: &Value) -> Option<i64> {
+    profile.get("backgroundSkinId").and_then(Value::as_i64).filter(|id| (1000..=9_999_999).contains(id))
+}
+
+pub fn champion_route(skin: i64) -> String {
+    format!("/lol-game-data/assets/v1/champions/{}.json", skin / 1000)
+}
+
+pub fn skin_splash(champion: &Value, skin: i64) -> Option<String> {
+    static PATH: OnceLock<Regex> = OnceLock::new();
+    let path = PATH.get_or_init(|| Regex::new(r"(?i)^/lol-game-data/assets/ASSETS/(Characters/[a-z0-9_]{1,40}/Skins/[a-z0-9_]{1,40}/Images/[a-z0-9_]{1,80}\.jpg)$").unwrap());
+    let found = champion.get("skins")?.as_array()?.iter().find(|item| item.get("id").and_then(Value::as_i64) == Some(skin))?;
+    path.captures(found.get("splashPath")?.as_str()?).map(|found| found[1].to_lowercase())
+}
+
+pub fn chosen_companion(inventory: &Value) -> Option<String> {
+    static PATH: OnceLock<Regex> = OnceLock::new();
+    let path = PATH.get_or_init(|| Regex::new(r"(?i)^/lol-game-data/assets/ASSETS/Loadouts/Companions/([a-z0-9_]{1,120})\.png$").unwrap());
+    path.captures(inventory.get("selectedLoadoutItem")?.get("loadoutsIcon")?.as_str()?).map(|found| found[1].to_lowercase())
 }
 
 fn val_border(player: &Value) -> Option<Value> {
@@ -215,6 +272,19 @@ impl GameRanks {
         if let (Some(regalia), Some(lol)) = (answer(self.league_api.as_ref(), "/lol-regalia/v2/current-summoner/regalia"), reading.lol.as_mut()) {
             let border = league_border(&regalia, &lol["level"]);
             lol["border"] = border;
+            let chosen = answer(self.league_api.as_ref(), CHALLENGES_SUMMARY).and_then(|summary| chosen_banner(&summary));
+            let custom = chosen.as_deref().filter(|id| ![BANNER_DEFAULT, BANNER_PAST_RANK].contains(id));
+            let inventory = custom.and_then(|_| answer(self.league_api.as_ref(), BANNER_INVENTORY));
+            lol["banner"] = league_banner(&regalia, chosen.as_deref(), inventory.as_ref());
+        }
+        if let Some(lol) = reading.lol.as_mut() {
+            let skin = answer(self.league_api.as_ref(), SUMMONER_PROFILE).and_then(|profile| background_skin(&profile));
+            if let Some(splash) = skin.and_then(|skin| answer(self.league_api.as_ref(), &champion_route(skin)).and_then(|champion| skin_splash(&champion, skin))) {
+                lol["splash"] = Value::String(splash);
+            }
+            if let Some(companion) = answer(self.league_api.as_ref(), TFT_COMPANIONS).and_then(|inventory| chosen_companion(&inventory)) {
+                lol["companion"] = Value::String(companion);
+            }
         }
         Some(reading)
     }

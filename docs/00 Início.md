@@ -76,6 +76,12 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-041 Arraste da Riot pela área do Eclipse]]
 - [[ADR-042 CAPTCHA do formulário não bloqueia conta autorizada]]
 - [[ADR-043 Preenchimento do login por UI Automation]]
+- [[ADR-044 Helpers do Windows em Rust]]
+- [[ADR-045 Atualização pelo GitHub]]
+- [[ADR-046 Aviso do Manter login marcado como visto]]
+- [[ADR-047 Fundo claro e estilo do jogo só nos cartões]]
+- [[ADR-048 Arraste só pela faixa de cima]]
+- [[ADR-049 Fundo escuro opcional]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]

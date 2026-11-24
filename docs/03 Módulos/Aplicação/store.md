@@ -84,6 +84,7 @@ tags: [módulo]
 - **Chaves em `update_settings`.** Ausente = não mexe, vazia = remove, outro valor = substitui (com `trim`).
 - **`language`** (padrão `'pt'`) guarda o idioma do Eclipse. `public_settings` devolve `'en'` só quando o valor salvo é exatamente `'en'`; qualquer outro valor, inclusive dados antigos sem o campo, vira `'pt'` ([[ADR-014 Interface em português e inglês]]).
 - **`cardLayout`** guarda o visual dos [[cards]], desde 2026-11-15: `public_settings` devolve `'list'` só quando o valor salvo é exatamente `'list'`; qualquer outro, ou a falta do campo, vira `'plates'`. Fica fora de `default_settings`: um `data.json` antigo só ganha o campo quando o usuário clica num dos ícones, e o teste do arquivo do Electron continua conferindo que ele é salvo sem mudar.
+- **`pageTheme`** guarda o fundo da página dos [[cards]], desde 2026-11-23 ([[ADR-049 Fundo escuro opcional]]): `public_settings` devolve `'dark'` só quando o valor salvo é exatamente `'dark'`; qualquer outro, ou a falta do campo, vira `'light'`.
 - **Interface dos serviços.** `ServiceStore` é o que os serviços ([[signInService]], [[sessionKeeper]], [[rankWatcher]]) veem do store: contas, configurações, senha, sessões e atualização de campos. A implementação para `Mutex<Store>` trava o store a cada chamada; nos testes, um store em memória a implementa.
 
 ## Testes

@@ -7,6 +7,70 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-23 · Eclipse 2.28.1: ordem de tamanho fixo e hexágono menor
+
+- Pedido do usuário: a caixa de ordem mudava de largura a cada opção ("Jogada recente", "Maior elo" …) e mexia a barra. Agora ela tem a largura fixa da opção mais longa. O hexágono do cartão do TFT ficou um pouco menor ([[cards]]). Conferido na prévia em 900 e 636 px.
+
+## 2026-11-23 · Eclipse 2.28.0: filtros num botão só
+
+- Pedido do usuário: os botões da barra estavam amontoados. De sete propostas, ele escolheu a E: servidor e elo foram para um botão "Filtros", que abre um painel com fichas e mostra quantos filtros estão ligados; "+ Adicionar conta" virou um botão vermelho com texto na linha da busca ([[cards]]). Conferido na prévia em 900 e 636 px, no fundo claro e no escuro.
+
+## 2026-11-23 · Eclipse 2.27.0: novos cartões do League e do TFT
+
+- Pedido do usuário: os cartões do LoL e do TFT ficavam "um pé atrás" do VALORANT. De uma página com nove propostas, ele escolheu a C para o League (estandarte com a ilustração do campeão do perfil desfocada ao fundo) e a H para o TFT (Pequena Lenda num hexágono dourado sobre um tabuleiro). O Eclipse passa a ler do cliente do LoL o fundo de perfil e a Pequena Lenda escolhidos, só com GET, e guarda só os nomes de arquivo validados ([[gameRanks]], [[cards]], [[rankWatcher]], [[rankApi]]). Conferido na prévia; não conferido num cliente do LoL real.
+
+## 2026-11-23 · Eclipse 2.26.0: cartão próprio na aba Riot
+
+- Pedido do usuário: a aba Riot (só entrar) mostrava os cartões do último jogo clicado. Agora tem um cartão da conta Riot: faixa vermelha, ícone de perfil, nome, servidor e os elos de League, VALORANT e TFT juntos; na lista, uma coluna por jogo ([[cards]]). Conferido na prévia.
+
+## 2026-11-23 · Eclipse 2.25.0: botão de fundo escuro
+
+- Pedido do usuário: um botão para trocar o tema de claro para escuro, por enquanto só no fundo. O botão de lua (ou sol) fica ao lado de Configurações e a escolha é salva ([[ADR-049 Fundo escuro opcional]], [[cards]], [[store]], [[managerService]]). Conferido na prévia.
+
+## 2026-11-23 · Eclipse 2.24.1: placas do VALORANT na mesma altura
+
+- Pedido do usuário: a placa sem elo ficava com nível, nome e elo mais baixos que as outras. Sem elo, a placa mostra a barra de RR vazia, e a linha da barra tem altura fixa, para as placas com e sem variação de RR também ficarem iguais ([[cards]]). Conferido na prévia.
+
+## 2026-11-23 · Eclipse 2.24.0: nomes do VALORANT como são e ícone de sem elo
+
+- Pedido do usuário: na placa do VALORANT, o nome aparece como o jogador escreveu, sem maiúsculas forçadas. Conta sem elo mostra o ícone de sem classificação do jogo na placa e na lista, para manter o padrão dos cartões ([[cards]]). Conferido na prévia.
+
+## 2026-11-23 · Eclipse 2.23.0: arraste só pela faixa de cima
+
+- Pedido do usuário: o Eclipse e a Riot se arrastavam por qualquer espaço vazio dos cartões; agora só pela faixa de cima (30 px acima da busca), como a barra de qualquer aplicativo ([[ADR-048 Arraste só pela faixa de cima]], [[cards]], [[overlayDrag]]). Não conferido na Riot real.
+
+## 2026-11-23 · Eclipse 2.22.4: aparência do jogo não some na atualização
+
+- Relato do usuário: a borda aparecia padrão e não acompanhava o League. Na conta aberta no League, a borda salva era a mesma que o cliente informa. Corrigidos dois defeitos achados na investigação: a atualização pela chave ou pelo OP.GG apagava o banner lido do jogo ([[rankApi]]), e a borda de elo usava o elo da temporada passada no lugar do elo mais alto atual, ao contrário do cliente ([[gameRanks]]). Contas que nunca foram abertas com o League aberto ficam com a borda padrão do nível até a primeira leitura.
+
+## 2026-11-23 · Eclipse 2.22.3: banner padrão do LoL como padrão
+
+- Pedido do usuário: o banner padrão do LoL substitui o do elo como padrão. Conta ainda não lida, conta sem banner escolhido e id que não se resolve mostram o padrão; o do elo só aparece quando o jogador o escolheu no jogo. O TFT usa o mesmo banner do League ([[gameRanks]], [[ranks]], [[cards]]).
+
+## 2026-11-23 · Eclipse 2.22.2: banner do jogo atualiza ao entrar
+
+- Relato do usuário: depois de entrar na conta, só a borda mudava. Duas causas: o banner lido do jogo era descartado ao juntar a leitura com os dados salvos ([[rankWatcher]]), e só se lia o banner do elo, não o escolhido em Personalizar identidade. Agora o Eclipse segue a regra do cliente do LoL: banner escolhido (evento, desafio), padrão ou elo da temporada passada, pelo resumo de desafios e pelo inventário de banners ([[gameRanks]], [[ranks]], [[Segurança e privacidade]]). Não conferido num cliente real.
+
+## 2026-11-23 · Eclipse 2.22.1: borda equipada substitui a padrão
+
+- Pedido do usuário: a borda de nível do invocador é só o padrão; quando o Eclipse lê do jogo a borda que a conta está usando (ao entrar com o League aberto), ela passa a valer na placa do League e do TFT ([[cards]], [[ranks]], [[gameRanks]]).
+
+## 2026-11-23 · Eclipse 2.22.0: borda de nível para todos e arte do VALORANT na placa inteira
+
+- Pedido do usuário: no League e no TFT, toda conta mostra a borda de nível padrão do próprio nível, no lugar da borda equipada ([[ranks]], [[cards]]). No VALORANT, a arte do cartão de jogador cobre a placa inteira a partir do topo, com nível, nome e elo no pé, escolhida entre três desenhos. Conferido só na prévia.
+
+## 2026-11-23 · Eclipse 2.21.0: cartões com banner e arte do jogo, todos do mesmo tamanho
+
+- Pedido do usuário: cartões o mais perto possível do jogo, com banner e borda, e todos do mesmo tamanho. No League e no TFT, o banner do elo fica pendurado no topo, com o ícone e a borda equipada por cima; no VALORANT, a arte vertical do cartão de jogador com o selo de nível. Toda placa tem 356 px de altura em qualquer aba, e o emblema do elo foi para o lado do nome do elo ([[cards]], [[ranks]]). A leitura do cliente do LoL passa a guardar o banner padrão do perfil, o elo mais alto da temporada passada, da mesma resposta que já dava a borda ([[gameRanks]]). Sem título do jogo por enquanto. Conferido só na prévia.
+
+## 2026-11-23 · Eclipse 2.20.0: fundo claro e cada jogo só nos cartões
+
+- Pedido do usuário: estética diferente por jogo, mas mudando só os cartões, e um fundo estático, moderno, parecido com a Riot e em tom de branco. A página (fundo, busca, filtros, caixas e rodapé) ficou clara e igual em todas as abas, com o Jogar no vermelho da Riot; as placas e a lista têm o estilo de cada jogo: League dourado em azul-noite, VALORANT com canto cortado, TFT roxo e dourado, 2XKO preto e limão, Runeterra pergaminho e Riot branco ([[ADR-047 Fundo claro e estilo do jogo só nos cartões]], [[cards]], [[riotOverlay]]). Conferido só na prévia.
+
+## 2026-11-23 · Eclipse 2.19.2: primeiro login sem o aviso do Manter login
+
+- Relato do usuário: no primeiro uso, o Jogar ficava carregando e acabava pedindo para conferir a tela da Riot, que mostrava o aviso de como funciona o "Manter login". Causa, lida na interface da Riot 143: ligar a caixa pela primeira vez numa instalação abre esse aviso, que cobre o botão de entrar, e o clique do Eclipse em entrar se perdia. Agora o Eclipse marca o aviso como visto pelo serviço local antes de preencher, como a própria Riot faz ao mostrá-lo ([[ADR-046 Aviso do Manter login marcado como visto]], [[riotClient]], [[loginForm]], [[Segurança e privacidade]]). Não conferido na Riot real numa instalação nova.
+
 ## 2026-11-21 · Eclipse 2.19.1: cartões voltam a acompanhar a Riot
 
 - O observador em Rust da 2.19.0 nunca reconhecia a janela da Riot, porque comparava o caminho do `RiotClientInstalls.json` (com `/`) com o do processo (com `\`). Agora os dois lados são normalizados ([[riotWindowObserver]]). Achado pelo `riot_check` na Riot real, com autorização do usuário.
