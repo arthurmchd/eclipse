@@ -10,6 +10,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 ## 2026-11-23 · Eclipse 2.28.1: ordem de tamanho fixo e hexágono menor
 
 - Pedido do usuário: a caixa de ordem mudava de largura a cada opção ("Jogada recente", "Maior elo" …) e mexia a barra. Agora ela tem a largura fixa da opção mais longa. O hexágono do cartão do TFT ficou um pouco menor ([[cards]]). Conferido na prévia em 900 e 636 px.
+- Publicado em 2026-11-23 a pedido do usuário: PR #9 no `main` e release `v2.28.1` com Setup, `.sig` e `latest.json`; o endereço da atualização responde com a 2.28.1 e o SHA-256 do Setup confere. Testes do CI verdes. Sem a conferência na Riot real do guia ([[Publicar no GitHub]]): o usuário escolheu publicar sem ela.
 
 ## 2026-11-23 · Eclipse 2.28.0: filtros num botão só
 
