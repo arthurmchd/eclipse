@@ -35,6 +35,7 @@ tags: [módulo]
 
 ## Invariantes e decisões
 
+- **Fundo e Pequena Lenda como o banner (2.27.0).** `merge_reading` trata `lol.splash` e `lol.companion` ([[gameRanks]]) como o `banner`: uma leitura com o texto troca o salvo, e uma leitura sem ele, ou com outro tipo, mantém o salvo.
 - **Borda só do jogo.** 2026-11-20: uma leitura com `border` (inclusive `null`, que é "nenhuma borda equipada") troca a salva em `lol` ou `val`; uma leitura sem o campo (o `lol-regalia` não respondeu, ou a presença não disse) mantém a anterior ([[gameRanks]]).
 
 - **Conta não salva vira sugestão.** Desde 2026-11-15, quando o jogo aberto está numa conta que não existe no Eclipse (ou existe duas vezes), `on_unsaved` recebe o Riot ID. O [[main]] guarda só o último na memória, sem gravar em disco, e os [[cards]] o oferecem ao adicionar conta.
@@ -44,6 +45,7 @@ tags: [módulo]
 - **Só com o jogo aberto, nunca no login.** A lista de processos de uma olhada do [[riotState]] diz se o LoL (`lol`) ou o VALORANT (`val`) está aberto; sem ele, nada é pedido. Com um login em curso, nada é lido, para não somar pedidos ao fluxo de login.
 - **Conta pelo Riot ID único.** Como no [[sessionKeeper]], a leitura só vale para uma conta salva com o mesmo Riot ID (sem diferenciar maiúsculas). Conta que não está no Eclipse, ou salva duas vezes, não é tocada.
 - **O que só a chave dá fica.** Com o mesmo elo de antes, os cortes de Grão-Mestre e Desafiante ficam na fila do LoL, e o RR e a última partida ficam no VALORANT. Pico, temporada passada, região, banner e o que mais houver nos `stats` também ficam. Com elo diferente no VALORANT, o RR e a última partida viram `null` (os [[cards]] mostram o elo sem RR). Nível e ícone ausentes na leitura mantêm os antigos. A sequência de vitórias (`hotStreak`), que o cliente do LoL não manda, fica enquanto as vitórias e derrotas daquela fila forem as mesmas; com uma partida nova, vira `false` até a próxima consulta com chave. Nenhum cartão mostra esse campo, mas assim a leitura não o apaga nem grava o `data.json` à toa.
+- **Banner lido é guardado (2.22.2).** `merge_reading` copia `lol.banner` da leitura quando é texto, como já fazia com a borda; sem banner na leitura, fica o antigo. Da 2.21.0 à 2.22.1 o banner era lido pelo [[gameRanks]] e descartado aqui, por isso só a borda mudava depois de entrar na conta (relato do usuário em 2026-11-23).
 - **Erros do jogo lido somem.** Os erros "falta chave" daquele jogo e o `all` saem dos `stats.errors` quando a leitura dá certo.
 - **Sem gravação à toa.** Com os mesmos dados (fora `updatedAt`), só grava de novo depois de 10 min, para o `updatedAt` não ficar velho sem escrever o `data.json` a cada minuto. Os `stats` não entram no backup ([[store]]).
 - **Log só quando muda.** Linhas fixas no `data.log`, sem nome de conta, e só quando o resultado é diferente do anterior: "updated a saved account from the …", "could not read the ranks from the …", "… is signed in to an account that is not saved in Eclipse", "could not check the running games".

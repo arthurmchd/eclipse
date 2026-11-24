@@ -348,6 +348,18 @@ fn the_card_layout_is_saved_only_as_plates_or_list() {
 }
 
 #[test]
+fn the_page_theme_is_saved_only_as_light_or_dark() {
+    let f = fixture();
+    for theme in [json!("black"), json!("DARK"), json!(""), json!(1), Value::Null, json!(true)] {
+        let failure = f.service.dispatch("saveSettings", &[json!({ "pageTheme": theme })]).unwrap_err();
+        assert_eq!(failure.message, "Invalid setting");
+    }
+    assert!(f.ports.calls().is_empty());
+    assert_eq!(f.service.dispatch("saveSettings", &[json!({ "pageTheme": "dark" })]).unwrap()["pageTheme"], "dark");
+    assert_eq!(f.service.dispatch("saveSettings", &[json!({ "pageTheme": "light" })]).unwrap()["pageTheme"], "light");
+}
+
+#[test]
 fn language_is_saved_only_as_pt_or_en_and_announces_the_settings_change() {
     let f = fixture();
     for language in [json!("fr"), json!("EN"), json!(""), json!(1), Value::Null, json!(true)] {

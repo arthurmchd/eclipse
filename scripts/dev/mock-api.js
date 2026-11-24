@@ -40,8 +40,14 @@
   border('2', { kind: 'ranked', tier: 'MASTER' });
   border('6', { kind: 'level', theme: 6 }, 'level');
   border('10', { kind: 'level', theme: 2 }, 'level');
+  const look = (id, splash, companion) => Object.assign(accounts.find(item => item.id === id).stats.lol, splash ? { splash: `characters/${splash}.jpg` } : {}, companion ? { companion } : {});
+  look('1', 'jinx/skins/base/images/jinx_splash_centered_0', 'tooltip_penguknight_classic_tier1');
+  look('2', 'lux/skins/base/images/lux_splash_centered_0', 'tooltip_griffin_cream_tier3');
+  look('3', 'ahri/skins/skin01/images/ahri_splash_centered_1', 'tooltip_chibiahri_base_classic_tier1');
+  look('4', 'ahri/skins/base/images/ahri_splash_centered_0', 'tooltip_choncc_classic_tier1');
+  look('6', 'garen/skins/base/images/garen_splash_centered_0');
 
-  let settings = { refreshMinutes: 30, staySignedIn: true, riotClientPath: '', language: 'pt', cardLayout: 'plates', cardSort: 'manual', uiSounds: true, riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
+  let settings = { refreshMinutes: 30, staySignedIn: true, riotClientPath: '', language: 'pt', cardLayout: 'plates', cardSort: 'manual', pageTheme: 'light', uiSounds: true, riotApiKeyMasked: 'RGAPI-12…ab34', henrikApiKeyMasked: '' };
   let startWithWindows = false;
   let lastRefresh = iso(7 * 60000);
   let activeSignIn = null;

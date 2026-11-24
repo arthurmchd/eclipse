@@ -97,6 +97,11 @@ pub fn merge_reading(stats: Option<&Value>, reading: &Reading, at: &str) -> Valu
         if let Some(border) = lol.get("border") {
             merged.insert("border".into(), border.clone());
         }
+        for key in ["banner", "splash", "companion"] {
+            if let Some(value) = lol.get(key).filter(|value| value.is_string()) {
+                merged.insert(key.into(), value.clone());
+            }
+        }
         merged.insert("updatedAt".into(), Value::String(at.into()));
         merged.remove("source");
         next.insert("lol".into(), Value::Object(merged));

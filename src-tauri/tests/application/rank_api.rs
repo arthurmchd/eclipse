@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use chrono::DateTime;
-use eclipse::application::rank_api::{encode_component, keep_border, key_hash, ladder_cutoffs, retry_delay, ApiHooks, Cutoffs, HttpAnswer, HttpFailure, RankApi, RankHttp, UreqHttp, TOO_SLOW};
+use eclipse::application::rank_api::{encode_component, keep_look, key_hash, ladder_cutoffs, retry_delay, ApiHooks, Cutoffs, HttpAnswer, HttpFailure, RankApi, RankHttp, UreqHttp, TOO_SLOW};
 use eclipse::application::store::ApiKeys;
 use serde_json::{json, Map, Value};
 
@@ -419,9 +419,17 @@ fn the_real_client_reads_the_status_the_retry_header_and_the_body_of_an_error() 
 }
 
 #[test]
-fn a_key_refresh_keeps_the_border_read_from_the_game() {
+fn a_key_refresh_keeps_the_border_and_the_banner_read_from_the_game() {
     let old = json!({ "level": 1, "border": { "kind": "ranked", "tier": "GOLD" } });
-    assert_eq!(keep_border(json!({ "level": 2 }), Some(&old)), json!({ "level": 2, "border": { "kind": "ranked", "tier": "GOLD" } }));
-    assert_eq!(keep_border(json!({ "level": 2 }), None), json!({ "level": 2 }));
-    assert_eq!(keep_border(json!({ "level": 2 }), Some(&json!({ "level": 1 }))), json!({ "level": 2 }));
+    assert_eq!(keep_look(json!({ "level": 2 }), Some(&old)), json!({ "level": 2, "border": { "kind": "ranked", "tier": "GOLD" } }));
+    assert_eq!(keep_look(json!({ "level": 2 }), None), json!({ "level": 2 }));
+    assert_eq!(keep_look(json!({ "level": 2 }), Some(&json!({ "level": 1 }))), json!({ "level": 2 }));
+    let look = json!({ "level": 1, "border": { "kind": "level", "theme": 18 }, "banner": "sf2023" });
+    assert_eq!(keep_look(json!({ "level": 2 }), Some(&look)), json!({ "level": 2, "border": { "kind": "level", "theme": 18 }, "banner": "sf2023" }));
+}
+
+#[test]
+fn a_key_refresh_keeps_the_splash_and_the_companion_read_from_the_game() {
+    let look = json!({ "level": 1, "splash": "characters/a/skins/base/images/a.jpg", "companion": "tooltip_a" });
+    assert_eq!(keep_look(json!({ "level": 2 }), Some(&look)), json!({ "level": 2, "splash": "characters/a/skins/base/images/a.jpg", "companion": "tooltip_a" }));
 }

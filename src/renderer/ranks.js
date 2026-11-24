@@ -69,6 +69,9 @@ export function lolBorder(border) {
   return null;
 }
 
+export const levelTheme = (level) => level < 30 ? 1 : level < 50 ? 2 : Math.min(21, 3 + Math.floor((level - 50) / 25));
+export const lolLevelBorder = (level) => Number.isInteger(level) && level >= 1 ? lolBorder({ kind: 'level', theme: levelTheme(level) }) : null;
+
 export function valBorder(border, level) {
   const byLevel = Number.isInteger(level) && level >= 1 ? VAL_LEVEL_BORDERS.filter(([start]) => start <= level).at(-1)?.[1] : null;
   const id = border === 'level' ? byLevel : typeof border === 'string' && UUID.test(border) ? border.toLowerCase() : null;
@@ -78,9 +81,19 @@ export function valBorder(border, level) {
 const PLAYER_CARDS = 'https://media.valorant-api.com/playercards';
 const DEFAULT_CARD = '9fb348bc-41a0-91ad-8a3e-818035c4e561';
 
-export function valCardArt(card) {
-  const id = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(String(card || ''))?.[0] || DEFAULT_CARD;
-  return `${PLAYER_CARDS}/${id.toLowerCase()}/smallart.png`;
+const cardId = (card) => (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(String(card || ''))?.[0] || DEFAULT_CARD).toLowerCase();
+export const valCardArt = (card) => `${PLAYER_CARDS}/${cardId(card)}/smallart.png`;
+export const valLargeArt = (card) => `${PLAYER_CARDS}/${cardId(card)}/largeart.png`;
+
+const GAME_DATA = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets';
+const BANNERS = `${GAME_DATA}/regalia/bannerskins`;
+
+export const lolSplash = (path) => typeof path === 'string' && /^characters\/[a-z0-9_]{1,40}\/skins\/[a-z0-9_]{1,40}\/images\/[a-z0-9_]{1,80}\.jpg$/.test(path) ? `${GAME_DATA}/${path}` : null;
+export const tftCompanion = (name) => typeof name === 'string' && /^[a-z0-9_]{1,120}$/.test(name) ? `${GAME_DATA}/loadouts/companions/${name}.png` : null;
+
+export function lolBanner(saved) {
+  const name = typeof saved === 'string' ? saved.toLowerCase() : '';
+  return `${BANNERS}/${/^[a-z0-9_]{1,80}$/.test(name) ? name : 'default'}.png`;
 }
 
 const title = (s) => s.charAt(0) + s.slice(1).toLowerCase();

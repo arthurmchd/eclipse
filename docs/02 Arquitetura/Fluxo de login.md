@@ -29,7 +29,7 @@ sequenceDiagram
     RC->>RCS: fecha a conta de outra pessoa com a saída normal, se houver
     RC->>RCS: abre a interface oficial no formulário de login
     RC->>RCS: login pela API local
-    Note over RC,RCS: API indisponível ou CAPTCHA antes da senha:<br/>loginForm preenche o formulário visível
+    Note over RC,RCS: API indisponível ou CAPTCHA antes da senha:<br/>marca o aviso do Manter login como visto e<br/>loginForm preenche o formulário visível
   end
   RC->>RCS: confere o Riot ID autenticado
   RC->>RCS: pede a abertura do jogo

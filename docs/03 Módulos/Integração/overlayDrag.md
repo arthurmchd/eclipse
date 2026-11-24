@@ -8,7 +8,7 @@ tags: [módulo, tauri]
 
 # overlayDrag
 
-> Só no Tauri: quando o usuário arrasta a Riot pela barra de cima com os cartões à vista, ou aperta num espaço vazio dos cartões, assume o arraste e move a Riot e a sobreposição juntas, para os cartões não ficarem para trás.
+> Só no Tauri: quando o usuário arrasta a Riot pela barra de cima com os cartões à vista, ou aperta na faixa de cima dos cartões, assume o arraste e move a Riot e a sobreposição juntas, para os cartões não ficarem para trás.
 
 ## Responsabilidade
 
@@ -34,7 +34,7 @@ Não move a Riot fora desse arraste, não redimensiona, não trata o arraste pel
 
 ## Invariantes e decisões
 
-- **Arraste pela área do Eclipse.** Desde 2026-11-21 ([[ADR-041 Arraste da Riot pela área do Eclipse]]), pedido do usuário: arrastar a Riot e o Eclipse juntos pela parte de cima e pelo meio da área dos cartões, que cobre a barra da Riot. A página dos [[cards]] pede `windowAction` `drag`, o [[riotOverlay]] chama `begin_drag` e a janela recebe a mensagem com `lParam` 1. `grab` assume sem o teste de `HTCAPTION`: a Riot é a dona da sobreposição, que o helper conferiu pelo executável oficial, e o ponto é da página do Eclipse. Exige sobreposição visível, dona e botão principal ainda apertado; um clique rápido já solto não faz nada. Toma a captura e confere com `GetCapture`; se não ficou com ela, registra uma vez e não mexe em nada. Daí segue igual ao arraste pela barra, sem laço da Riot para disputar a captura. O helper só posta `lParam` 0, então os dois caminhos não se confundem.
+- **Arraste pela área do Eclipse.** Desde 2026-11-21 ([[ADR-041 Arraste da Riot pela área do Eclipse]]), pedido do usuário: arrastar a Riot e o Eclipse juntos pela área dos cartões, que cobre a barra da Riot; desde 2026-11-23, só pela faixa de cima dela ([[ADR-048 Arraste só pela faixa de cima]]). A página dos [[cards]] pede `windowAction` `drag`, o [[riotOverlay]] chama `begin_drag` e a janela recebe a mensagem com `lParam` 1. `grab` assume sem o teste de `HTCAPTION`: a Riot é a dona da sobreposição, que o helper conferiu pelo executável oficial, e o ponto é da página do Eclipse. Exige sobreposição visível, dona e botão principal ainda apertado; um clique rápido já solto não faz nada. Toma a captura e confere com `GetCapture`; se não ficou com ela, registra uma vez e não mexe em nada. Daí segue igual ao arraste pela barra, sem laço da Riot para disputar a captura. O helper só posta `lParam` 0, então os dois caminhos não se confundem.
 - **Quando assume.** Só se a sobreposição estiver visível, se a janela avisada for a dona dela (a que o helper conferiu pelo executável oficial), se o botão principal estiver apertado (`SM_SWAPBUTTON` decide qual) e se a Riot responder `HTCAPTION` ao `WM_NCHITTEST` no ponto do cursor. O teste de ponto usa `SendMessageTimeoutW` com `SMTO_ABORTIFHUNG` e 100 ms, para uma Riot travada não segurar a thread principal ali. Um aviso durante um arraste em curso é ignorado.
 - **Captura.** A sobreposição chama `SetCapture` e confere, por `GetGUIThreadInfo` da thread da Riot, que a captura da fila agora é dela. Se não for, as filas não estão juntas: solta a sua, registra e não mexe em nada. O arraste segue com a Riot e o helper acompanha como antes.
 - **Posição.** No começo, guarda o ponto agarrado (cursor menos o canto da janela da Riot) e o deslocamento da área cliente (`ClientToScreen` menos o canto da janela). A cada movimento: Riot no cursor menos o ponto agarrado, sobreposição na Riot mais o deslocamento. As duas vão juntas num `DeferWindowPos`, só com posição, sem ordem nem foco.

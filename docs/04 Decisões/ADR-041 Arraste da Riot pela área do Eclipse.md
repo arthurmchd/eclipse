@@ -1,6 +1,6 @@
 ---
 tipo: decisão
-status: aceita
+status: substituída em parte
 data: 2026-11-21
 tags: [adr, arquitetura, segurança, tauri]
 ---
@@ -12,6 +12,8 @@ tags: [adr, arquitetura, segurança, tauri]
 Pedido do usuário em 2026-11-21: "tem como fazer como eu conseguir arrastar o riot client e o eclipse junto pela parte de cima e pelo meio ali onde a area de onde o eclipse ocupa?".
 
 Desde a [[ADR-015 Controles da janela do Riot desenhados pelo Eclipse]], os cartões cobrem a arte inteira da Riot, de `cards_left` até a borda direita e de cima a baixo. A barra de arrastar da Riot (`-webkit-app-region: drag`) fica embaixo deles nessa faixa e não recebe cliques. O arraste conjunto da [[ADR-036 Arraste da Riot assumido pelo Eclipse]] só começa pela barra da Riot que sobra à vista, na coluna de login. No `sign-in.log` real, esse arraste já funciona na Riot real ("Eclipse moved the Riot window and the cards together", várias vezes desde 2026-11-15).
+
+> Desde 2026-11-23, só a faixa de cima começa o arraste ([[ADR-048 Arraste só pela faixa de cima]]). O resto desta decisão segue valendo.
 
 ## Decisão
 
