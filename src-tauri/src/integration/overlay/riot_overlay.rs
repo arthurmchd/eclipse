@@ -12,6 +12,7 @@ use crate::riot::Cancel;
 pub const PANEL_HOLE: i32 = 5;
 pub const LAYOUT_MS: u64 = 750;
 pub const CHECK_FRESH_MS: f64 = 2500.0;
+pub const REST_AFTER_MS: f64 = 2000.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
@@ -177,6 +178,7 @@ pub trait OverlayWindow: Send + Sync {
     fn set_region(&self, parts: &[Rect]);
     fn show_inactive(&self);
     fn hide(&self);
+    fn set_resting(&self, resting: bool);
     fn set_cover_visible(&self, visible: bool);
     fn set_toggle_visible(&self, visible: bool);
     fn set_toggle_language(&self, language: &str);
@@ -211,7 +213,9 @@ struct State {
     disposed: bool,
     loaded: bool,
     target: Option<Target>,
+    missing_since: Option<f64>,
     login_visible: bool,
+    outside: bool,
     checked_at: f64,
     pending: Option<Cancel>,
     generation: u64,
@@ -224,6 +228,7 @@ struct State {
     edge: i32,
     size: Option<Size>,
     visible: bool,
+    resting: bool,
     timer: Option<u64>,
     observer: Option<Arc<dyn OverlayObserver>>,
 }
@@ -240,10 +245,14 @@ impl Inner {
         ShapeOptions { hidden: state.hidden, corner: state.corner, top: state.edge, covered: state.covered, toggle: !state.form_hidden }
     }
 
-    fn hide(&self, state: &mut State) {
+    fn hide(&self, state: &mut State, rest: bool) {
         if state.visible {
             state.visible = false;
             self.window.hide();
+        }
+        if rest && !state.resting {
+            state.resting = true;
+            self.window.set_resting(true);
         }
     }
 
@@ -256,7 +265,7 @@ impl Inner {
         };
         let parts = overlay_shape(size, Self::options(state));
         if parts.is_empty() {
-            self.hide(state);
+            self.hide(state, false);
         } else {
             self.window.set_region(&parts);
         }
@@ -297,6 +306,7 @@ impl Inner {
     fn reset_session(state: &mut State) {
         state.generation += 1;
         state.login_visible = false;
+        state.outside = false;
         if let Some(pending) = state.pending.take() {
             pending.cancel();
         }
@@ -306,9 +316,12 @@ impl Inner {
         if state.disposed {
             return;
         }
-        let fresh = (self.hooks.now)() - state.checked_at <= CHECK_FRESH_MS;
+        let now = (self.hooks.now)();
+        let fresh = now - state.checked_at <= CHECK_FRESH_MS;
         let Some(target) = state.target.clone().filter(|target| state.loaded && !target.minimized && !target.dimmed && state.login_visible && !state.signed_in && fresh) else {
-            self.hide(state);
+            let gone = state.target.is_none() && state.missing_since.is_none_or(|since| now - since >= REST_AFTER_MS);
+            let rest = gone || state.signed_in || state.outside;
+            self.hide(state, rest);
             return;
         };
         let bounds = overlay_bounds(&target);
@@ -316,7 +329,7 @@ impl Inner {
         let radius = corner_radius(&target);
         let border = top_edge(&target);
         if overlay_shape(size, Self::options(state)).is_empty() {
-            self.hide(state);
+            self.hide(state, false);
             return;
         }
         let resized = state.size != Some(size);
@@ -331,6 +344,10 @@ impl Inner {
         }
         if !state.visible {
             state.visible = true;
+            if state.resting {
+                state.resting = false;
+                self.window.set_resting(false);
+            }
             self.window.show_inactive();
         }
     }
@@ -338,7 +355,7 @@ impl Inner {
     fn check_session(self: &Arc<Self>) {
         let (cancel, version) = {
             let mut state = self.state.lock().unwrap();
-            if state.disposed || state.target.is_none() || state.pending.is_some() {
+            if state.disposed || state.target.as_ref().is_none_or(|target| target.minimized) || state.pending.is_some() {
                 return;
             }
             let cancel = Cancel::new();
@@ -354,6 +371,7 @@ impl Inner {
             let mut state = inner.state.lock().unwrap();
             if !state.disposed && version == state.generation {
                 state.login_visible = login_visible(&answer);
+                state.outside = answer.is_ok() && !state.login_visible;
                 if answer.is_ok() {
                     state.checked_at = (inner.hooks.now)();
                 }
@@ -405,7 +423,9 @@ impl RiotOverlay {
             disposed: false,
             loaded: false,
             target: None,
+            missing_since: None,
             login_visible: false,
+            outside: false,
             checked_at: 0.0,
             pending: None,
             generation: 0,
@@ -418,6 +438,7 @@ impl RiotOverlay {
             edge: 0,
             size: None,
             visible: false,
+            resting: false,
             timer: None,
             observer: None,
         };
@@ -440,7 +461,7 @@ impl RiotOverlay {
     }
 
     pub fn on_state(&self, value: Option<Target>) {
-        let changed = {
+        let check = {
             let mut state = self.inner.state.lock().unwrap();
             if state.disposed {
                 return;
@@ -449,13 +470,23 @@ impl RiotOverlay {
             if changed {
                 Inner::reset_session(&mut state);
             }
+            let restored = !changed && state.target.as_ref().is_some_and(|target| target.minimized) && value.as_ref().is_some_and(|target| !target.minimized);
             let form_hidden = value.as_ref().is_some_and(|target| target.form_hidden);
+            let now = (self.inner.hooks.now)();
+            if value.is_some() {
+                state.missing_since = None;
+            } else if state.target.is_some() {
+                state.missing_since = Some(now);
+            }
+            if restored {
+                state.checked_at = now;
+            }
             state.target = value;
             self.inner.set_form_hidden(&mut state, form_hidden);
             self.inner.layout(&mut state);
-            changed && state.target.is_some()
+            (changed || restored) && state.target.is_some()
         };
-        if changed {
+        if check {
             self.inner.check_session();
         }
     }

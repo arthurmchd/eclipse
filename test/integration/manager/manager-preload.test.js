@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { createManagerApi } = require('../../../src/integration/manager/manager-preload');
 
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(setImmediate); };
-function fixture(dispatch) {
+function fixture(dispatch, extra = {}) {
   let tick, unload, clock = 0, stopped = false;
   const calls = [];
   const api = createManagerApi({
@@ -11,6 +11,7 @@ function fixture(dispatch) {
     setInterval: (callback) => { tick = callback; return { unref() {} }; },
     clearInterval: () => { stopped = true; }, now: () => clock, signInTimeoutMs: 100,
     onUnload: (callback) => { unload = callback; },
+    ...extra,
   });
   return { api, calls, async tick() { await tick?.(); await flush(); }, unload: () => unload(), advance(ms) { clock += ms; }, stopped: () => stopped };
 }
@@ -109,4 +110,48 @@ test('timeouts and closing the view release waits without cancelling the backend
   f.unload();
   assert.equal(f.calls.some((call) => call[1] === 'cancelSignIn'), false);
   await assert.rejects(f.api.init(), /view is closed/);
+});
+
+test('a hidden view stops asking for events unless a sign-in is waiting and asks right away when it shows again', async () => {
+  let hidden = true, visibility, operation = { id: 'attempt', status: 'running' };
+  const f = fixture(async (method) => {
+    if (method === 'init') return { eventCursor: 3 };
+    if (method === 'events') return { cursor: 3, events: [] };
+    if (method === 'signIn') return { ok: true, operationId: 'attempt' };
+    if (method === 'operation') return operation;
+  }, { hidden: () => hidden, onVisibility: (callback) => { visibility = callback; } });
+  const asked = () => f.calls.filter((call) => call[1] === 'events').length;
+  visibility();
+  await flush();
+  assert.equal(asked(), 0);
+  await f.api.init();
+  for (let i = 0; i < 3; i++) await f.tick();
+  assert.equal(asked(), 0);
+  const result = f.api.signIn('account', 'lol');
+  await flush();
+  const during = asked();
+  assert.ok(during >= 1);
+  await f.tick();
+  assert.equal(asked(), during + 1);
+  operation = { id: 'attempt', status: 'succeeded' };
+  await f.tick();
+  assert.deepEqual(await result, { ok: true, gameStarted: true });
+  const after = asked();
+  await f.tick();
+  assert.equal(asked(), after);
+  hidden = false;
+  visibility();
+  await flush();
+  assert.equal(asked(), after + 1);
+  await f.tick();
+  assert.equal(asked(), after + 2);
+  hidden = true;
+  visibility();
+  await f.tick();
+  assert.equal(asked(), after + 2);
+  f.unload();
+  hidden = false;
+  visibility();
+  await flush();
+  assert.equal(asked(), after + 2);
 });

@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use eclipse::integration::overlay::overlay_toggle::toggle_rect;
 use eclipse::integration::overlay::riot_overlay::{
-    cards_left, cards_rect, corner_insets, corner_radius, cover_rect, overlay_bounds, overlay_shape, top_edge, OverlayHooks, OverlayObserver, OverlayWindow, Rect, RiotOverlay, ShapeOptions, Size, LAYOUT_MS,
+    cards_left, cards_rect, corner_insets, corner_radius, cover_rect, overlay_bounds, overlay_shape, top_edge, OverlayHooks, OverlayObserver, OverlayWindow, Rect, RiotOverlay, ShapeOptions, Size, CHECK_FRESH_MS, LAYOUT_MS, REST_AFTER_MS,
 };
 use eclipse::platform::windows::riot_window_observer::{Target, PANEL_POINT};
 use eclipse::riot::riot_app_controls::CloseMode;
@@ -80,6 +80,10 @@ impl OverlayWindow for Window {
         *self.visible.lock().unwrap() = false;
         *self.hides.lock().unwrap() += 1;
         self.push("hide".into());
+    }
+
+    fn set_resting(&self, resting: bool) {
+        self.push(format!("rest {resting}"));
     }
 
     fn set_cover_visible(&self, visible: bool) {
@@ -367,7 +371,7 @@ fn only_the_login_session_shows_cards_including_manual_login_logout_and_stale_re
 }
 
 #[test]
-fn a_minimized_riot_hides_the_cards_keeps_the_session_and_shows_them_on_the_first_restored_sample() {
+fn a_minimized_riot_hides_the_cards_keeps_the_session_stops_the_login_reads_and_shows_them_again_right_on_restore() {
     let setup = Setup::started();
     let first = target("1", 0, 0, 1536, 864);
     setup.sample(Some(first.clone()));
@@ -376,22 +380,33 @@ fn a_minimized_riot_hides_the_cards_keeps_the_session_and_shows_them_on_the_firs
     let placed = setup.window.size();
     let checked = setup.riot.calls();
     *setup.window.shows.lock().unwrap() = 0;
-    setup.sample(Some(Target { x: -32000, y: -32000, minimized: true, ..first.clone() }));
+    let minimized = Target { x: -32000, y: -32000, minimized: true, ..first.clone() };
+    setup.sample(Some(minimized.clone()));
     assert!(!setup.window.visible());
-    assert_eq!(setup.riot.calls(), checked);
     for _ in 0..5 {
         setup.riot.advance(1000.0);
         setup.tick();
         setup.checks();
+        setup.overlay.open();
+        setup.checks();
     }
-    assert!(setup.riot.calls() > checked);
+    assert_eq!(setup.riot.calls(), checked);
     assert_eq!(*setup.window.shows.lock().unwrap(), 0);
     assert_eq!(setup.window.size(), placed);
-    let restored = setup.riot.calls();
     setup.sample(Some(first.clone()));
-    assert_eq!(setup.riot.calls(), restored);
     assert_eq!(*setup.window.shows.lock().unwrap(), 1);
     assert!(setup.window.visible());
+    setup.checks();
+    assert_eq!(setup.riot.calls(), checked + 1);
+    assert_eq!(*setup.window.shows.lock().unwrap(), 1);
+    assert!(setup.window.visible());
+    setup.sample(Some(minimized.clone()));
+    setup.riot.advance(1000.0);
+    setup.sample(Some(first.clone()));
+    assert_eq!(*setup.window.shows.lock().unwrap(), 2);
+    setup.checks();
+    assert_eq!(setup.riot.calls(), checked + 2);
+    assert!(!setup.window.events().iter().any(|event| event.starts_with("rest")));
     setup.sample(Some(Target { minimized: true, ..first.clone() }));
     setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true }));
     setup.overlay.set_operation(&json!(null));
@@ -401,6 +416,121 @@ fn a_minimized_riot_hides_the_cards_keeps_the_session_and_shows_them_on_the_firs
     assert!(!setup.window.visible());
     setup.overlay.set_operation(&json!(null));
     assert!(setup.window.visible());
+    setup.overlay.stop();
+}
+
+#[test]
+fn the_webviews_rest_while_riot_is_closed_signed_in_or_past_the_login_and_wake_right_before_the_cards_show() {
+    let flow = |setup: &Setup| -> Vec<String> { setup.window.events().into_iter().filter(|event| event == "hide" || event == "show" || event.starts_with("rest")).collect() };
+    let setup = Setup::started();
+    setup.tick();
+    assert_eq!(flow(&setup), ["rest true"]);
+    let first = target("1", 0, 0, 1536, 864);
+    setup.window.clear();
+    setup.sample(Some(first.clone()));
+    assert!(flow(&setup).is_empty());
+    setup.checks();
+    assert_eq!(flow(&setup), ["rest false", "show"]);
+    setup.window.clear();
+    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true }));
+    assert_eq!(flow(&setup), ["hide", "rest true"]);
+    setup.window.clear();
+    setup.overlay.set_operation(&json!(null));
+    assert_eq!(flow(&setup), ["rest false", "show"]);
+    setup.window.clear();
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Authenticated))));
+    setup.tick();
+    setup.checks();
+    assert_eq!(flow(&setup), ["hide", "rest true"]);
+    setup.window.clear();
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Auth))));
+    setup.tick();
+    setup.checks();
+    assert_eq!(flow(&setup), ["rest false", "show"]);
+    setup.window.clear();
+    setup.riot.answer(Err(()));
+    setup.tick();
+    setup.checks();
+    assert_eq!(flow(&setup), ["hide"]);
+    setup.window.clear();
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Auth))));
+    setup.tick();
+    setup.checks();
+    assert_eq!(flow(&setup), ["show"]);
+    setup.window.clear();
+    setup.sample(Some(Target { minimized: true, ..first.clone() }));
+    setup.riot.advance(5000.0);
+    setup.tick();
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    setup.sample(Some(Target { dimmed: true, ..first.clone() }));
+    setup.sample(Some(first.clone()));
+    assert_eq!(flow(&setup), ["hide", "show", "hide", "show"]);
+    setup.window.clear();
+    setup.sample(None);
+    assert_eq!(flow(&setup), ["hide"]);
+    setup.riot.advance(REST_AFTER_MS - 1.0);
+    setup.tick();
+    assert_eq!(flow(&setup), ["hide"]);
+    setup.riot.advance(1.0);
+    setup.tick();
+    assert_eq!(flow(&setup), ["hide", "rest true"]);
+    setup.window.clear();
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    assert_eq!(flow(&setup), ["rest false", "show"]);
+    setup.overlay.stop();
+}
+
+#[test]
+fn losing_the_riot_window_for_a_moment_hides_the_cards_without_resting_so_an_open_dialog_survives() {
+    let rests = |setup: &Setup| setup.window.events().into_iter().filter(|event| event.starts_with("rest")).count();
+    let setup = Setup::started();
+    let first = target("1", 0, 0, 1536, 864);
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    assert!(setup.window.visible());
+    setup.window.clear();
+    for _ in 0..3 {
+        setup.sample(None);
+        assert!(!setup.window.visible());
+        setup.riot.advance(LAYOUT_MS as f64);
+        setup.tick();
+        setup.sample(Some(first.clone()));
+        setup.checks();
+        assert!(setup.window.visible());
+    }
+    assert_eq!(rests(&setup), 0);
+    setup.sample(None);
+    setup.riot.advance(REST_AFTER_MS / 2.0);
+    setup.tick();
+    setup.sample(None);
+    setup.riot.advance(REST_AFTER_MS / 2.0);
+    setup.tick();
+    assert_eq!(setup.window.events().iter().filter(|event| event.as_str() == "rest true").count(), 1);
+    setup.overlay.stop();
+}
+
+#[test]
+fn a_restore_after_a_long_minimize_shows_the_last_known_login_at_once_and_the_fresh_read_corrects_it() {
+    let setup = Setup::started();
+    let first = target("1", 0, 0, 1536, 864);
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    setup.sample(Some(Target { minimized: true, ..first.clone() }));
+    setup.riot.advance(CHECK_FRESH_MS * 4.0);
+    setup.tick();
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Authenticated))));
+    setup.sample(Some(first.clone()));
+    assert!(setup.window.visible());
+    setup.checks();
+    assert!(!setup.window.visible());
+    assert_eq!(setup.window.events().last().map(String::as_str), Some("rest true"));
+    setup.riot.answer(Err(()));
+    setup.sample(Some(Target { minimized: true, ..first.clone() }));
+    setup.riot.advance(CHECK_FRESH_MS * 4.0);
+    setup.sample(Some(first.clone()));
+    assert!(!setup.window.visible());
     setup.overlay.stop();
 }
 

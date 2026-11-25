@@ -4,7 +4,7 @@ use std::mem::size_of;
 use std::path::Path;
 use std::ptr::null_mut;
 
-use windows_sys::Win32::Foundation::{CloseHandle, BOOL, HWND, INVALID_HANDLE_VALUE, LPARAM, POINT, RECT, TRUE};
+use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, BOOL, ERROR_INSUFFICIENT_BUFFER, HANDLE, HWND, INVALID_HANDLE_VALUE, LPARAM, POINT, RECT, TRUE};
 use windows_sys::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
 use windows_sys::Win32::Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW, VS_FIXEDFILEINFO};
@@ -86,16 +86,19 @@ pub fn image_path(pid: u32) -> String {
         if process.is_null() {
             return String::new();
         }
-        let mut buffer = vec![0u16; 32768];
-        let mut length = buffer.len() as u32;
-        let ok = QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut length) != 0;
-        CloseHandle(process);
-        if ok {
-            String::from_utf16_lossy(&buffer[..length as usize])
-        } else {
-            String::new()
+        let mut small = [0u16; 1024];
+        let mut path = query_image(process, &mut small);
+        if path.is_none() && GetLastError() == ERROR_INSUFFICIENT_BUFFER {
+            path = query_image(process, &mut vec![0u16; 32768]);
         }
+        CloseHandle(process);
+        path.unwrap_or_default()
     }
+}
+
+unsafe fn query_image(process: HANDLE, buffer: &mut [u16]) -> Option<String> {
+    let mut length = buffer.len() as u32;
+    (QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut length) != 0).then(|| String::from_utf16_lossy(&buffer[..length as usize]))
 }
 
 pub(crate) fn process_name(window: HWND) -> String {

@@ -15,14 +15,17 @@ tags: [módulo]
 - Faz uma requisição por chamada a `127.0.0.1`, na porta e com a senha do lockfile.
 - Verifica o TLS com o certificado raiz da instalação do Riot.
 - Devolve `Response { status, json }` para qualquer status HTTP. Quem interpreta o status é o chamador.
-- Não tenta de novo, não guarda conexão e não conhece rotas específicas.
+- Desde a 2.29.0 reaproveita a conexão só nos `GET` ([[ADR-051 Certificado guardado e conexão reaproveitada na API local]]). Pedidos que mudam a Riot usam conexão própria e nunca são repetidos. Não conhece rotas específicas.
 
 ## API pública
 
 | Item | Tipo | Descrição |
 |---|---|---|
-| `RiotTransport::for_riot_client(caminho, conexão, bytes)` | construtor | O transporte real: o caminho do `RiotClientServices.exe` (para achar o certificado), a leitura do lockfile (`read_backend` sem outra) e o limite do corpo |
+| `RiotTransport::for_riot_client(caminho, conexão, bytes)` | construtor | O transporte real: o caminho do `RiotClientServices.exe` (para achar o certificado, pelo `cached_backend_certificate` do [[backend]]), a leitura do lockfile (`read_backend` sem outra), um `TlsClient` próprio e o limite do corpo |
 | `RiotTransport::new(caminho, conexão, certificado, https, bytes)` | construtor | Com tudo trocável para os testes; `https` é a trait `HttpsClient`, e a real é o `TlsClient` |
+| `TlsClient::default()` | construtor | O cliente HTTPS real, com o agente dos `GET` guardado |
+| `reuses_connection(método)` | função | `true` só para `GET` |
+| `AgentCache<T>` | struct | Guarda um agente para um certificado e uma porta; `get(ca, porta, montar)` devolve o guardado ou monta outro e descarta o antigo. Montagem que falha não fica guardada |
 | `request(método, caminho, corpo, prazo, cancel)` | método | Da trait `LocalApi`. Devolve `Response`; `json` é `null` sem corpo ou com JSON inválido. `get` usa o prazo padrão de 4 s |
 | `DEFAULT_MAX_BYTES` | constante | 1 MiB |
 | `FAILED` | constante | O texto genérico de falha |
@@ -52,6 +55,13 @@ tags: [módulo]
 - **Limite de tamanho.** Uma resposta grande demais nunca é entregue pela metade.
 - **Cancelamento.** Com cancelamento, o pedido roda numa thread e o chamador confere o cancelamento a cada 25 ms; a thread termina sozinha no prazo do pedido.
 - **Conferido na Riot real.** Em 2026-11-14, com permissão do usuário: um único `GET` do sinalizador de segundo plano ([[riotAppControls]]) voltou 200, com o TLS do Windows aceitando o certificado da Riot em `127.0.0.1` e a validação ligada. O teste é o `the_real_riot_client_certificate_is_accepted_on_a_single_read`, marcado com `#[ignore]`: roda só a pedido, com a Riot aberta pelo usuário (`cargo test --test riot the_real_riot_client_certificate -- --ignored --nocapture`), e imprime só o status.
+- **Certificado guardado e conexão reaproveitada (2026-11-24, 2.29.0, [[ADR-051 Certificado guardado e conexão reaproveitada na API local]]).** Pedido do usuário: aplicar as otimizações do relatório de desempenho ([[Medição de CPU e memória]]). Com a Riot no login, a 2.28.4 abria o `app.asar` e fazia uma conexão TLS nova a cada pedido: umas 2,7 por segundo e cerca de 320 conexões em TIME_WAIT.
+  - **Certificado.** Vem do `cached_backend_certificate` do [[backend]], que só relê o `app.asar` quando o tamanho ou a data dele mudam.
+  - **Lockfile.** Continua lido a cada pedido. A senha não fica guardada entre pedidos.
+  - **`GET`.** O `TlsClient` guarda um agente do `ureq` por certificado e porta (`AgentCache`), com uma conexão ociosa. O prazo vai em cada pedido (`Request::timeout`), não no agente. Se a Riot fechou a conexão guardada, o `ureq` 2.12 percebe antes de usá-la ou, se ela cair antes de qualquer resposta, manda o mesmo `GET` uma vez por uma conexão nova. É a única repetição.
+  - **Outros métodos.** `POST`, `PUT`, `PATCH` e `DELETE` montam um agente sem conexões guardadas (`max_idle_connections(0)`), como antes: conexão nova, nunca reaproveitada, nunca repetida.
+  - **TLS igual.** Toda conexão nova passa pela mesma validação: só o `root.pem` da Riot, raízes do Windows desligadas, sem redirecionamento.
+  - **Conferido.** Pelos testes do `AgentCache` e do `reuses_connection`, e com o `TlsClient` copiado para um servidor TLS local de teste, fora do repositório, sem a Riot: cinco `GET` seguidos usaram uma conexão; cada `POST`, `PUT` e `DELETE` abriu a sua; o `GET` seguinte voltou à conexão guardada; uma conexão fechada pelo servidor foi trocada sem erro; trocar de porta abriu conexão nova; um servidor com certificado de outra raiz foi recusado. Na Riot real, a contagem de conexões em TIME_WAIT depois de instalar fica registrada na [[Medição de CPU e memória]].
 - **Falha de envio com tipo próprio (2026-11-21).** `HttpsClient::send` devolve `Result<(status, corpo), SendFailure>`. Antes o erro era `()`, que o clippy recusa em função pública (`result_unit_err`) e que a CI roda com `-D warnings`. A falha continua sem detalhe nenhum: a mensagem que sai é o texto fixo de sempre.
 
 ## Testes
@@ -62,11 +72,13 @@ tags: [módulo]
 - Cancelamento antes de iniciar (nenhuma requisição) e durante (para na hora).
 - Erros de rede genéricos.
 - Lockfile ausente e caminhos inválidos sem requisição e sem expor o lockfile.
+- Só `GET` reaproveitando conexão; um agente por certificado e porta, trocado quando um dos dois muda, e montagem com falha sem ficar guardada.
 - O teste manual contra a Riot real, que só roda a pedido.
 
 ## Pontos de atenção
 
-- **Leitura a cada chamada.** Lockfile e `root.pem` (de dentro do `app.asar`) são lidos em toda requisição. Com polling de 500 a 700 ms no [[signInFlow]], isso se repete muitas vezes por login.
+- **Leitura a cada chamada.** O lockfile ainda é lido em toda requisição, de propósito. O `root.pem` só é relido quando o `app.asar` muda (desde a 2.29.0).
+- **Conexão ociosa aberta.** Cada transporte pode deixar uma conexão ociosa com o serviço local: Riot Client, presenças e cliente do League. Ela fecha quando a Riot fecha a dela, quando a porta muda ou quando o Eclipse sai.
 - **JSON inválido some.** Corpo malformado vira `json` `null`, igual a corpo vazio. O chamador não distingue os dois casos.
 - **Certificado depende do layout da instalação.** `RiotClientElectron/resources/app.asar` e `dist/main/root.pem` podem mudar numa versão nova: [[Atualização do Riot Client]].
 - Visão geral do serviço local: [[Integração com o Riot Client]].

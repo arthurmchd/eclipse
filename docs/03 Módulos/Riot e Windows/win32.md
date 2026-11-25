@@ -40,6 +40,7 @@ tags: [módulo]
 - **Lista de processos sem `tasklist` (2026-11-21, [[ADR-044 Helpers do Windows em Rust]]).** O [[riotClient]] abria `tasklist.exe` a cada verificação de jogos. Agora lê o Toolhelp direto. Uma lista vazia é tratada como falha de leitura, como era a falha do `tasklist`.
 - **Leituras de janela só dentro do crate.** Elas recebem `HWND`, que em Rust é um ponteiro cru; o Windows valida o identificador, mas o clippy pede que uma função pública com ponteiro cru seja `unsafe`. Como só o Eclipse as usa, ficam `pub(crate)`.
 - **Consulta limitada.** O caminho do executável usa `PROCESS_QUERY_LIMITED_INFORMATION`, que não exige privilégio e não deixa mexer no processo. O identificador é fechado na hora.
+- **Buffer pequeno primeiro (2026-11-24, 2.29.0).** `image_path` pedia 64 KB zerados a cada chamada, e o [[riotWindowObserver]] a chamava para cada janela candidata a cada 180 ms. Agora tenta um buffer de 1.024 caracteres na pilha e só usa o de 32.768 se o Windows responder que o caminho não coube (`ERROR_INSUFFICIENT_BUFFER`). O resultado é o mesmo.
 
 ## Testes
 

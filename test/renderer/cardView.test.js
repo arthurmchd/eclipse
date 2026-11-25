@@ -199,7 +199,7 @@ test('the LoL plate has the profile splash behind it and the TFT plate puts the 
   const { TEXT } = await load('cardsText.js');
   const look = { ...lolAccount, stats: { ...lolAccount.stats, lol: { ...lolAccount.stats.lol, splash: 'characters/ahri/skins/base/images/ahri_splash_centered_0.jpg', companion: 'tooltip_choncc_classic_tier1' } } };
   const lol = accountView(look, 'lol', TEXT.pt);
-  assert.match(lol.splash, /\/assets\/characters\/ahri\/skins\/base\/images\/ahri_splash_centered_0\.jpg$/);
+  assert.match(lol.splash, /\/assets\/characters\/ahri\/skins\/base\/images\/ahri_splash_tile_0\.jpg$/);
   assert.equal(lol.board, null);
   assert.match(accountView(look, 'tft', TEXT.pt).board, /\/loadouts\/companions\/tooltip_choncc_classic_tier1\.png$/);
   assert.equal(accountView(look, 'tft', TEXT.pt).splash, null);

@@ -42,6 +42,7 @@ h2 { font-size: 19px; }
 .plate { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; overflow: hidden; padding: 0 12px 12px; text-align: center; }
 .hero { position: relative; display: flex; flex: none; align-items: center; justify-content: center; align-self: stretch; height: 180px; margin: 0 -12px 4px; }
 .hero .banner { position: absolute; bottom: -6px; left: 50%; width: 140px; height: 357px; transform: translateX(-50%); pointer-events: none; }
+.hero .banner:not([src]) { visibility: hidden; }
 .hero .avatar { z-index: 1; margin-top: -6px; }
 .hero-banner .avatar:not(.has-border) .portrait { width: 66px; height: 66px; }
 .plate:has(.hero-art) { justify-content: flex-end; }

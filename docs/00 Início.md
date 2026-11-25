@@ -82,6 +82,9 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-047 Fundo claro e estilo do jogo só nos cartões]]
 - [[ADR-048 Arraste só pela faixa de cima]]
 - [[ADR-049 Fundo escuro opcional]]
+- [[ADR-050 Estandarte reduzido nos cartões]]
+- [[ADR-051 Certificado guardado e conexão reaproveitada na API local]]
+- [[ADR-052 Webviews da sobreposição num processo só]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]

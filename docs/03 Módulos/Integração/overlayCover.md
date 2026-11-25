@@ -40,8 +40,9 @@ Não tem API própria. A janela da sobreposição (`TauriOverlayWindow`) impleme
 - **Sozinha na coluna.** A janela cria a cobertura depois dos cartões e antes da caixa do [[overlayToggle]], mas o [[riotOverlay]] esconde a caixa enquanto cobre. Na primeira versão a caixa ficava à vista sobre a cobertura; testando, o usuário pediu que ela também sumisse ("o botao continuou ali... continua aparecendo").
 - **Mesma cor do painel da Riot.** Fundo `#fcfcfc`, na página e na própria webview, para nada piscar enquanto a página carrega. É a cor medida do painel de login da Riot, a mesma do fundo da caixa ([[overlayToggle]]), então o furo no ponto do observador não aparece como mancha.
 - **Carregamento no centro.** Um anel de 36 px com traço de 3 px, cinza `rgba(126, 126, 126, .15)` com o arco vermelho `#d53235` da Riot, girando a cada 1 s, no centro da coluna. A primeira versão o punha a 34% da altura só para não bater na caixa. A página usa a unidade `100vw / 400`, então ele escala com a coluna (1 px a 1536 de largura). Com "reduzir movimento" do Windows, o anel fica parado, como nos [[cards]].
-- **Sem script.** A webview roda com JavaScript desligado e perfil anônimo, sem nenhum comando liberado. A CSP da página só permite a folha de estilo local. Navegação para fora, janelas novas, downloads e permissões são recusados.
+- **Sem script.** A webview roda com JavaScript desligado, sem nenhum comando liberado. Até a 2.28.4 usava perfil anônimo; desde a 2.29.0 usa o perfil dos cartões e divide um processo de renderização com a caixa; os cartões ficaram noutro ([[ADR-052 Webviews da sobreposição num processo só]]). O JavaScript continua desligado só nela. A CSP da página só permite a folha de estilo local. Navegação para fora, janelas novas, downloads e permissões são recusados.
 - **Começa escondida.** A webview é escondida logo ao ser criada. A região da janela também só inclui a coluna enquanto o [[riotOverlay]] cobre; esconder a webview evita pintar à toa.
+- **Descanso.** Desde a 2.29.0, quando o [[riotOverlay]] põe as webviews para descansar, a cobertura também some, e volta só se ainda estiver pedida.
 
 ## Testes
 

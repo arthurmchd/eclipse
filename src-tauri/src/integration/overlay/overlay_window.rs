@@ -1,9 +1,12 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tauri::webview::{NewWindowResponse, PageLoadEvent, PermissionResponse, WebviewBuilder};
 use tauri::window::{Color, WindowBuilder};
 use tauri::{AppHandle, PhysicalPosition, PhysicalSize, Runtime, Webview, WebviewUrl, Window, WindowEvent};
 use url::Url;
+use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL};
+use windows::core::Interface;
 use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
 use windows_sys::Win32::Graphics::Gdi::{CombineRgn, CreateRectRgn, DeleteObject, SetWindowRgn, RGN_OR};
 use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowPos, ShowWindow, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE};
@@ -17,7 +20,7 @@ use crate::integration::manager::manager_host::{bridge_script, ManagerHost, CARD
 pub const WINDOW_LABEL: &str = "overlay";
 pub const COVER_LABEL: &str = "cover";
 pub const TOGGLE_LABEL: &str = "toggle";
-pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion";
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --renderer-process-limit=1";
 const START: Size = Size { width: 900, height: 650 };
 
 pub struct TauriOverlayWindow<R: Runtime> {
@@ -27,6 +30,9 @@ pub struct TauriOverlayWindow<R: Runtime> {
     toggle: Webview<R>,
     hwnd: isize,
     language: Arc<Mutex<&'static str>>,
+    resting: AtomicBool,
+    cover_on: AtomicBool,
+    toggle_on: AtomicBool,
 }
 
 fn url(page: &str) -> Url {
@@ -35,6 +41,30 @@ fn url(page: &str) -> Url {
 
 fn place<R: Runtime>(webview: &Webview<R>, rect: Rect) {
     let _ = webview.set_bounds(tauri::Rect { position: PhysicalPosition::new(rect.x, rect.y).into(), size: PhysicalSize::new(rect.width.max(1) as u32, rect.height.max(1) as u32).into() });
+}
+
+pub fn shown_webviews(resting: bool, cover: bool, toggle: bool) -> [bool; 3] {
+    [!resting, !resting && cover, !resting && toggle]
+}
+
+fn set_shown<R: Runtime>(webview: &Webview<R>, shown: bool) {
+    let _ = if shown { webview.show() } else { webview.hide() };
+}
+
+pub fn memory_target(visible: bool) -> COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL {
+    if visible {
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+    } else {
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+    }
+}
+
+fn set_memory<R: Runtime>(webview: &Webview<R>, visible: bool) {
+    let _ = webview.with_webview(move |platform| unsafe {
+        if let Ok(core) = platform.controller().CoreWebView2().and_then(|core| core.cast::<ICoreWebView2_19>()) {
+            let _ = core.SetMemoryUsageTargetLevel(memory_target(visible));
+        }
+    });
 }
 
 fn sealed<R: Runtime>(builder: WebviewBuilder<R>, page: &'static str) -> WebviewBuilder<R> {
@@ -96,7 +126,6 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, host: Arc<ManagerHost>, log: Arc<d
     let cover = window.add_child(
         sealed(WebviewBuilder::new(COVER_LABEL, WebviewUrl::CustomProtocol(url(COVER_PAGE))), COVER_PAGE)
             .disable_javascript()
-            .incognito(true)
             .background_color(Color(0xfc, 0xfc, 0xfc, 0xff))
             .on_new_window(|_, _| NewWindowResponse::Deny),
         PhysicalPosition::new(cover_area.x, cover_area.y),
@@ -109,7 +138,6 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, host: Arc<ManagerHost>, log: Arc<d
     let toggle = window.add_child(
         sealed(WebviewBuilder::new(TOGGLE_LABEL, WebviewUrl::CustomProtocol(url(TOGGLE_PAGE))), TOGGLE_PAGE)
             .initialization_script(INIT_SCRIPT)
-            .incognito(true)
             .transparent(true)
             .on_page_load(move |webview, payload| {
                 if payload.event() == PageLoadEvent::Finished {
@@ -120,12 +148,20 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, host: Arc<ManagerHost>, log: Arc<d
         PhysicalPosition::new(toggle_area.x, toggle_area.y),
         PhysicalSize::new(toggle_area.width as u32, toggle_area.height as u32),
     )?;
-    Ok(TauriOverlayWindow { window, cards, cover, toggle, hwnd, language })
+    let overlay = TauriOverlayWindow { window, cards, cover, toggle, hwnd, language, resting: AtomicBool::new(false), cover_on: AtomicBool::new(false), toggle_on: AtomicBool::new(true) };
+    overlay.set_memory(false);
+    Ok(overlay)
 }
 
 impl<R: Runtime> TauriOverlayWindow<R> {
     pub fn handle(&self) -> String {
         self.hwnd.to_string()
+    }
+
+    fn set_memory(&self, visible: bool) {
+        for webview in [&self.cards, &self.cover, &self.toggle] {
+            set_memory(webview, visible);
+        }
     }
 
     fn on_main(&self, task: impl FnOnce(isize) + Send + 'static) {
@@ -160,6 +196,7 @@ impl<R: Runtime> OverlayWindow for TauriOverlayWindow<R> {
     }
 
     fn show_inactive(&self) {
+        self.set_memory(true);
         self.on_main(|hwnd| unsafe {
             ShowWindow(hwnd as _, SW_SHOWNOACTIVATE);
         });
@@ -169,14 +206,25 @@ impl<R: Runtime> OverlayWindow for TauriOverlayWindow<R> {
         self.on_main(|hwnd| unsafe {
             ShowWindow(hwnd as _, SW_HIDE);
         });
+        self.set_memory(false);
+    }
+
+    fn set_resting(&self, resting: bool) {
+        self.resting.store(resting, Ordering::SeqCst);
+        let [cards, cover, toggle] = shown_webviews(resting, self.cover_on.load(Ordering::SeqCst), self.toggle_on.load(Ordering::SeqCst));
+        set_shown(&self.cards, cards);
+        set_shown(&self.cover, cover);
+        set_shown(&self.toggle, toggle);
     }
 
     fn set_cover_visible(&self, visible: bool) {
-        let _ = if visible { self.cover.show() } else { self.cover.hide() };
+        self.cover_on.store(visible, Ordering::SeqCst);
+        set_shown(&self.cover, shown_webviews(self.resting.load(Ordering::SeqCst), visible, false)[1]);
     }
 
     fn set_toggle_visible(&self, visible: bool) {
-        let _ = if visible { self.toggle.show() } else { self.toggle.hide() };
+        self.toggle_on.store(visible, Ordering::SeqCst);
+        set_shown(&self.toggle, shown_webviews(self.resting.load(Ordering::SeqCst), false, visible)[2]);
     }
 
     fn set_toggle_language(&self, language: &str) {

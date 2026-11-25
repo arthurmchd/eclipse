@@ -24,7 +24,7 @@ sequenceDiagram
   M->>O: start(clientPath)
   O->>W: acompanha a janela da Riot (thread do Eclipse)
   W-->>O: posição, escala, minimizada, modal, formulário
-  loop a cada 750 ms com a janela na tela
+  loop a cada 750 ms com a janela na tela, não minimizada
     O->>RCS: estado da tela de login (API local)
   end
   O->>C: mostra os cartões só no login confirmado

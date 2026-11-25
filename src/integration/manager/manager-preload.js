@@ -1,7 +1,7 @@
 const CHANNEL = 'ram-manager:invoke';
 const EVENT_CHANNELS = new Set(['account-updated', 'refresh-progress', 'next-refresh', 'sign-in-status', 'sign-in-operation']);
 
-function createManagerApi({ ipcRenderer, setInterval: repeat = setInterval, clearInterval: clear = clearInterval, now = Date.now, pollMs = 500, signInTimeoutMs = 600000, onUnload } = {}) {
+function createManagerApi({ ipcRenderer, setInterval: repeat = setInterval, clearInterval: clear = clearInterval, now = Date.now, pollMs = 500, signInTimeoutMs = 600000, onUnload, hidden = () => false, onVisibility } = {}) {
   const listeners = new Map(), waiting = new Map();
   let cursor = 0, timer = null, polling = false, disposed = false;
   const invoke = (method, args = []) => {
@@ -23,7 +23,7 @@ function createManagerApi({ ipcRenderer, setInterval: repeat = setInterval, clea
       : { ok: false, error: operation.text || operation.error || 'Sign-in did not finish', cancelled: operation.status === 'cancelled' });
   }
   async function poll() {
-    if (polling || disposed) return;
+    if (polling || disposed || (hidden() && !waiting.size)) return;
     polling = true;
     try {
       const result = await invoke('events', [cursor]);
@@ -68,6 +68,7 @@ function createManagerApi({ ipcRenderer, setInterval: repeat = setInterval, clea
     waiting.clear();
   }
   onUnload?.(dispose);
+  onVisibility?.(() => { if (timer && !hidden()) poll(); });
   const api = {
     async init() {
       const data = await invoke('init');

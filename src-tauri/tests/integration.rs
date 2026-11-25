@@ -12,6 +12,8 @@ mod manager_host;
 mod overlay_drag;
 #[path = "integration/overlay/overlay_toggle.rs"]
 mod overlay_toggle;
+#[path = "integration/overlay/overlay_window.rs"]
+mod overlay_window;
 #[path = "integration/overlay/riot_overlay.rs"]
 mod riot_overlay;
 #[path = "support/bundle.rs"]

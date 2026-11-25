@@ -4,11 +4,14 @@ import { VAL_GROUPS } from './ranks.js';
 import { textFor, translatePage } from './cardsText.js';
 import { createSounds, hoverSound, clickSound, changeSound } from './sounds.js';
 import { dragSpot } from './windowDrag.js';
+import { createBanners } from './banners.js';
+import { patchList, within } from './cardPatch.js';
 import { startupChange } from './cardView.js';
 
 const api = window.api;
 const $ = selector => document.querySelector(selector);
 const sounds = createSounds();
+const banners = createBanners();
 let entered = '';
 let hovered = null;
 const state = { accounts: [], selectedId: null, game: 'lol', stats: 'lol', operation: null, regions: {}, settings: {}, editing: null, submitting: false, lastRefresh: null, refreshing: false, seenAccount: null, startWithWindows: null, filters: { query: '', region: '', tier: '' }, addMode: 'single' };
@@ -19,6 +22,11 @@ const busy = () => state.submitting || state.operation?.status === 'running';
 const hex = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 const reorderable = () => canReorder({ ...state.filters, sort: sortOf(state.settings) });
 let translated = null;
+function element(html) {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.firstElementChild;
+}
 function updatedText() {
   const text = t();
   if (state.refreshing) return text.updating;
@@ -124,23 +132,28 @@ function render() {
   cards.dataset.game = riot ? 'riot' : state.stats;
   cards.classList.toggle('can-reorder', reorderable() && !busy());
   const now = Date.now();
-  const body = shown.map((account, index) => {
+  const items = shown.map(account => {
     const base = riot ? riotView(account, gamesOf(account), state.regions[account.region]?.label || account.region, text) : accountView(account, state.stats, text);
     const view = { ...base, pinned: account.pinned === true, usage: usage(account, text, now), recent: usage(account, text, now, false) };
     const playing = state.operation?.accountId === view.id && busy();
-    return `<article class="account ${layout === 'list' ? 'list-card' : 'plate-card'} ${view.id === state.selectedId ? 'is-selected' : ''} ${playing ? 'is-playing' : ''}" data-id="${esc(view.id)}" data-tier="${esc(view.accent)}">
-      <input class="account-radio" type="radio" name="account" id="account-${index}" data-account="${esc(view.id)}" ${view.id === state.selectedId ? 'checked' : ''} ${busy() ? 'disabled' : ''}>
-      <label class="account-content" for="account-${index}" title="${esc(text.playHint)}">${riot ? (layout === 'list' ? riotRow(view, text) : riotPlate(view, text)) : layout === 'list' ? row(view, text) : plate(view, text)}</label>
+    return { key: view.id, html: `<article class="account ${layout === 'list' ? 'list-card' : 'plate-card'} ${view.id === state.selectedId ? 'is-selected' : ''} ${playing ? 'is-playing' : ''}" data-id="${esc(view.id)}" data-tier="${esc(view.accent)}">
+      <input class="account-radio" type="radio" name="account" id="pick-${esc(view.id)}" data-account="${esc(view.id)}" ${view.id === state.selectedId ? 'checked' : ''} ${busy() ? 'disabled' : ''}>
+      <label class="account-content" for="pick-${esc(view.id)}" title="${esc(text.playHint)}">${riot ? (layout === 'list' ? riotRow(view, text) : riotPlate(view, text)) : layout === 'list' ? row(view, text) : plate(view, text)}</label>
       <button class="pin" data-action="pin" aria-pressed="${view.pinned}" aria-label="${esc(text.pinNamed(view.name, view.pinned))}" title="${esc(view.pinned ? text.unpin : text.pin)}" ${busy() ? 'disabled' : ''}>${view.pinned ? '★' : '☆'}</button>
       <button class="edit" data-action="edit" aria-label="${esc(text.editNamed(view.name))}" title="${esc(text.editAccount)}" ${busy() ? 'disabled' : ''}>···</button>
-    </article>`;
-  }).join('');
+    </article>` };
+  });
   const filtered = `<div class="empty"><h2>${esc(text.noMatchTitle)}</h2><p>${esc(text.noMatchText)}</p><button type="button" data-action="clear-filters">${esc(text.clearFilters)}</button></div>`;
   const empty = `<div class="empty"><h2>${esc(text.emptyTitle)}</h2><p>${esc(text.emptyText)}</p><button type="button" class="primary" data-action="add">${esc(text.addAccount)}</button></div>`;
-  cards.innerHTML = shown.length ? (layout === 'list' ? listHead(text) : '') + body : state.accounts.length ? filtered : empty;
-  for (const card of cards.querySelectorAll('[data-tier]')) if (hex(card.dataset.tier)) card.style.setProperty('--tier', card.dataset.tier);
-  for (const badge of cards.querySelectorAll('[data-badge]')) if (badge.dataset.badge.startsWith('https://media.valorant-api.com/levelborders/')) badge.style.setProperty('--badge', `url("${badge.dataset.badge}")`);
+  const listed = shown.length ? (layout === 'list' ? [{ key: '#head', html: listHead(text) }, ...items] : items) : [state.accounts.length ? { key: '#filtered', html: filtered } : { key: '#empty', html: empty }];
   const scene = shown.length ? `${state.game}|${layout}` : '';
+  const fresh = patchList(cards, listed, element, scene !== entered);
+  banners.fill(cards);
+  for (const node of fresh) {
+    for (const card of within(node, '[data-tier]')) if (hex(card.dataset.tier)) card.style.setProperty('--tier', card.dataset.tier);
+    for (const badge of within(node, '[data-badge]')) if (badge.dataset.badge.startsWith('https://media.valorant-api.com/levelborders/')) badge.style.setProperty('--badge', `url("${badge.dataset.badge}")`);
+  }
+  for (const radio of cards.querySelectorAll('.account-radio')) radio.checked = radio.dataset.account === state.selectedId;
   if (scene && scene !== entered) cards.querySelectorAll('.account').forEach((card, index) => { card.style.setProperty('--i', String(Math.min(index, 12))); card.classList.add('enter'); });
   entered = scene;
   if (focused) Array.from(document.querySelectorAll('[data-account]')).find(element => element.dataset.account === focused)?.focus({ preventScroll: true });
@@ -174,7 +187,7 @@ function hero(view, level) {
     const picture = view.board ? `<img src="${esc(view.board)}" alt="" loading="lazy">` : '<span class="board-empty"></span>';
     return `<span class="hero hero-board"><span class="board-ring">${picture}</span>${level}</span>`;
   }
-  const banner = view.banner ? `<img class="banner" src="${esc(view.banner)}" width="580" height="1480" alt="" loading="lazy">` : '';
+  const banner = view.banner ? `<img class="banner" data-banner="${esc(view.banner)}" width="580" height="1480" alt="">` : '';
   const frame = view.border ? `<img class="frame" src="${esc(view.border.src)}" alt="" loading="lazy">` : '';
   return `<span class="hero hero-banner">${banner}<span class="avatar${view.border ? ` has-border border-${view.border.kind}` : ''}"${view.border?.badge ? ` data-badge="${esc(view.border.badge)}"` : ''}>${avatar(view, 'portrait')}${frame}${level}</span></span>`;
 }
@@ -320,6 +333,7 @@ function endDrag(event, cancelled) {
   drag.ended = true;
   setTimeout(() => { drag.ended = false; }, 0);
   document.body.classList.remove('is-reordering');
+  for (const card of document.querySelectorAll('#cards .is-dragging')) card.classList.remove('is-dragging');
   clearDropMarks();
   if (cancelled || !target || busy()) return render();
   const ids = state.accounts.map(account => account.id);
@@ -349,6 +363,7 @@ $('#cards').addEventListener('pointermove', event => {
   drag.target = over.dataset.id;
   over.classList.add(drag.after ? 'drop-after' : 'drop-before');
 });
+$('#cards').addEventListener('animationend', event => { if (event.target.matches?.('.account.enter')) event.target.classList.remove('enter'); });
 $('#cards').addEventListener('pointerup', event => endDrag(event, false));
 $('#cards').addEventListener('pointercancel', event => endDrag(event, true));
 $('#cards').addEventListener('lostpointercapture', event => { if (drag.active) endDrag(event, true); });

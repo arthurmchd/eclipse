@@ -7,6 +7,42 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-25 · Eclipse 2.29.2: correções do /code-review
+
+- Pedido do usuário: rodar o `/code-review` nas mudanças da 2.29.0 e 2.29.1 e corrigir os quatro achados.
+- **Diálogo fechado por uma piscada da Riot.** Desde a 2.29.0 as webviews descansavam no primeiro retrato sem a janela da Riot, e a página `hidden` fechava o cadastro com o que estava digitado. Agora só descansam depois de 2 s sem a Riot ([[riotOverlay]]).
+- **Volta da Riot minimizada.** Depois de mais de 2,5 s minimizada, os cartões esperavam uma leitura nova ao restaurar. Agora voltam na hora com a última leitura, e a leitura nova corrige ([[riotOverlay]]). A 2.29.0 já prometia a volta instantânea.
+- **Estandarte atrasado.** A cópia reduzida que fica pronta depois dos 15 s é liberada, e o temporizador é limpo pela mesma dependência que o criou ([[cards]], [[ADR-050 Estandarte reduzido nos cartões]]).
+- **Vault.** `banners.js`, `cardPatch.js` e seus testes entraram na nota [[cards]], e a linha que ainda falava de `loading="lazy"` no estandarte foi corrigida.
+- Na mesma conversa, sem mudança de código: varredura de segurança com roteiros do repositório Claude-BugHunter (fora do projeto, não instalado): segredos nos arquivos e no histórico, XSS e DOM nos cartões, CI e publicação. Nada encontrado além de um endereço falso de teste; as actions do CI usam versão por nome, não por hash.
+- Testes novos para cada correção. Não conferido na Riot real.
+
+## 2026-11-25 · Eclipse 2.29.1: estandarte de volta nos cartões
+
+- Relato do usuário: na 2.29.0 instalada os cartões do League mostravam só um retângulo vazio no lugar do estandarte. Na prévia do Chrome a redução funcionava, então a falha é do WebView2; a causa exata não foi vista na Riot real. A redução em `banners.js` deixava a promessa pendurada quando algo falhava dentro do `onload` (erro do `canvas`), e o cartão ficava sem `src` para sempre. Agora toda falha rejeita, a cópia `blob:` só vale se carregar, há limite de 15 s, e em qualquer desses casos o cartão mostra a original. O `img` sem `src` fica invisível até ter imagem ([[cards]], [[ADR-050 Estandarte reduzido nos cartões]]). Testes novos simulam cada falha. Conferido na prévia; não conferido na Riot real.
+
+## 2026-11-24 · Eclipse 2.29.0: menos processador com a Riot aberta e escondida
+
+- Pedido do usuário: aplicar as quatro primeiras otimizações do relatório de processador e memória ([[Medição de CPU e memória]]).
+- **API local.** O certificado da Riot fica guardado enquanto o `app.asar` não muda, e os `GET` reaproveitam a conexão; os pedidos que mudam a Riot continuam com conexão própria e sem repetição ([[ADR-051 Certificado guardado e conexão reaproveitada na API local]], [[riotTransport]], [[backend]], [[Segurança e privacidade]]). Conferido com um servidor TLS de teste fora do repositório: 5 `GET` numa conexão, uma conexão por `POST`, `PUT` e `DELETE`, raiz errada recusada.
+- **Observador.** Cada janela é conferida contra o caminho da Riot uma vez, não a cada 180 ms, e o caminho do executável é lido num buffer pequeno ([[riotWindowObserver]], [[win32]]).
+- **Sobreposição.** Nada de leitura do login com a Riot minimizada; na volta, uma leitura na hora ([[riotOverlay]]). Com a Riot fechada, a conta conectada ou o login fora da tela, as três webviews descansam, e a página dos cartões para de perguntar por eventos ([[manager-preload]], [[managerHost]]). Riot minimizada ou com aviso não põe as webviews para descansar, para a volta continuar instantânea.
+- **Menos processos de renderização.** A WebView2 recebe o limite de um processo, e a cobertura e a caixa deixaram o perfil anônimo. Ficaram dois processos em vez de três: os cartões num, a cobertura e a caixa no outro ([[ADR-052 Webviews da sobreposição num processo só]], [[overlayCover]], [[overlayToggle]]).
+- Medido na 2.29.0 instalada, com a Riot visível e os cartões à vista, em 60 s depois de alguns minutos aberto: `eclipse.exe` com 0,62% de um núcleo (a 2.28.4 tinha 1,4% a 1,7%) e 16,9 MB privados (19 MB); WebView2 com 258 MB em 8 processos (288 MB em 9); nenhuma conexão à API local em TIME_WAIT (eram ~317); o serviço da Riot com 0,73% de um núcleo (2,8%) ([[Medição de CPU e memória]]).
+- Testes novos para cada parte. Não conferido na Riot real: a volta dos cartões depois do descanso e depois de restaurar a Riot.
+
+## 2026-11-24 · Eclipse 2.28.4: só o cartão que mudou é redesenhado
+
+- Pedido do usuário: a lista inteira era recriada a cada atualização (passo do login, conta atualizada, letra da busca). Agora só os cartões cujo conteúdo mudou são recriados; os outros são mantidos ou só mudam de lugar, com as imagens já carregadas ([[cards]]). Conferido na prévia num Edge sem janela, contando os cartões mantidos em seleção, busca, atualização, troca de ordem pelo teclado, aba e layout. Não conferido na Riot real.
+
+## 2026-11-24 · Eclipse 2.28.3: estandarte reduzido
+
+- Pedido do usuário: procurar o que ainda carrega de um jeito que não deveria. O estandarte do League vinha em 580×1480 para aparecer em 140×357; agora os cartões guardam uma cópia de 280×714, de 3,3 MB para 0,8 MB por estandarte, com o mesmo tamanho na tela ([[ADR-050 Estandarte reduzido nos cartões]], [[cards]], [[Segurança e privacidade]]). Conferido na prévia a 200%, lado a lado com a versão antiga. Não medido na Riot real. Na mesma busca: processador parado em 0,5% de um núcleo, leituras de fundo em ritmo normal, sons carregados só ao tocar e o emblema grande do League sem uso; a lista inteira redesenhada a cada aviso ficou para quando houver muitas contas.
+
+## 2026-11-24 · Eclipse 2.28.2: menos memória
+
+- Relato do usuário: o Eclipse aparecia como "WebView2 Manager" no Gerenciador de Tarefas, ocupando bem mais que no começo. O outro grupo "WebView2 Manager" da captura era de outro programa. Com a sobreposição escondida, as três webviews pedem à WebView2 a meta de memória baixa ([[riotOverlay]]), e o fundo dos cartões do League usa a versão quadrada da arte, seis vezes menor ([[cards]]). Medido com a Riot fechada, 90 s depois de abrir: memória ativa de 538 MB para 178 MB; memória reservada de 264 para 234 MB. A arte menor não foi medida na Riot real, só conferida pelos testes.
+
 ## 2026-11-23 · Eclipse 2.28.1: ordem de tamanho fixo e hexágono menor
 
 - Pedido do usuário: a caixa de ordem mudava de largura a cada opção ("Jogada recente", "Maior elo" …) e mexia a barra. Agora ela tem a largura fixa da opção mais longa. O hexágono do cartão do TFT ficou um pouco menor ([[cards]]). Conferido na prévia em 900 e 636 px.
