@@ -207,3 +207,12 @@ test('the LoL plate has the profile splash behind it and the TFT plate puts the 
   assert.equal(accountView(lolAccount, 'lol', TEXT.pt).splash, null);
   assert.equal(accountView({ ...lolAccount, stats: { lol: { ...lolAccount.stats.lol, iconId: -1 } } }, 'tft', TEXT.pt).board, null);
 });
+
+test('only a running sign-in greys the cards and marks the account being signed in', async () => {
+  const { signingState } = await load('cardView.js');
+  assert.deepEqual(signingState({ status: 'running', accountId: 'a' }, 'a'), { running: true, playing: true });
+  assert.deepEqual(signingState({ status: 'running', accountId: 'a' }, 'b'), { running: true, playing: false });
+  assert.deepEqual(signingState({ status: 'running', accountId: 'a' }), { running: true, playing: false });
+  for (const status of ['succeeded', 'failed', 'cancelled']) assert.deepEqual(signingState({ status, accountId: 'a' }, 'a'), { running: false, playing: false });
+  assert.deepEqual(signingState(null, 'a'), { running: false, playing: false });
+});

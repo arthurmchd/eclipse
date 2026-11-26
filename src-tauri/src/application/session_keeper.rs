@@ -346,6 +346,10 @@ impl Inner {
         if state != AccountState::No || self.riot.has_persisted_login(self.riot.read_settings_yaml().as_deref()) {
             return Ok(());
         }
+        if look.in_game()? {
+            (self.log)("kept the saved session: Riot cleared its login while a game was open");
+            return Ok(());
+        }
         if !self.store.has_session(&last.account) || self.store.load_session(&last.account).as_deref() != Some(last.yaml.as_str()) {
             return Ok(());
         }

@@ -31,7 +31,7 @@ tags: [módulo]
 | `active_account_id()` | método | Conta em login, ou `None` |
 | `ALREADY_RUNNING`, `CREDENTIALS_CHANGED`, `KEEP_LEAVING_FAILED` | constantes | Os textos fixos de erro |
 
-Operação: `{ id, operationId, accountId, game, status, text, needsAttention, nativeClient, signedIn, startedAt, finishedAt?, error?, cancelled? }`. `status` é `running`, `succeeded`, `failed` ou `cancelled`.
+Operação: `{ id, operationId, accountId, game, status, text, needsAttention, nativeClient, signedIn, step, startedAt, finishedAt?, error?, cancelled? }`. `step` é `prepare`, `sign_in`, `verify`, `launch` ou `done`. `status` é `running`, `succeeded`, `failed` ou `cancelled`.
 
 ## Dependências
 
@@ -42,6 +42,7 @@ Operação: `{ id, operationId, accountId, game, status, text, needsAttention, n
 
 - **`signInCount` conta as entradas (2026-11-15).** Cada login que termina em sucesso (jogo aberto, ou só a Riot no `riot`) soma 1. `lastPlayed` e `lastGame` continuam só para jogo aberto.
 - **Sucesso sem jogo só para `riot`.** Desde 2026-11-04, `riot` é aceito junto de `lol`, `tft` e `val`. A operação só termina `succeeded` com `gameStarted`, ou, para `riot`, com `clientOpened` (texto "Riot Client opened"). `clientOpened` num jogo não conta como sucesso. Sem jogo aberto, `lastPlayed` e `lastGame` não mudam; sessão, conta atual e Riot ID são gravados normalmente. Ver [[signInFlow]].
+- **Etapa do login (2026-11-25, 2.30.0, [[ADR-053 Etapas do login na tela até o jogo abrir]]).** A operação começa em `prepare`, cada status copia a etapa do [[signInFlow]], o sucesso termina em `done`, e falha ou cancelamento guardam a etapa em que pararam. O [[riotOverlay]] usa a etapa para a lista da [[overlayCover]].
 - **`remember` vem de `staySignedIn`** (ausente conta como ligado). A operação pública ganhou `signedIn`, que começa `false` e vira `true` no primeiro status com `signedIn` do [[signInFlow]]; nunca volta a `false` na mesma operação. Adicionado em 2026-11-04.
 - **Login sempre visível.** Publica o estado da operação para o carregamento sobre a coluna de login.
 - **Sem opções de janela.** Desde 2026-11-07 ([[ADR-028 Modo antigo removido]]), o serviço não repassa `hide`, `closeClient`, `releaseAfterLaunch` nem `visibleLogin` ao [[signInFlow]], que só tem o login visível. As preferências `hideRiotClient` e `closeRiotClient` da janela antiga saíram, junto com a entrada da ponte local, e a recusa com LoL ou VALORANT abertos que só ela fazia (`requireIdle`).

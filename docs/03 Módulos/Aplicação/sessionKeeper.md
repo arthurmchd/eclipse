@@ -111,6 +111,8 @@ Decisões em [[ADR-019 Sessão salva por conta no modo cartões]], [[ADR-020 Rio
 - **Log sem dados da conta.** As linhas não levam nome, Riot ID, `sub` nem trechos do arquivo.
 - **Duas conferências em threads.** Com o temporizador real, a conferência do arquivo e a olhada nos processos podem rodar em threads diferentes ao mesmo tempo. A conta anotada como segurada pela Riot leva um número de série, e as conferências de "ainda é a mesma" protegem a troca entre threads. `KEPT_SINCE_MS` é conferido por teste contra `2026-11-06T13:00:00Z`, a mesma data que o Electron usava.
 
+- **Login limpo com jogo aberto não apaga a sessão (2026-11-26, 2.32.1).** O `sign-in.log` real mostrou que, desde 2026-11-20 (Riot 143), entre 30 s e 2 min depois de o jogo abrir, a Riot tira o login do arquivo e responde "sem conta". O guardião tomava isso por saída ([[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]) e apagava a sessão depois de todo jogo, e o Jogar seguinte voltava à senha e ao código. Agora, se um jogo está aberto nessa hora, ele solta a anotação, registra "kept the saved session: Riot cleared its login while a game was open" e não apaga nada, nem depois que o jogo fecha. A saída pela Riot sem jogo aberto continua apagando. Não se sabe ainda se a Riot também encerra essa sessão no servidor; se encerrar, o Jogar seguinte cai em "saved session is no longer usable" e no login visível, como antes da ADR-027.
+
 ## Testes
 
 `src-tauri/tests/application/session_keeper.rs`, com Riot, store e relógio falsos, cobre:

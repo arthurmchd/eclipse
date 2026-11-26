@@ -1,6 +1,6 @@
 [package]
 name = "eclipse"
-version = "2.29.2"
+version = "2.32.2"
 edition = "2021"
 publish = false
 

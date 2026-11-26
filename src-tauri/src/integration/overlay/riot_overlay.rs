@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 use serde_json::Value;
 
+use super::overlay_cover::CoverSteps;
 use super::overlay_toggle::toggle_rect;
 use crate::application::timers::Timers;
 use crate::platform::windows::riot_window_observer::{RiotWindowObserver, Target, PANEL_POINT};
@@ -44,12 +45,13 @@ pub struct ShapeOptions {
     pub corner: f64,
     pub top: i32,
     pub covered: bool,
+    pub sealed: bool,
     pub toggle: bool,
 }
 
 impl Default for ShapeOptions {
     fn default() -> Self {
-        Self { hidden: false, corner: 0.0, top: 0, covered: false, toggle: true }
+        Self { hidden: false, corner: 0.0, top: 0, covered: false, sealed: false, toggle: true }
     }
 }
 
@@ -128,7 +130,7 @@ fn rounded_rows(insets: &[i32], x: i32, top: i32, bottom: i32, width: i32, from_
     (upper, lower)
 }
 
-pub fn cover_shape(size: Size, corner: f64, top: i32) -> Vec<Rect> {
+pub fn cover_shape(size: Size, corner: f64, top: i32, sealed: bool) -> Vec<Rect> {
     let area = cards_left(size.width);
     let inner = size.height - top;
     if area <= 0 {
@@ -137,7 +139,8 @@ pub fn cover_shape(size: Size, corner: f64, top: i32) -> Vec<Rect> {
     let insets = corner_insets(corner.min(area as f64 / 2.0).min(inner as f64 / 2.0));
     let rows = insets.len() as i32;
     let (upper, lower) = rounded_rows(&insets, 0, top, size.height, area, true);
-    let middle = without(Rect::new(0, top + rows, area, inner - rows * 2), panel_hole(size));
+    let column = Rect::new(0, top + rows, area, inner - rows * 2);
+    let middle = if sealed { vec![column] } else { without(column, panel_hole(size)) };
     upper.into_iter().chain(middle).chain(lower).filter(|part| part.width > 0 && part.height > 0).collect()
 }
 
@@ -149,7 +152,7 @@ pub fn overlay_shape(size: Size, options: ShapeOptions) -> Vec<Rect> {
         parts.push(toggle_rect(size));
     }
     if options.covered {
-        parts.extend(cover_shape(size, options.corner, edge));
+        parts.extend(cover_shape(size, options.corner, edge, options.sealed));
     }
     if options.hidden {
         return parts;
@@ -181,7 +184,8 @@ pub trait OverlayWindow: Send + Sync {
     fn set_resting(&self, resting: bool);
     fn set_cover_visible(&self, visible: bool);
     fn set_toggle_visible(&self, visible: bool);
-    fn set_toggle_language(&self, language: &str);
+    fn set_language(&self, language: &str);
+    fn set_cover_steps(&self, steps: &CoverSteps);
     fn begin_drag(&self);
     fn close(&self);
 }
@@ -220,6 +224,8 @@ struct State {
     pending: Option<Cancel>,
     generation: u64,
     signed_in: bool,
+    escort: bool,
+    steps: Option<CoverSteps>,
     hidden: bool,
     covered: bool,
     form_hidden: bool,
@@ -242,7 +248,7 @@ struct Inner {
 
 impl Inner {
     fn options(state: &State) -> ShapeOptions {
-        ShapeOptions { hidden: state.hidden, corner: state.corner, top: state.edge, covered: state.covered, toggle: !state.form_hidden }
+        ShapeOptions { hidden: state.hidden, corner: state.corner, top: state.edge, covered: state.covered, sealed: state.signed_in, toggle: !state.form_hidden }
     }
 
     fn hide(&self, state: &mut State, rest: bool) {
@@ -312,8 +318,32 @@ impl Inner {
         }
     }
 
+    fn reveal(&self, state: &mut State) {
+        if !state.visible {
+            state.visible = true;
+            if state.resting {
+                state.resting = false;
+                self.window.set_resting(false);
+            }
+            self.window.show_inactive();
+        }
+    }
+
+    fn escort(&self, state: &mut State) {
+        match state.target.clone() {
+            None if state.size.is_some() => self.reveal(state),
+            None => self.hide(state, false),
+            Some(target) if target.minimized || (target.dimmed && !state.signed_in) => self.hide(state, false),
+            Some(target) => self.place(state, &target),
+        }
+    }
+
     fn layout(&self, state: &mut State) {
         if state.disposed {
+            return;
+        }
+        if state.loaded && state.escort {
+            self.escort(state);
             return;
         }
         let now = (self.hooks.now)();
@@ -324,10 +354,14 @@ impl Inner {
             self.hide(state, rest);
             return;
         };
-        let bounds = overlay_bounds(&target);
+        self.place(state, &target);
+    }
+
+    fn place(&self, state: &mut State, target: &Target) {
+        let bounds = overlay_bounds(target);
         let size = Size { width: bounds.width, height: bounds.height };
-        let radius = corner_radius(&target);
-        let border = top_edge(&target);
+        let radius = corner_radius(target);
+        let border = top_edge(target);
         if overlay_shape(size, Self::options(state)).is_empty() {
             self.hide(state, false);
             return;
@@ -342,14 +376,7 @@ impl Inner {
             state.edge = border;
             self.window.set_region(&overlay_shape(size, Self::options(state)));
         }
-        if !state.visible {
-            state.visible = true;
-            if state.resting {
-                state.resting = false;
-                self.window.set_resting(false);
-            }
-            self.window.show_inactive();
-        }
+        self.reveal(state);
     }
 
     fn check_session(self: &Arc<Self>) {
@@ -430,6 +457,8 @@ impl RiotOverlay {
             pending: None,
             generation: 0,
             signed_in: false,
+            escort: false,
+            steps: None,
             hidden: false,
             covered: false,
             form_hidden: false,
@@ -453,7 +482,10 @@ impl RiotOverlay {
             }
             state.loaded = true;
             state.observer = Some(observer);
-            self.inner.window.set_toggle_language(state.language);
+            self.inner.window.set_language(state.language);
+            if let Some(steps) = &state.steps {
+                self.inner.window.set_cover_steps(steps);
+            }
             self.inner.window.set_cover_visible(state.covered);
             self.inner.window.set_toggle_visible(!state.covered && !state.form_hidden);
         }
@@ -501,7 +533,7 @@ impl RiotOverlay {
         let mut state = self.inner.state.lock().unwrap();
         state.language = if value == "en" { "en" } else { "pt" };
         if state.loaded && !state.disposed {
-            self.inner.window.set_toggle_language(state.language);
+            self.inner.window.set_language(state.language);
         }
     }
 
@@ -518,15 +550,31 @@ impl RiotOverlay {
     }
 
     pub fn set_operation(&self, operation: &Value) {
-        let running = operation.get("status").and_then(Value::as_str) == Some("running");
+        let steps = CoverSteps::from_operation(operation);
+        let running = steps.is_some();
         let signed_in = running && operation.get("signedIn") == Some(&Value::Bool(true));
         let attention = operation.get("needsAttention") == Some(&Value::Bool(true));
+        let escort = steps.as_ref().is_some_and(|steps| !attention && steps.step != "done");
         let mut state = self.inner.state.lock().unwrap();
         if state.disposed {
             return;
         }
+        if let Some(steps) = steps.filter(|steps| state.steps.as_ref() != Some(steps)) {
+            if state.loaded {
+                self.inner.window.set_cover_steps(&steps);
+            }
+            state.steps = Some(steps);
+        }
+        let sealing = state.signed_in != signed_in;
         state.signed_in = signed_in;
-        self.inner.set_covered(&mut state, running && !attention);
+        state.escort = escort;
+        if state.covered == escort {
+            if sealing && state.covered {
+                self.inner.reshape(&mut state);
+            }
+        } else {
+            self.inner.set_covered(&mut state, escort);
+        }
         self.inner.layout(&mut state);
     }
 

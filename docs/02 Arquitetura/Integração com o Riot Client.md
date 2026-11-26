@@ -35,7 +35,7 @@ sequenceDiagram
 
 - **Janela presa à Riot.** A sobreposição tem a janela da Riot como dona: sobe, desce, minimiza e some junto com ela ([[ADR-012 Sobreposição presa à janela do Riot]]).
 - **Só na tela de login.** Os cartões aparecem com o estado `auth` sem erro (ou falha de senha, para tentar de novo). Sessão conectada, 2FA, modal da Riot ou consulta falha escondem os cartões ([[riotOverlay]]).
-- **Login visível.** O clique em Jogar faz o login pela API local da Riot, com a coluna de login coberta por um carregamento ([[ADR-024 Coluna de login coberta durante o login]]). Detalhes em [[Fluxo de login]].
+- **Login visível.** O clique em Jogar faz o login pela API local da Riot, com a coluna de login coberta ([[ADR-024 Coluna de login coberta durante o login]]). Desde a 2.30.0 a coluna mostra as etapas do login, e o Eclipse fica na tela até o jogo abrir ([[ADR-053 Etapas do login na tela até o jogo abrir]]). Detalhes em [[Fluxo de login]].
 - **Sessão por conta.** O [[sessionKeeper]] guarda a sessão de cada conta e mantém a Riot sempre desconectada ao abrir ([[ADR-021 Riot sempre abre desconectada]]). O [[riotWakeup]] abre a janela de uma Riot que sai do segundo plano sem uma ([[ADR-023 Riot sem janela abre a interface ao sair do segundo plano]]).
 
 Módulos envolvidos: [[riotOverlay]], [[riotWindowObserver]], [[overlayToggle]], [[overlayCover]], [[managerHost]], [[manager-preload]], [[managerService]], [[signInService]], [[riotClient]], [[riotTransport]], [[backend]], [[asar]].

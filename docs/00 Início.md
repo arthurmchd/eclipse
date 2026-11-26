@@ -34,7 +34,7 @@ Um modo só desde 2026-11-07 ([[ADR-028 Modo antigo removido]]): os [[cards]] so
 | Aplicação | [[main]] · [[paths]] · [[store]] · [[managerService]] · [[signInService]] · [[sessionKeeper]] · [[riotWakeup]] · [[language]] · [[rankApi]] · [[opgg]] · [[rankWatcher]] · [[timers]] · [[refresher]] · [[appPorts]] · [[notices]] · [[updates]] (Tauri) |
 | Riot | [[riotClient]] · [[riotState]] · [[gameRanks]] · [[signInFlow]] · [[riotAuthentication]] · [[riotInterface]] · [[riotAppControls]] · [[riotTransport]] · [[riotProcess]] · [[riotVersion]] |
 | Windows | [[safeStorage]] (Tauri) · [[windowController]] · [[windowGuard]] · [[loginForm]] · [[win32]] · [[windowsEnvironment]] · [[riotWindowObserver]] · [[startWithWindows]] · [[toasts]] · [[electronInstance]] (Tauri) |
-| Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[overlayDrag]] (Tauri) · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] · [[assetProtocol]] · [[appUpdater]] (Tauri) |
+| Integração | [[riotOverlay]] · [[overlayToggle]] · [[overlayCover]] · [[overlayDrag]] (Tauri) · [[managerHost]] · [[manager-preload]] · [[backend]] · [[asar]] · [[assetProtocol]] · [[riotLogo]] · [[appUpdater]] (Tauri) |
 | Interface | [[cards]] · [[sounds]] |
 
 Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como histórico.
@@ -85,6 +85,7 @@ Notas dos módulos do modo antigo ficam em `03 Módulos/Removidos/`, só como hi
 - [[ADR-050 Estandarte reduzido nos cartões]]
 - [[ADR-051 Certificado guardado e conexão reaproveitada na API local]]
 - [[ADR-052 Webviews da sobreposição num processo só]]
+- [[ADR-053 Etapas do login na tela até o jogo abrir]]
 
 - [[ADR-001 Cópia privada da interface do Riot]] (substituída)
 - [[ADR-002 Segredos protegidos pelo DPAPI]]

@@ -714,6 +714,22 @@ fn an_account_signed_out_in_riot_loses_its_saved_session_at_once_and_riot_is_lef
 }
 
 #[test]
+fn a_login_riot_clears_while_a_game_is_open_keeps_the_saved_session_also_after_the_game_closes() {
+    let f = held_by_riot(POLL, client(|processes| processes.lol = true));
+    f.sign_out_in_riot();
+    f.flush();
+    assert!(f.forgets().is_empty());
+    assert_eq!(session(&f, "a"), Some(remembered("sub-a", "", "v2")));
+    assert_eq!(f.last_log(), "kept the saved session: Riot cleared its login while a game was open");
+    f.processes(client(|processes| processes.client_window = true));
+    f.tick();
+    f.keeper.check();
+    f.flush();
+    assert!(f.forgets().is_empty());
+    assert_eq!(session(&f, "a"), Some(remembered("sub-a", "", "v2")));
+}
+
+#[test]
 fn a_riot_that_only_lets_go_of_the_account_after_a_game_keeps_the_session_even_when_the_cleared_file_is_rewritten_later() {
     let f = held_by_riot(0, None);
     f.scene(|scene| scene.authorized = false);

@@ -6,7 +6,7 @@ import { createSounds, hoverSound, clickSound, changeSound } from './sounds.js';
 import { dragSpot } from './windowDrag.js';
 import { createBanners } from './banners.js';
 import { patchList, within } from './cardPatch.js';
-import { startupChange } from './cardView.js';
+import { startupChange, signingState } from './cardView.js';
 
 const api = window.api;
 const $ = selector => document.querySelector(selector);
@@ -131,16 +131,18 @@ function render() {
   const riot = state.game === 'riot';
   cards.dataset.game = riot ? 'riot' : state.stats;
   cards.classList.toggle('can-reorder', reorderable() && !busy());
+  cards.classList.toggle('is-signing', signingState(state.operation).running);
   const now = Date.now();
   const items = shown.map(account => {
     const base = riot ? riotView(account, gamesOf(account), state.regions[account.region]?.label || account.region, text) : accountView(account, state.stats, text);
-    const view = { ...base, pinned: account.pinned === true, usage: usage(account, text, now), recent: usage(account, text, now, false) };
+    const signing = signingState(state.operation, base.id).playing;
+    const view = { ...base, pinned: account.pinned === true, usage: usage(account, text, now), recent: usage(account, text, now, false), signing };
     const playing = state.operation?.accountId === view.id && busy();
     return { key: view.id, html: `<article class="account ${layout === 'list' ? 'list-card' : 'plate-card'} ${view.id === state.selectedId ? 'is-selected' : ''} ${playing ? 'is-playing' : ''}" data-id="${esc(view.id)}" data-tier="${esc(view.accent)}">
       <input class="account-radio" type="radio" name="account" id="pick-${esc(view.id)}" data-account="${esc(view.id)}" ${view.id === state.selectedId ? 'checked' : ''} ${busy() ? 'disabled' : ''}>
       <label class="account-content" for="pick-${esc(view.id)}" title="${esc(text.playHint)}">${riot ? (layout === 'list' ? riotRow(view, text) : riotPlate(view, text)) : layout === 'list' ? row(view, text) : plate(view, text)}</label>
       <button class="pin" data-action="pin" aria-pressed="${view.pinned}" aria-label="${esc(text.pinNamed(view.name, view.pinned))}" title="${esc(view.pinned ? text.unpin : text.pin)}" ${busy() ? 'disabled' : ''}>${view.pinned ? '★' : '☆'}</button>
-      <button class="edit" data-action="edit" aria-label="${esc(text.editNamed(view.name))}" title="${esc(text.editAccount)}" ${busy() ? 'disabled' : ''}>···</button>
+      <button class="edit" data-action="edit" aria-label="${esc(text.editNamed(view.name))}" title="${esc(text.editAccount)}" ${busy() ? 'disabled' : ''}>···</button>${signing && layout !== 'list' ? signingBadge(text) : ''}
     </article>` };
   });
   const filtered = `<div class="empty"><h2>${esc(text.noMatchTitle)}</h2><p>${esc(text.noMatchText)}</p><button type="button" data-action="clear-filters">${esc(text.clearFilters)}</button></div>`;
@@ -161,6 +163,10 @@ function render() {
 
 function avatar(view, className) {
   return view.avatar ? `<img class="${className}" src="${esc(view.avatar)}" alt="" loading="lazy">` : `<span class="${className}"></span>`;
+}
+
+function signingBadge(text) {
+  return `<span class="signing" aria-hidden="true"><span class="signing-ring"></span>${esc(text.signingIn)}</span>`;
 }
 
 function who(view) {
@@ -226,7 +232,7 @@ function riotPlate(view, text) {
 }
 
 function riotRow(view, text) {
-  const head = `<span class="who-cell">${avatar(view, 'portrait')}<span><span class="who-line">${who(view)}</span><small>${esc([view.region, view.usage].filter(Boolean).join(' · '))}</small></span></span>`;
+  const head = `<span class="who-cell">${avatar(view, 'portrait')}<span><span class="who-line">${who(view)}${view.signing ? signingBadge(text) : ''}</span><small>${esc([view.region, view.usage].filter(Boolean).join(' · '))}</small></span></span>`;
   const cells = view.ranks.map(rank => rank.shown ? `<span class="queue-cell${rank.ranked ? '' : ' none'}"><img src="${esc(rank.crest)}" alt="" loading="lazy"><span><strong>${esc(rank.tier)}</strong><small>${esc(rank.ranked ? rank.points : text.noGames)}</small></span></span>` : '<span class="queue-cell off">—</span>').join('');
   return `<span class="row">${head}${cells}</span>`;
 }
@@ -240,7 +246,7 @@ function listHead(text) {
 function row(view, text) {
   const queues = [view.main, ...view.others].map(queue => `<span class="queue-cell${queue.ranked ? '' : ' none'}"><img src="${esc(queue.crest)}" alt="" loading="lazy"><span><strong>${esc(queue.tier)}</strong><small>${esc([queue.ranked ? queue.points : text.noGames, queue.played].filter(Boolean).join(' · '))}</small></span></span>`).join('');
   const details = [view.level === null ? '' : `${text.level} ${view.level}`, view.usage].filter(Boolean).join(' · ');
-  const head = `<span class="who-cell">${avatar(view, 'portrait')}<span><span class="who-line">${who(view)}</span><small>${esc(details)}</small></span></span>`;
+  const head = `<span class="who-cell">${avatar(view, 'portrait')}<span><span class="who-line">${who(view)}${view.signing ? signingBadge(text) : ''}</span><small>${esc(details)}</small></span></span>`;
   if (state.stats === 'val') return `<span class="row">${head}${queues}<span class="progress-cell">${rr(view.main) || '—'}</span></span>`;
   const { main } = view;
   const tone = main.winrate === null ? '' : main.winrate >= 55 ? 'high' : main.winrate < 50 ? 'low' : '';

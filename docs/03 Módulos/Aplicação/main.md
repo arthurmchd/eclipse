@@ -14,7 +14,7 @@ tags: [módulo]
 
 - Garante uma única instância do aplicativo (`tauri-plugin-single-instance`) e sai com um aviso se o Eclipse antigo, em Electron, estiver aberto ([[electronInstance]]).
 - Cria o [[store]] (com o [[safeStorage]]), o [[signInService]], o [[refresher]], o [[managerService]] com o [[appPorts]], o [[sessionKeeper]], o [[riotWakeup]], o [[rankWatcher]] e a janela do [[riotOverlay]] com o [[riotWindowObserver]].
-- Registra o protocolo `eclipse://` ([[assetProtocol]]) e os comandos `manager` ([[managerHost]]) e `overlay_toggle` ([[overlayToggle]]).
+- Registra o protocolo `eclipse://` ([[assetProtocol]]); o endereço `riot/logo.svg` é respondido com o logo do [[riotLogo]], lido do Riot Client detectado no início e os comandos `manager` ([[managerHost]]) e `overlay_toggle` ([[overlayToggle]]).
 - Monta a bandeja: Contas no Riot, Abrir Riot Client, Cancelar login, "Atualizar para a versão X" (só com uma versão nova encontrada, [[updates]]), "Iniciar com o Windows" (só no app compilado em modo release, [[startWithWindows]]), "Procurar atualizações" e Sair; duplo clique abre as contas.
 - Mostra notificações do Windows ([[notices]], [[toasts]]) e caixas de aviso.
 

@@ -9,6 +9,8 @@ tags: [adr, interface, janelas]
 
 Revisa [[ADR-013 Caixa para ocultar as contas na coluna de login]] e complementa [[ADR-010 Login visível com progresso]].
 
+Revisada em 2026-11-25 por [[ADR-053 Etapas do login na tela até o jogo abrir]]: a coluna coberta mostra a lista de etapas do login no lugar do anel, a cobertura ganha um script só para receber as etapas, o furo do observador fecha depois que a conta entra, e a sobreposição fica na tela até o jogo abrir.
+
 Revisada em 2026-11-06 por [[ADR-025 Caixa some junto com o formulário da Riot]]: quando a cobertura sai, a caixa "Ocultar contas" só volta se a caixa "Stay signed in" da Riot estiver na tela. No login manual, ela também some quando o formulário da Riot some.
 
 ## Contexto

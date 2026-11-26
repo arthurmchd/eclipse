@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use eclipse::riot::riot_authentication::{AuthKind, AuthOutcome, AuthState, ChallengeSource, Credentials};
 use eclipse::riot::riot_state::RiotProbe;
-use eclipse::riot::sign_in_flow::{sign_in, Account, Closed, LaunchAnswer, INPUT_METHODS, SignInIo, SignInOutcome, SignInRequest, StatusDetails, TypeRequest};
+use eclipse::riot::sign_in_flow::{sign_in, Account, Closed, LaunchAnswer, GAME_TERMS, INPUT_METHODS, LAUNCH_REFUSED, SLOW_GAME, SignInIo, SignInOutcome, SignInRequest, StatusDetails, Step, TypeRequest, TERMS_GRACE_MS, TERMS_RETRY_MS};
 use eclipse::riot::{AccountState, Cancel, Response, RiotError, RiotId, RiotResult, RunningGames};
 use serde_json::Value;
 
@@ -245,6 +245,10 @@ impl Fake {
 
     fn attention(&self) -> Vec<String> {
         self.statuses().into_iter().filter(|(_, details)| details.needs_attention).map(|(text, _)| text).collect()
+    }
+
+    fn slow_game(&self) -> Vec<StatusDetails> {
+        self.statuses().into_iter().filter(|(text, _)| text == SLOW_GAME).map(|(_, details)| details).collect()
     }
 
     fn logs(&self) -> Vec<String> {
@@ -995,7 +999,7 @@ fn a_game_timeout_after_native_verification_does_not_retain_authentication_recov
     let error = error_of(f.run());
     assert!(error.message.contains("game did not open"));
     assert!(!error.needs_attention && !error.native_client);
-    assert!(f.attention().iter().any(|text| text.contains("game is taking longer")));
+    assert_slow_game_stays_covered(&f);
     assert_eq!(f.reveals(), 2);
     assert!(!f.has("close-client-window"));
 }
@@ -1335,7 +1339,7 @@ fn the_open_deadline_counts_from_the_accepted_request_after_an_update() {
     f.on_game_window = Box::new(move |f: &Fake| Ok(accepted.get().is_some_and(|at| f.elapsed() >= at + 100_000)));
     assert!(f.run().unwrap().game_started);
     assert!(f.elapsed() > 180_000 + 100_000);
-    assert!(f.attention().iter().any(|text| text.contains("game is taking longer")));
+    assert_slow_game_stays_covered(&f);
 }
 
 #[test]
@@ -1606,4 +1610,185 @@ fn closes_another_signed_in_account_normally_keeping_its_session_instead_of_sign
     assert_eq!(f.events()[f.at("write")], "write stripped");
     assert!(f.at("write") < f.at("visible-interface"));
     assert!(f.at("visible-interface") < f.at("type"));
+}
+
+fn assert_slow_game_stays_covered(f: &Fake) {
+    assert_eq!(f.slow_game(), [StatusDetails { signed_in: true, step: Step::Launch, ..StatusDetails::default() }]);
+    assert!(!f.attention().iter().any(|text| text.contains("game is taking longer")));
+}
+
+fn steps_of(f: &Fake) -> Vec<&'static str> {
+    let mut steps: Vec<&'static str> = Vec::new();
+    for (_, details) in f.statuses() {
+        if steps.last() != Some(&details.step.code()) {
+            steps.push(details.step.code());
+        }
+    }
+    steps
+}
+
+fn record_steps(f: &mut Fake) {
+    f.opts.on_status = Box::new(|f: &Fake, _: &str, details: StatusDetails| f.event(format!("step {}", details.step.code())));
+}
+
+#[test]
+fn every_status_names_its_step_and_a_visible_login_walks_through_all_of_them_in_order() {
+    let mut f = direct();
+    record_steps(&mut f);
+    assert!(f.run().unwrap().game_started);
+    assert_eq!(steps_of(&f), ["prepare", "sign_in", "verify", "launch", "done"]);
+    let (text, details) = f.statuses().last().cloned().unwrap();
+    assert_eq!((text.as_str(), details.step, details.signed_in), ("Game opened", Step::Done, true));
+    assert!(f.at("step done") < f.at("close-client-window"));
+    assert_eq!(f.count("step done"), 1);
+}
+
+#[test]
+fn a_saved_session_a_rejected_one_and_a_reused_account_never_step_backwards() {
+    let mut f = restore();
+    f.on_launch_product = Box::new(authorizing_launch);
+    let result = f.run().unwrap();
+    assert!(result.used_saved_session && result.game_started);
+    assert_eq!(steps_of(&f), ["prepare", "sign_in", "verify", "launch", "done"]);
+    let f = restore();
+    let result = f.run().unwrap();
+    assert!(result.session_rejected && result.game_started);
+    assert_eq!(steps_of(&f), ["prepare", "sign_in", "verify", "launch", "done"]);
+    assert!(f.statuses().iter().any(|(text, details)| text == "Preparing the Riot Client sign-in…" && details.step == Step::SignIn));
+    let f = direct();
+    f.authorized.set(true);
+    assert!(f.run().unwrap().reused_current_session);
+    assert_eq!(steps_of(&f), ["prepare", "verify", "launch", "done"]);
+}
+
+#[test]
+fn riot_client_only_ends_on_the_done_step_without_a_launch_step() {
+    let mut f = fixture();
+    f.opts.game = "riot";
+    f.opts.has_saved_session = false;
+    f.authorized.set(false);
+    f.on_running_games = Box::new(|_: &Fake| Ok(RunningGames::default()));
+    assert!(f.run().unwrap().client_opened);
+    assert_eq!(steps_of(&f), ["prepare", "sign_in", "verify", "done"]);
+}
+
+#[test]
+fn requests_for_the_player_belong_to_the_sign_in_step_and_never_to_the_launch() {
+    let mut f = direct();
+    f.on_authenticate = Box::new(unsupported);
+    let typed = typed_flag(&mut f);
+    f.on_session_state = Box::new(move |f: &Fake| state(if f.authorized.get() { AuthKind::Authenticated } else if typed.get() { AuthKind::Multifactor } else { AuthKind::Auth }));
+    authorize_after(&mut f, 1400);
+    assert!(f.run().unwrap().game_started);
+    let asked: Vec<Step> = f.statuses().into_iter().filter(|(_, details)| details.needs_attention).map(|(_, details)| details.step).collect();
+    assert!(!asked.is_empty());
+    assert!(asked.iter().all(|step| *step == Step::SignIn));
+    assert_eq!(steps_of(&f), ["prepare", "sign_in", "verify", "launch", "done"]);
+}
+
+fn after_launch_request(f: &Fake) -> Vec<String> {
+    let events = f.events();
+    events[f.at("request-launch")..].iter().filter(|event| *event == "reveal" || *event == "visible-interface").cloned().collect()
+}
+
+fn terms_refused(mut f: Fake, accepted_after: Option<u64>) -> Fake {
+    let revealed: Rc<Cell<Option<u64>>> = Rc::default();
+    let mark = revealed.clone();
+    f.on_request_launch = Box::new(|f: &Fake, _: &str| {
+        f.event("request-launch");
+        Ok(LaunchAnswer { status: 464, error_code: Some("eula_not_accepted".into()) })
+    });
+    f.on_reveal = Box::new(move |f: &Fake| {
+        f.event("reveal");
+        if f.count("request-launch") > 0 {
+            mark.set(Some(f.elapsed()));
+        }
+        Ok(())
+    });
+    f.on_running_games = Box::new(move |f: &Fake| {
+        if let (Some(at), Some(wait)) = (revealed.get(), accepted_after) {
+            if f.elapsed() >= at + wait {
+                f.start_game("lol");
+            }
+        }
+        Ok(f.processes.get())
+    });
+    f
+}
+
+#[test]
+fn game_terms_refused_by_riot_show_the_riot_window_and_the_game_opens_after_the_user_accepts() {
+    let f = terms_refused(direct(), Some(20_000));
+    assert!(f.run().unwrap().game_started);
+    assert!(f.count("request-launch") >= 6, "{}", f.count("request-launch"));
+    let (_, details) = f.statuses().into_iter().find(|(text, _)| text == GAME_TERMS).unwrap();
+    assert_eq!(details, StatusDetails { needs_attention: true, native_client: false, signed_in: true, step: Step::Launch });
+    assert_eq!(after_launch_request(&f), ["reveal"]);
+    assert!(f.slow_game().is_empty());
+    assert_eq!(f.statuses().last().map(|(text, details)| (text.as_str(), details.step)), Some(("Game opened", Step::Done)));
+}
+
+#[test]
+fn game_terms_refused_after_a_saved_session_open_the_riot_window_before_showing_it() {
+    let mut f = terms_refused(restore(), Some(5_000));
+    f.on_launch_product = Box::new(authorizing_launch);
+    assert!(f.run().unwrap().game_started);
+    assert_eq!(after_launch_request(&f), ["visible-interface", "reveal"]);
+}
+
+#[test]
+fn terms_refused_right_after_sign_in_are_asked_again_and_the_game_opens_without_showing_the_riot_window() {
+    let mut f = direct();
+    let asked: Rc<Cell<u32>> = Rc::default();
+    let count = asked.clone();
+    f.on_request_launch = Box::new(move |f: &Fake, _: &str| {
+        f.event("request-launch");
+        count.set(count.get() + 1);
+        if count.get() < 3 {
+            return Ok(LaunchAnswer { status: 464, error_code: Some("eula_not_accepted".into()) });
+        }
+        f.start_game("lol");
+        Ok(LaunchAnswer { status: 200, error_code: None })
+    });
+    assert!(f.run().unwrap().game_started);
+    assert_eq!(f.count("request-launch"), 3);
+    assert!(after_launch_request(&f).is_empty());
+    assert!(f.statuses().iter().all(|(text, _)| text != GAME_TERMS));
+    assert!(f.elapsed() < TERMS_GRACE_MS);
+}
+
+#[test]
+fn terms_still_refused_after_the_grace_show_the_riot_window_once_and_stop_asking() {
+    let f = terms_refused(direct(), Some(30_000));
+    assert!(f.run().unwrap().game_started);
+    let asked = f.count("request-launch");
+    assert!(asked as u64 <= TERMS_GRACE_MS / TERMS_RETRY_MS + 1, "{asked}");
+    assert_eq!(after_launch_request(&f), ["reveal"]);
+    let events = f.events();
+    let revealed = events.iter().rposition(|event| event == "reveal").unwrap();
+    assert!(events[revealed..].iter().all(|event| event != "request-launch"));
+}
+
+#[test]
+fn game_terms_never_accepted_fail_with_what_to_do_instead_of_a_missing_game() {
+    let f = terms_refused(direct(), None);
+    let error = error_of(f.run());
+    assert!(error.message.contains("Accept the game terms"), "{}", error.message);
+    assert!(f.count("request-launch") >= 6, "{}", f.count("request-launch"));
+    assert!(f.slow_game().is_empty());
+    assert!(f.elapsed() < 200_000);
+}
+
+#[test]
+fn any_other_launch_refusal_shows_the_riot_window_once() {
+    let mut f = direct();
+    f.game_window.set(false);
+    f.on_request_launch = Box::new(|f: &Fake, _: &str| {
+        f.event("request-launch");
+        Ok(LaunchAnswer { status: 500, error_code: Some("other".into()) })
+    });
+    assert!(error_of(f.run()).message.contains("game did not open"));
+    assert_eq!(f.attention().iter().filter(|text| text.as_str() == LAUNCH_REFUSED).count(), 1);
+    assert_eq!(after_launch_request(&f).iter().filter(|event| *event == "reveal").count(), 1);
+    assert!(f.slow_game().is_empty());
 }

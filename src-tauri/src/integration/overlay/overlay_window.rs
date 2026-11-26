@@ -11,6 +11,7 @@ use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS
 use windows_sys::Win32::Graphics::Gdi::{CombineRgn, CreateRectRgn, DeleteObject, SetWindowRgn, RGN_OR};
 use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowPos, ShowWindow, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE};
 
+use super::overlay_cover::{language_script as cover_language_script, CoverSteps, INIT_SCRIPT as COVER_INIT_SCRIPT};
 use super::overlay_drag::{install, request_from_cards, UNAVAILABLE};
 use super::overlay_toggle::{language_script, toggle_rect, INIT_SCRIPT};
 use super::riot_overlay::{cards_rect, cover_rect, OverlayWindow, Rect, Size};
@@ -30,6 +31,7 @@ pub struct TauriOverlayWindow<R: Runtime> {
     toggle: Webview<R>,
     hwnd: isize,
     language: Arc<Mutex<&'static str>>,
+    steps: Arc<Mutex<Option<String>>>,
     resting: AtomicBool,
     cover_on: AtomicBool,
     toggle_on: AtomicBool,
@@ -122,18 +124,28 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, host: Arc<ManagerHost>, log: Arc<d
         PhysicalPosition::new(cards_area.x, cards_area.y),
         PhysicalSize::new(cards_area.width as u32, cards_area.height as u32),
     )?;
+    let language: Arc<Mutex<&'static str>> = Arc::new(Mutex::new("pt"));
+    let steps: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
     let cover_area = cover_rect(START);
+    let (cover_language, cover_steps) = (language.clone(), steps.clone());
     let cover = window.add_child(
         sealed(WebviewBuilder::new(COVER_LABEL, WebviewUrl::CustomProtocol(url(COVER_PAGE))), COVER_PAGE)
-            .disable_javascript()
+            .initialization_script(COVER_INIT_SCRIPT)
             .background_color(Color(0xfc, 0xfc, 0xfc, 0xff))
+            .on_page_load(move |webview, payload| {
+                if payload.event() == PageLoadEvent::Finished {
+                    let _ = webview.eval(cover_language_script(*cover_language.lock().unwrap()));
+                    if let Some(script) = cover_steps.lock().unwrap().clone() {
+                        let _ = webview.eval(script);
+                    }
+                }
+            })
             .on_new_window(|_, _| NewWindowResponse::Deny),
         PhysicalPosition::new(cover_area.x, cover_area.y),
         PhysicalSize::new(cover_area.width as u32, cover_area.height as u32),
     )?;
     let _ = cover.hide();
     let toggle_area = toggle_rect(START);
-    let language: Arc<Mutex<&'static str>> = Arc::new(Mutex::new("pt"));
     let current = language.clone();
     let toggle = window.add_child(
         sealed(WebviewBuilder::new(TOGGLE_LABEL, WebviewUrl::CustomProtocol(url(TOGGLE_PAGE))), TOGGLE_PAGE)
@@ -148,7 +160,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>, host: Arc<ManagerHost>, log: Arc<d
         PhysicalPosition::new(toggle_area.x, toggle_area.y),
         PhysicalSize::new(toggle_area.width as u32, toggle_area.height as u32),
     )?;
-    let overlay = TauriOverlayWindow { window, cards, cover, toggle, hwnd, language, resting: AtomicBool::new(false), cover_on: AtomicBool::new(false), toggle_on: AtomicBool::new(true) };
+    let overlay = TauriOverlayWindow { window, cards, cover, toggle, hwnd, language, steps, resting: AtomicBool::new(false), cover_on: AtomicBool::new(false), toggle_on: AtomicBool::new(true) };
     overlay.set_memory(false);
     Ok(overlay)
 }
@@ -227,9 +239,16 @@ impl<R: Runtime> OverlayWindow for TauriOverlayWindow<R> {
         set_shown(&self.toggle, shown_webviews(self.resting.load(Ordering::SeqCst), false, visible)[2]);
     }
 
-    fn set_toggle_language(&self, language: &str) {
+    fn set_language(&self, language: &str) {
         *self.language.lock().unwrap() = if language == "en" { "en" } else { "pt" };
         let _ = self.toggle.eval(language_script(language));
+        let _ = self.cover.eval(cover_language_script(language));
+    }
+
+    fn set_cover_steps(&self, steps: &CoverSteps) {
+        let script = steps.script();
+        *self.steps.lock().unwrap() = Some(script.clone());
+        let _ = self.cover.eval(script);
     }
 
     fn begin_drag(&self) {

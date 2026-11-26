@@ -7,15 +7,17 @@ pub const SCHEME: &str = "eclipse";
 pub const CARDS_PAGE: &str = "src/renderer/cards.html";
 pub const TOGGLE_PAGE: &str = "src/integration/overlay/toggle.html";
 pub const COVER_PAGE: &str = "src/integration/overlay/cover.html";
+pub const RIOT_LOGO: &str = "riot/logo.svg";
 const RENDERER: &str = "src/renderer/";
 const RENDERER_TYPES: [&str; 5] = ["html", "css", "js", "png", "svg"];
-const OVERLAY_FILES: [&str; 6] = [
+const OVERLAY_FILES: [&str; 7] = [
     "src/integration/overlay/toggle.html",
     "src/integration/overlay/toggle.css",
     "src/integration/overlay/toggle.js",
     "src/integration/overlay/toggle-check.svg",
     "src/integration/overlay/cover.html",
     "src/integration/overlay/cover.css",
+    "src/integration/overlay/cover.js",
 ];
 const FONTS: [(&str, &str); 6] = [("inter", "400"), ("inter", "500"), ("inter", "600"), ("inter", "700"), ("teko", "500"), ("teko", "600")];
 
@@ -77,6 +79,11 @@ pub fn allowed(path: &str) -> Option<&str> {
     let path = clean(path)?;
     let renderer = path.strip_prefix(RENDERER).is_some_and(|rest| path.rsplit_once('.').is_some_and(|(_, kind)| RENDERER_TYPES.contains(&kind)) && (!rest.contains('/') || rest.starts_with("assets/") && rest.matches('/').count() == 1));
     (renderer || OVERLAY_FILES.contains(&path) || font(path)).then_some(path)
+}
+
+pub fn is_riot_logo(uri: &str) -> bool {
+    let rest = uri.strip_prefix(&format!("{SCHEME}://localhost")).or_else(|| uri.strip_prefix(&format!("http://{SCHEME}.localhost")));
+    rest.and_then(|rest| rest.split(['?', '#']).next()).is_some_and(|path| path.strip_prefix('/') == Some(RIOT_LOGO))
 }
 
 pub fn resolve(root: &Path, uri: &str) -> Option<(PathBuf, &'static str)> {

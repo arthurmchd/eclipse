@@ -10,6 +10,7 @@ const ACCOUNT_CARDS_FILE = path.join(RENDERER_DIR, 'cards.html');
 const OVERLAY_TOGGLE_FILE = path.join(SOURCE_DIR, 'integration', 'overlay', 'toggle.html');
 const OVERLAY_TOGGLE_PRELOAD_FILE = path.join(SOURCE_DIR, 'integration', 'overlay', 'toggle-preload.js');
 const OVERLAY_COVER_FILE = path.join(SOURCE_DIR, 'integration', 'overlay', 'cover.html');
+const OVERLAY_COVER_SCRIPT_FILE = path.join(SOURCE_DIR, 'integration', 'overlay', 'cover.js');
 
 module.exports = {
   PROJECT_ROOT,
@@ -22,4 +23,5 @@ module.exports = {
   OVERLAY_TOGGLE_FILE,
   OVERLAY_TOGGLE_PRELOAD_FILE,
   OVERLAY_COVER_FILE,
+  OVERLAY_COVER_SCRIPT_FILE,
 };

@@ -7,6 +7,47 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-26 · Eclipse 2.32.2: termos recusados logo depois do login são pedidos de novo
+
+- Relato do usuário: a conta entrou, o LoL não abriu e a interface do Eclipse sumiu, sem pedido de termos na Riot. O log mostrou HTTP 464 `eula_not_accepted` 2 s depois do login, e o Jogar seguinte, 38 s depois, foi aceito sem aceitar nada. Agora o pedido do jogo é repetido a cada 3 s por até 20 s antes de mostrar a Riot ([[signInFlow]], [[ADR-053 Etapas do login na tela até o jogo abrir]]).
+- Dois testes novos e dois ajustados. Não conferido na Riot real.
+
+## 2026-11-26 · Eclipse 2.32.1: sessão guardada não some depois do jogo
+
+- Pedido do usuário: o primeiro login de cada conta deve ficar salvo e os seguintes entrarem direto. O `sign-in.log` real mostrou que isso parou em 2026-11-20: com a Riot 143, de 30 s a 2 min depois de o jogo abrir, o guardião via o arquivo sem login e a Riot "sem conta" e apagava a sessão como se a conta tivesse saído. Agora, com um jogo aberto, nada é apagado ([[sessionKeeper]], revisão na [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]).
+- Teste novo no guardião. Não conferido na Riot real; o próximo jogo e o Jogar seguinte mostram no log se a sessão continua valendo.
+
+## 2026-11-25 · Vault: segunda busca de gerenciadores no GitHub
+
+- 142 repositórios, 17 READMEs novos lidos; resultado em [[Estudo - Gerenciadores no GitHub]] (seção "Segunda busca"). Nenhum código mudou.
+
+## 2026-11-25 · Eclipse 2.32.0: cartões indisponíveis durante o login
+
+- Pedido do usuário: a área dos cartões indisponível enquanto o login roda. Entre cinco exemplos desenhados, ele escolheu o 3.
+- Os outros cartões ficam cinza e apagados e param de receber o ponteiro. O cartão da conta em login fica colorido, com borda vermelha e o selo "Entrando…" (em cima nos cartões, ao lado do nome na lista). O Cancelar continua no rodapé ([[cards]], [[ADR-053 Etapas do login na tela até o jogo abrir]]).
+- Teste novo no JS (`signingState`). Conferido na prévia, nos cartões e na lista, com contas fictícias.
+
+## 2026-11-25 · Eclipse 2.31.0: linha do tempo e logo da Riot na tela de carregamento
+
+- Pedido do usuário: entre seis layouts desenhados num canvas, usar a opção 2 (linha do tempo) e o logo da Riot Games "exatamente no mesmo lugar e tamanho" do Riot Client.
+- A [[overlayCover]] mostra as etapas numeradas, ligadas por uma linha, com um resumo nas feitas e o status na atual.
+- O logo vem do `app.asar` da instalação da Riot, só lido, conferido e guardado na memória ([[riotLogo]]), e aparece no ponto que o CSS da Riot dá a ele (64 px do topo, centralizado, 113 × 32). Nada da Riot entra no Setup ([[Segurança e privacidade]], [[Estudo - Visual da Riot]]).
+- Testes novos no Rust e no JS. Conferido num Edge sem janela com dados fictícios; não conferido sobre a Riot real.
+
+## 2026-11-25 · Eclipse 2.30.1: jogo recusado pela Riot mostra a Riot
+
+- Relato do usuário na 2.30.0: "meu lol nao abrir". O `sign-in.log` mostrou HTTP 464 `eula_not_accepted` no pedido do jogo: a Riot pedia o aceite dos termos do League, e o Eclipse cobria a janela dela até o prazo de 180 s acabar.
+- O [[signInFlow]] agora trata qualquer recusa do pedido do jogo como pedido de atenção: mostra a Riot (abre a janela se for preciso) e continua esperando o jogo, que abre quando o usuário aceita e clica em Jogar. Sem aceite, o erro diz para aceitar os termos ([[ADR-053 Etapas do login na tela até o jogo abrir]]).
+- Quatro testes novos no Rust. Não conferido na Riot real.
+
+## 2026-11-25 · Eclipse 2.30.0: etapas do login na tela até o jogo abrir
+
+- Pedido do usuário, depois de comparar com o Tariolle/LeagueAccounts: no lugar do anel, a coluna de login mostra a lista do que está acontecendo, e o Eclipse fica na tela até o jogo abrir ([[ADR-053 Etapas do login na tela até o jogo abrir]], [[Estudo - Gerenciadores no GitHub]]).
+- **Etapas.** O [[signInFlow]] marca cada status com `prepare`, `sign_in`, `verify`, `launch` ou `done`, e a operação do [[signInService]] leva o campo `step`. "Game opened" sai assim que a janela do jogo fica pronta. O aviso de jogo demorando deixou de pedir atenção ("The game is taking longer to open or is updating…").
+- **Lista.** A [[overlayCover]] mostra Preparar a Riot, Entrar na conta, Conferir a conta e Abrir o jogo, com o texto do status embaixo da etapa atual. A página ganhou `cover.js`, que só recebe dados, sem comando nem dado de conta ([[Segurança e privacidade]]).
+- **Na tela até o jogo.** O [[riotOverlay]] não esconde mais a janela quando a conta entra durante um login do Eclipse; fecha o furo do observador nessa fase, fica no lugar quando a janela da Riot fecha e segue a próxima. Pedidos de atenção, falha, cancelamento e a etapa `done` devolvem a regra antiga.
+- Testes novos no Rust e no JS. A lista conferida num Edge sem janela com etapas fictícias. Não conferido na Riot real: a sobreposição sem dono no login com sessão salva, o furo fechado sobre a tela inicial e a saída quando o jogo abre.
+
 ## 2026-11-25 · Eclipse 2.29.2: correções do /code-review
 
 - Pedido do usuário: rodar o `/code-review` nas mudanças da 2.29.0 e 2.29.1 e corrigir os quatro achados.

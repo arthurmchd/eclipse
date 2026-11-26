@@ -89,3 +89,8 @@ export function selectionView(account, game, regions, text) {
 }
 
 export const startupChange = (current, checked) => (typeof current === 'boolean' && checked !== current ? checked : undefined);
+
+export const signingState = (operation, id) => {
+  const running = operation?.status === 'running';
+  return { running, playing: running && typeof id === 'string' && operation.accountId === id };
+};

@@ -1,5 +1,30 @@
-:root { --u: calc(100vw / 400); color-scheme: light; }
+:root { --u: calc(100vw / 400); --red: #d53235; --red-text: #a3262a; --ink: #111111; --muted: #6b6b6b; --faint: #a6a6a6; --track: #e4e4e4; color-scheme: light; }
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #fcfcfc; }
-.spinner { position: absolute; left: 50%; top: 50%; box-sizing: border-box; width: calc(var(--u) * 36); height: calc(var(--u) * 36); margin: calc(var(--u) * -18) 0 0 calc(var(--u) * -18); border: calc(var(--u) * 3) solid rgba(126, 126, 126, .15); border-top-color: #d53235; border-radius: 50%; animation: spin 1s linear infinite; }
+body { font-family: 'Inter', sans-serif; color: var(--ink); user-select: none; cursor: default; }
+[hidden] { display: none !important; }
+#riot-logo { position: absolute; left: calc(var(--u) * 143.5); top: calc(var(--u) * 64); width: calc(var(--u) * 113); height: calc(var(--u) * 32); pointer-events: none; }
+.spinner { position: absolute; left: 50%; top: 50%; box-sizing: border-box; width: calc(var(--u) * 36); height: calc(var(--u) * 36); margin: calc(var(--u) * -18) 0 0 calc(var(--u) * -18); border: calc(var(--u) * 3) solid rgba(126, 126, 126, .15); border-top-color: var(--red); border-radius: 50%; animation: spin 1s linear infinite; }
+main { position: absolute; left: calc(var(--u) * 44); right: calc(var(--u) * 32); top: 30%; }
+#game { margin: 0; font-size: calc(var(--u) * 13); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--red-text); }
+h1 { margin: calc(var(--u) * 6) 0 0; font-size: calc(var(--u) * 30); font-weight: 700; line-height: 120%; letter-spacing: -.01em; }
+ol { list-style: none; margin: calc(var(--u) * 40) 0 0; padding: 0; }
+li { display: grid; grid-template-columns: calc(var(--u) * 30) minmax(0, 1fr); column-gap: calc(var(--u) * 16); }
+.rail { display: flex; flex-direction: column; align-items: center; }
+.mark { box-sizing: border-box; width: calc(var(--u) * 30); height: calc(var(--u) * 30); flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: calc(var(--u) * 14); font-weight: 700; }
+.line { width: calc(var(--u) * 2); flex-grow: 1; min-height: calc(var(--u) * 34); background: var(--track); }
+li:last-child .line { display: none; }
+.body { display: flex; flex-direction: column; gap: calc(var(--u) * 3); padding: calc(var(--u) * 4) 0 calc(var(--u) * 22); min-width: 0; }
+li:last-child .body { padding-bottom: 0; }
+.label { font-size: calc(var(--u) * 16); line-height: 140%; font-weight: 600; }
+.detail { font-size: calc(var(--u) * 13); line-height: 140%; color: var(--muted); overflow-wrap: anywhere; }
+.done .mark { background: var(--red); color: #ffffff; }
+.done .line { background: var(--red); }
+.done:has(+ .current) .line { background: linear-gradient(var(--red), var(--track)); }
+.current .mark { background: #ffffff; border: calc(var(--u) * 2) solid var(--red); color: var(--red); animation: pulse 1.6s ease-out infinite; }
+.current .label { font-weight: 700; }
+.current .detail { color: var(--red-text); font-weight: 600; }
+.next .mark { border: calc(var(--u) * 2) solid var(--track); color: var(--faint); }
+.next .label { color: var(--faint); font-weight: 400; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(213, 50, 53, .45); } 70% { box-shadow: 0 0 0 calc(var(--u) * 12) rgba(213, 50, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(213, 50, 53, 0); } }
+@media (prefers-reduced-motion: reduce) { .spinner, .current .mark { animation: none; } }
