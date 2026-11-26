@@ -34,7 +34,7 @@ fn has_handler(svg: &str) -> bool {
 }
 
 pub fn find_logo(bundle: &[u8]) -> Option<String> {
-    let named = |at: &usize| at.checked_sub(1).map_or(true, |before| !(bundle[before].is_ascii_alphanumeric() || bundle[before] == b'_' || bundle[before] == b'$'));
+    let named = |at: &usize| at.checked_sub(1).is_none_or(|before| !(bundle[before].is_ascii_alphanumeric() || bundle[before] == b'_' || bundle[before] == b'$'));
     let start = bundle.windows(MARKER.len()).enumerate().filter(|(_, window)| *window == MARKER.as_bytes()).map(|(at, _)| at).find(named)? + MARKER.len();
     let length = bundle[start..].iter().take(LOGO_LIMIT * 3 + 1).position(|byte| *byte == b'"')?;
     let svg = decode(std::str::from_utf8(&bundle[start..start + length]).ok()?)?;
@@ -49,10 +49,12 @@ pub fn read_logo(archive: &Path) -> Result<Vec<u8>, String> {
     find_logo(&bundle).map(String::into_bytes).ok_or_else(|| "The Riot logo was not found".to_string())
 }
 
+type KeptLogo = (PathBuf, Stamp, Option<Vec<u8>>);
+
 pub struct LogoCache {
     stamp: StampReader,
     read: ArchiveReader,
-    kept: Mutex<Option<(PathBuf, Stamp, Option<Vec<u8>>)>>,
+    kept: Mutex<Option<KeptLogo>>,
 }
 
 impl LogoCache {
