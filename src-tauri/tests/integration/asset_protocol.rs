@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use eclipse::integration::asset_protocol::{allowed, is_page, mime, page_url, resolve, served_url, CARDS_PAGE, COVER_PAGE, TOGGLE_PAGE};
+use eclipse::integration::asset_protocol::{allowed, is_page, is_riot_logo, mime, page_url, resolve, served_url, CARDS_PAGE, COVER_PAGE, RIOT_LOGO, TOGGLE_PAGE};
 use eclipse::paths::project_root;
 
 use crate::bundle::{bundled_files, same_file};
@@ -34,6 +34,12 @@ fn served_files() -> Vec<String> {
         let html = std::fs::read_to_string(&file).unwrap();
         for reference in html.split('"').filter(|part| [".css", ".js", ".png", ".svg"].iter().any(|kind| part.ends_with(kind))) {
             let path = join(folder(page), reference);
+            if path == RIOT_LOGO {
+                assert_eq!(page, COVER_PAGE);
+                assert!(is_riot_logo(&served_url(&path)));
+                assert_eq!(resolve(&root, &served_url(&path)), None);
+                continue;
+            }
             let (file, _) = resolve(&root, &served_url(&path)).unwrap_or_else(|| panic!("{page} loads {path}"));
             assert!(file.is_file(), "{path}");
             if path.contains("@fontsource") {

@@ -34,4 +34,4 @@ Fontes, lidas sem escrever nada: o `app.asar` do Riot Client instalado (`C:\Riot
 ## Cuidados
 
 - As fontes da Riot, os sons e as artes ficam fora do Setup. Se usados, vêm da instalação da própria pessoa ou da CommunityDragon na hora, como os ícones e emblemas.
-- O Eclipse não pode usar o logo da Riot como marca própria. A política da Riot para projetos de fãs pede o aviso "não é endossado pela Riot Games".
+- O Eclipse não pode usar o logo da Riot como marca própria. Desde a 2.31.0 a [[overlayCover]] mostra o logo da Riot só onde a própria Riot o desenha, sobre a janela dela, lido da instalação da pessoa ([[riotLogo]]); ele não aparece em nenhum outro lugar do Eclipse. A política da Riot para projetos de fãs pede o aviso "não é endossado pela Riot Games".

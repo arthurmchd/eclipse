@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::{self, Write};
 use std::mem::size_of;
@@ -190,7 +191,45 @@ pub fn parse_request(line: &str) -> Option<Request> {
     Some(Request { owner_pid, client_path, overlay, follow })
 }
 
+#[derive(Default)]
+pub struct Verdicts {
+    known: HashMap<isize, (u32, bool)>,
+}
+
+impl Verdicts {
+    pub fn check(&mut self, window: isize, pid: u32, read: impl FnOnce(u32) -> Option<bool>) -> bool {
+        if let Some((known, verdict)) = self.known.get(&window) {
+            if *known == pid {
+                return *verdict;
+            }
+        }
+        match read(pid) {
+            Some(verdict) => {
+                self.known.insert(window, (pid, verdict));
+                verdict
+            }
+            None => {
+                self.known.remove(&window);
+                false
+            }
+        }
+    }
+
+    pub fn keep(&mut self, windows: &[isize]) {
+        self.known.retain(|window, _| windows.contains(window));
+    }
+
+    pub fn len(&self) -> usize {
+        self.known.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.known.is_empty()
+    }
+}
+
 struct Tracker {
+    verdicts: Verdicts,
     dimmed: bool,
     box_seen: bool,
     form_hidden: bool,
@@ -218,6 +257,7 @@ struct Tracker {
 impl Default for Tracker {
     fn default() -> Self {
         Self {
+            verdicts: Verdicts::default(),
             dimmed: false,
             box_seen: false,
             form_hidden: false,
@@ -311,12 +351,15 @@ unsafe extern "system" fn on_event(_hook: HWINEVENTHOOK, event: u32, window: HWN
 }
 
 impl Tracker {
-    fn official(&self, window: HWND) -> bool {
-        let image = image_path(pid_of(window));
-        same_path(&image, &self.modern) || same_path(&image, &self.legacy)
+    fn official(&mut self, window: HWND) -> bool {
+        let (modern, legacy) = (&self.modern, &self.legacy);
+        self.verdicts.check(window as isize, pid_of(window), |pid| {
+            let image = image_path(pid);
+            (!image.is_empty()).then(|| same_path(&image, modern) || same_path(&image, legacy))
+        })
     }
 
-    fn minimized(&self, window: HWND) -> bool {
+    fn minimized(&mut self, window: HWND) -> bool {
         !window.is_null() && window == self.measured && visible(window) && iconic(window) && self.official(window)
     }
 
@@ -324,14 +367,16 @@ impl Tracker {
         measure(window).filter(|_| !topmost(window))
     }
 
-    fn find(&self) -> HWND {
+    fn find(&mut self) -> HWND {
         if self.minimized(self.chosen) {
             return self.chosen;
         }
         let foreground = unsafe { GetForegroundWindow() };
         let (mut found, mut best) = (null_mut(), 0i64);
+        let mut seen = Vec::new();
         for window in top_windows() {
             let Some(rect) = self.candidate(window) else { continue };
+            seen.push(window as isize);
             if !self.official(window) {
                 continue;
             }
@@ -341,6 +386,7 @@ impl Tracker {
                 found = window;
             }
         }
+        self.verdicts.keep(&seen);
         found
     }
 
@@ -585,7 +631,7 @@ impl Tracker {
         Ok(())
     }
 
-    fn act(&self, code: usize) {
+    fn act(&mut self, code: usize) {
         let window = self.chosen;
         if window.is_null() || !visible(window) || iconic(window) || !self.official(window) {
             return;
@@ -807,6 +853,13 @@ fn pin(window: HWND, on: bool) {
 
 fn self_test_steps(t: &mut Tracker, riot: HWND, cards: &mut HWND) -> Result<(), &'static str> {
     let card = *cards;
+    t.modern = image_path(std::process::id());
+    check(t.official(riot), "self-test-official")?;
+    t.modern = String::new();
+    check(t.official(riot) && t.verdicts.len() == 1, "self-test-official-kept")?;
+    t.verdicts.keep(&[]);
+    check(!t.official(riot) && t.verdicts.len() == 1, "self-test-official-forgotten")?;
+    t.verdicts.keep(&[]);
     t.overlay = card;
     unsafe { ShowWindow(card, SW_HIDE) };
     below(t, card, riot)?;

@@ -50,4 +50,32 @@ Itens fora dos blocos 2 a 4 do [[Backlog]] estão marcados com **novo**.
 - MouseWerk/lost-league-manager: o mais completo em informação da conta e ferramentas.
 - JirkaachS/Riot-Relay: o mais cuidadoso em segurança e nos quatro jogos.
 - Tariolle/LeagueAccounts: Rust, OP.GG e aviso de banimento.
+
+## Tariolle/LeagueAccounts por dentro (2026-11-25)
+
+Código lido em 2026-11-25, commit `60d87f6`, licença MIT.
+
+- **Login por depurador.** A cada login ele fecha a árvore da Riot, sobe os serviços com `--headless` e abre o `Riot Client.exe` com os argumentos da Riot e mais `--remote-debugging-port`, dentro de um job do Windows que morre com o app. Pelo CDP, injeta um script que preenche os campos pelo `onChange` do React, envia com `requestSubmit()` e intercepta a resposta de `/rso-authenticator/v1/authentication/riot-identity/complete` para saber se foi sucesso, 2FA, CAPTCHA recusado, limite ou senha errada. O hCaptcha roda na janela real; 2FA e CAPTCHA ficam com a pessoa.
+- **Por que o Eclipse não adota.** Reiniciar a Riot custa uns 10 s por login ([[Laboratório de velocidade do login]]), contra ~1 s do [[loginForm]]. A janela trocada quebra a sobreposição presa à janela oficial ([[ADR-012 Sobreposição presa à janela do Riot]]). A porta do depurador deixa qualquer programa local ler senha e token enquanto está aberta. O script depende de nomes internos do `renderer.js` da Riot (`getBinding`, `__reactProps$`). E rodar código dentro do cliente é mais invasivo perante a Riot.
+- **O que vale trazer.** Região da Riot seguindo a conta (`PUT /riotclient/region-locale`, pelos `lol` e `lol_region` do userinfo); banimento antes do jogo (`ban.restrictions` do userinfo); porcentagem e tempo da atualização (`/patch-proxy/v2/patch-states/products/{produto}/patchlines/live`); manter o `--client-config-url` do Deceive ao reiniciar a Riot; e a lista de etapas do login na tela ([[ADR-053 Etapas do login na tela até o jogo abrir]]).
+- **Saída de conta.** Ele troca de conta com `DELETE /player-session-lifecycle/v1/session`. Não foi medido se essa rota encerra a sessão no servidor; até medir, vale a [[ADR-020 Riot conectada é encerrada quando fica sem jogo]].
 - xi94/Pulsar: os cinco jogos, incluindo 2XKO e Runeterra.
+
+## Segunda busca (2026-11-25)
+
+Pedido do usuário: procurar outros gerenciadores. Mesma busca pela API pública, com 20 termos (incluindo TFT, 2XKO e "auto login"), 142 repositórios; filtrados os já citados acima e ficaram os ativos desde junho de 2026 ou com 15 estrelas ou mais. Só os READMEs foram lidos (17); nenhum código foi baixado nem executado. Quase todos são de 2026, com 0 a 3 estrelas.
+
+- **O padrão novo é trocar a pasta da sessão.** RiftSwitch (JustSad42), R-luiz/riot-account-switcher, VALAL (zaku-jd), Mise (codefecta), iMA-Switcher, derivia e trottyva guardam a sessão do "Manter login" por conta e trocam o arquivo ou a pasta `Data` do Riot Client. R-luiz guarda a pasta inteira, criptografada com DPAPI mais uma chave do Windows Hello, sem alternativa mais fraca. RiftSwitch copia de volta a sessão que a Riot reescreve enquanto está aberta, para ela não envelhecer.
+- **"Não use Sair na Riot".** RiftSwitch, VALAL, Mise e iMA avisam que o Sair do Riot Client encerra a sessão no servidor e invalida a cópia salva. É mais um indício a favor da [[ADR-020 Riot conectada é encerrada quando fica sem jogo]]; continua sem medição própria.
+- **Não trocar em fila aceita, seleção de campeões ou partida.** RiftSwitch e R-luiz leem a fase do League pela API local e bloqueiam a troca, para não causar dodge.
+- **Ideias que não estavam acima nem no [[Backlog]]:**
+  - Perfis de configuração do League (`Config/PersistedSettings.json`) com trava de somente leitura para o jogo não sobrescrever (Jubstaaa/lol-config-editor, 8★; HaYToKoRaZ "CfgLock"; iMA aplica ao trocar).
+  - "Qual conta jogar agora": sugere a conta mais perto de sofrer decaimento (MarvinPanVan/league-smurf-tracker).
+  - Adicionar várias contas de uma vez colando uma lista de `Nome#TAG`, um link de multi-busca do OP.GG ou o texto do chat do saguão (mesmo projeto).
+  - Busca com filtros escritos, como `>diamond is:stale region:euw` (mesmo projeto).
+  - Notificação do Windows com resultado da partida e PdL, e aviso de decaimento (minibgg/lol-account-manager, Rust e egui).
+  - Atalho na área de trabalho por conta (iMA-Switcher).
+  - Senha copiada fora do histórico da área de transferência do Windows e apagada em 30 s (simonys32/LolAccountManager-v2, Rust e Tauri; RodrigoFass).
+  - Posição no ranking regional para Imortal e Radiante no VALORANT (VALAL).
+- **Fora do Eclipse:** fabbiodev/Riot-SDA faz login por QR e liga o autenticador do Riot Mobile, ou seja, age como o aplicativo de celular da Riot (mexe na segurança da conta). gassonexe/riot-autologger digita a senha por reconhecimento de imagem. valset e RodrigoFass fazem espionagem de partida ao vivo e botão de dodge. Mise organiza janelas. HaYToKoRaZ mexe na taxa de atualização do monitor.
+- **Cuidado:** OstrichTruss/Riot-Account-Tool-Full-Version-Desktop foi criado em 2026-11-24, tem 11 estrelas em um dia e só um arquivo de licença, com o "download" na descrição. É o formato comum de isca com programa malicioso. Também apareceram geradores de contas e trocadores de senha em massa, que não são gerenciadores.

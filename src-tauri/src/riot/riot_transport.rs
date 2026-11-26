@@ -1,7 +1,7 @@
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -10,7 +10,7 @@ use base64::Engine;
 use serde_json::Value;
 
 use super::{check, Cancel, LocalApi, Response, RiotError, RiotResult};
-use crate::integration::backend::{read_backend, read_backend_certificate, Backend};
+use crate::integration::backend::{cached_backend_certificate, read_backend, Backend};
 
 pub const FAILED: &str = "The local Riot service could not complete the request";
 pub const DEFAULT_MAX_BYTES: usize = 1024 * 1024;
@@ -55,8 +55,8 @@ impl RiotTransport {
         Self::new(
             client_path,
             connection.unwrap_or_else(|| Arc::new(read_backend)),
-            Arc::new(read_backend_certificate),
-            Arc::new(TlsClient),
+            Arc::new(cached_backend_certificate),
+            Arc::new(TlsClient::default()),
             max_bytes,
         )
     }
@@ -116,16 +116,52 @@ impl LocalApi for RiotTransport {
     }
 }
 
-pub struct TlsClient;
+pub fn reuses_connection(method: &str) -> bool {
+    method == "GET"
+}
+
+pub struct AgentCache<T> {
+    kept: Mutex<Option<(Vec<u8>, u16, T)>>,
+}
+
+impl<T> Default for AgentCache<T> {
+    fn default() -> Self {
+        Self { kept: Mutex::new(None) }
+    }
+}
+
+impl<T: Clone> AgentCache<T> {
+    pub fn get(&self, ca: &[u8], port: u16, build: impl FnOnce() -> Result<T, SendFailure>) -> Result<T, SendFailure> {
+        let mut kept = self.kept.lock().unwrap();
+        if let Some((known_ca, known_port, agent)) = kept.as_ref() {
+            if *known_port == port && known_ca.as_slice() == ca {
+                return Ok(agent.clone());
+            }
+        }
+        *kept = None;
+        let agent = build()?;
+        *kept = Some((ca.to_vec(), port, agent.clone()));
+        Ok(agent)
+    }
+}
+
+fn build_agent(ca: &[u8], idle: usize) -> Result<ureq::Agent, SendFailure> {
+    let root = native_tls::Certificate::from_pem(ca).map_err(|_| SendFailure)?;
+    let connector = native_tls::TlsConnector::builder().add_root_certificate(root).disable_built_in_roots(true).build().map_err(|_| SendFailure)?;
+    Ok(ureq::AgentBuilder::new().tls_connector(Arc::new(connector)).redirects(0).max_idle_connections(idle).max_idle_connections_per_host(idle).build())
+}
+
+#[derive(Default)]
+pub struct TlsClient {
+    reads: AgentCache<ureq::Agent>,
+}
 
 impl HttpsClient for TlsClient {
     fn send(&self, request: &HttpsRequest) -> Result<(u16, Vec<u8>), SendFailure> {
-        let root = native_tls::Certificate::from_pem(&request.ca).map_err(|_| SendFailure)?;
-        let connector = native_tls::TlsConnector::builder().add_root_certificate(root).disable_built_in_roots(true).build().map_err(|_| SendFailure)?;
-        let agent = ureq::AgentBuilder::new().tls_connector(Arc::new(connector)).timeout(Duration::from_millis(request.timeout_ms)).redirects(0).build();
+        let agent = if reuses_connection(&request.method) { self.reads.get(&request.ca, request.port, || build_agent(&request.ca, 1))? } else { build_agent(&request.ca, 0)? };
         let url = format!("https://127.0.0.1:{}{}", request.port, request.path);
         let authorization = format!("Basic {}", STANDARD.encode(format!("riot:{}", request.token)));
-        let call = agent.request(&request.method, &url).set("Authorization", &authorization).set("Content-Type", "application/json");
+        let call = agent.request(&request.method, &url).timeout(Duration::from_millis(request.timeout_ms)).set("Authorization", &authorization).set("Content-Type", "application/json");
         let outcome = match &request.body {
             Some(body) => call.send_string(body),
             None => call.call(),

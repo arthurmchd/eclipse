@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use eclipse::integration::backend::Backend;
 use eclipse::riot::riot_app_controls::FLAG;
 use eclipse::riot::riot_client::detect_client_path;
-use eclipse::riot::riot_transport::{HttpsClient, HttpsRequest, RiotTransport, SendFailure, DEFAULT_MAX_BYTES, FAILED};
+use eclipse::riot::riot_transport::{reuses_connection, AgentCache, HttpsClient, HttpsRequest, RiotTransport, SendFailure, DEFAULT_MAX_BYTES, FAILED};
 use eclipse::riot::{Cancel, LocalApi, Response};
 use serde_json::json;
 
@@ -107,6 +107,41 @@ fn a_missing_backend_and_invalid_request_paths_fail_without_exposing_a_lockfile(
         assert_eq!(api.get(path).unwrap_err().message, "Invalid local Riot request");
     }
     assert!(client.sent.lock().unwrap().is_empty());
+}
+
+#[test]
+fn only_reads_reuse_a_connection_so_nothing_that_changes_riot_is_ever_resent() {
+    assert!(reuses_connection("GET"));
+    for method in ["POST", "PUT", "PATCH", "DELETE", "HEAD", "get", ""] {
+        assert!(!reuses_connection(method), "{method}");
+    }
+}
+
+#[test]
+fn one_agent_is_kept_per_certificate_and_port_and_replaced_when_either_changes() {
+    let agents: AgentCache<usize> = AgentCache::default();
+    let built = Mutex::new(0usize);
+    let build = || {
+        let mut count = built.lock().unwrap();
+        *count += 1;
+        Ok(*count)
+    };
+    assert_eq!(agents.get(b"synthetic-ca", 54321, build), Ok(1));
+    assert_eq!(agents.get(b"synthetic-ca", 54321, build), Ok(1));
+    assert_eq!(agents.get(b"synthetic-ca", 54322, build), Ok(2));
+    assert_eq!(agents.get(b"synthetic-ca", 54322, build), Ok(2));
+    assert_eq!(agents.get(b"another-synthetic-ca", 54322, build), Ok(3));
+    assert_eq!(agents.get(b"synthetic-ca", 54321, build), Ok(4));
+    assert_eq!(*built.lock().unwrap(), 4);
+}
+
+#[test]
+fn a_failed_agent_is_not_kept_and_the_previous_one_is_dropped() {
+    let agents: AgentCache<usize> = AgentCache::default();
+    assert_eq!(agents.get(b"synthetic-ca", 54321, || Ok(7)), Ok(7));
+    assert_eq!(agents.get(b"synthetic-ca", 54322, || Err(SendFailure)), Err(SendFailure));
+    assert_eq!(agents.get(b"synthetic-ca", 54321, || Ok(8)), Ok(8));
+    assert_eq!(agents.get(b"synthetic-ca", 54321, || Err(SendFailure)), Ok(8));
 }
 
 #[test]

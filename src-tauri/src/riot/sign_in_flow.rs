@@ -9,8 +9,15 @@ const UNFINISHED: &str = "Riot has not finished signing in. Check the Riot windo
 pub const GAME_OPEN_TIMEOUT_MS: u64 = 180_000;
 pub const GAME_UPDATE_TIMEOUT_MS: u64 = 1_200_000;
 pub const RELAUNCH_INTERVAL_MS: u64 = 15_000;
+pub const TERMS_GRACE_MS: u64 = 20_000;
+pub const TERMS_RETRY_MS: u64 = 3_000;
 pub const INPUT_METHODS: [&str; 2] = ["input:uia", "input:keys"];
 pub const GAMES: [&str; 6] = ["lol", "tft", "val", "2xko", "lor", "riot"];
+pub const STEPS: [&str; 5] = ["prepare", "sign_in", "verify", "launch", "done"];
+pub const SLOW_GAME: &str = "The game is taking longer to open or is updating…";
+pub const GAME_TERMS: &str = "Riot needs you to accept the game terms. Click Play in the Riot window to read and accept them";
+pub const LAUNCH_REFUSED: &str = "Riot refused to open the game. Check the Riot window";
+const TERMS_NOT_ACCEPTED: &str = "Accept the game terms in the Riot Client, then try Play again";
 
 fn starting_status(game: &str) -> &'static str {
     match game {
@@ -53,10 +60,33 @@ pub struct TypeRequest {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Step {
+    #[default]
+    Prepare,
+    SignIn,
+    Verify,
+    Launch,
+    Done,
+}
+
+impl Step {
+    pub fn code(self) -> &'static str {
+        match self {
+            Step::Prepare => STEPS[0],
+            Step::SignIn => STEPS[1],
+            Step::Verify => STEPS[2],
+            Step::Launch => STEPS[3],
+            Step::Done => STEPS[4],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct StatusDetails {
     pub needs_attention: bool,
     pub native_client: bool,
     pub signed_in: bool,
+    pub step: Step,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -122,6 +152,14 @@ pub struct SignInRequest<'a> {
 
 fn outdated(launch: &LaunchAnswer) -> bool {
     launch.status == 424 && launch.error_code.as_deref() == Some("launch_failed_product_not_up_to_date")
+}
+
+fn refused(launch: &LaunchAnswer) -> bool {
+    launch.status >= 400 && launch.status != 423 && !outdated(launch)
+}
+
+fn terms_missing(launch: &LaunchAnswer) -> bool {
+    launch.error_code.as_deref() == Some("eula_not_accepted")
 }
 
 fn unfinished_login(state: Option<AuthState>) -> bool {
@@ -196,8 +234,12 @@ impl<'a> Flow<'a> {
         (self.request.status)(text, details)
     }
 
-    fn signed_in_status(&self, text: &str) {
-        self.status(text, StatusDetails { needs_attention: false, native_client: false, signed_in: true })
+    fn step_status(&self, text: &str, step: Step) {
+        self.status(text, StatusDetails { step, ..StatusDetails::default() })
+    }
+
+    fn signed_in_status(&self, text: &str, step: Step) {
+        self.status(text, StatusDetails { signed_in: true, step, ..StatusDetails::default() })
     }
 
     fn attention(&mut self, text: &str) {
@@ -206,7 +248,19 @@ impl<'a> Flow<'a> {
             return;
         }
         self.attention_text = text.to_string();
-        self.status(text, StatusDetails { needs_attention: true, native_client: self.native_form_used, signed_in: false });
+        self.status(text, StatusDetails { needs_attention: true, native_client: self.native_form_used, signed_in: false, step: Step::SignIn });
+    }
+
+    fn launch_refused(&mut self, launch: &LaunchAnswer) -> RiotResult<()> {
+        let text = if terms_missing(launch) { GAME_TERMS } else { LAUNCH_REFUSED };
+        self.manual_attention = true;
+        self.attention_text = text.to_string();
+        self.status(text, StatusDetails { needs_attention: true, native_client: false, signed_in: true, step: Step::Launch });
+        if !self.interface_open {
+            self.io.open_visible_interface(&self.exe, self.request.cancel, &self.quiet_log())?;
+            self.interface_open = true;
+        }
+        self.io.reveal()
     }
 
     fn authentication_attention(&mut self, text: &str, reveal_native: bool) -> RiotResult<()> {
@@ -329,7 +383,7 @@ impl<'a> Flow<'a> {
     }
 
     fn start_services(&mut self) -> RiotResult<()> {
-        self.status("Starting Riot services in the background…", StatusDetails::default());
+        self.step_status("Starting Riot services in the background…", Step::Prepare);
         self.check()?;
         self.io.launch_product(&self.exe, false)?;
         let io = self.io;
@@ -352,8 +406,8 @@ impl<'a> Flow<'a> {
         Ok(())
     }
 
-    fn prepare_visible_login(&mut self, games_open: bool, signed_in: bool) -> RiotResult<()> {
-        self.status("Preparing the Riot Client sign-in…", StatusDetails::default());
+    fn prepare_visible_login(&mut self, games_open: bool, signed_in: bool, step: Step) -> RiotResult<()> {
+        self.step_status("Preparing the Riot Client sign-in…", step);
         if !signed_in && self.io.is_authorized()? {
             self.leave_signed_in_account()?;
         } else if games_open {
@@ -385,7 +439,7 @@ impl<'a> Flow<'a> {
     fn launch_game(&mut self) -> RiotResult<()> {
         let request = self.request;
         let game = request.game.as_str();
-        self.signed_in_status(starting_status(game));
+        self.signed_in_status(starting_status(game), Step::Launch);
         let io = self.io;
         let is_game_ready = || -> RiotResult<bool> {
             Ok(io.running_games()?.game(game) && io.game_window(game)?)
@@ -398,8 +452,27 @@ impl<'a> Flow<'a> {
             let mut requested_at = io.now();
             let mut updating = false;
             let mut notified = false;
+            let mut asked = false;
+            let mut terms = false;
+            let mut retried_at = requested_at;
             let began = io.now();
             loop {
+                if !asked && refused(&launch) && terms_missing(&launch) && io.now() - began < TERMS_GRACE_MS {
+                    terms = true;
+                    if io.now() - retried_at >= TERMS_RETRY_MS {
+                        launch = io.request_launch(game, &quiet)?;
+                        retried_at = io.now();
+                        if !refused(&launch) {
+                            requested_at = retried_at;
+                        }
+                        self.check()?;
+                    }
+                } else if !asked && refused(&launch) {
+                    asked = true;
+                    terms = terms_missing(&launch);
+                    self.launch_refused(&launch)?;
+                    self.check()?;
+                }
                 let limit = if outdated(&launch) { began + GAME_UPDATE_TIMEOUT_MS } else { requested_at + GAME_OPEN_TIMEOUT_MS };
                 if ready || io.now() >= limit {
                     break;
@@ -413,31 +486,34 @@ impl<'a> Flow<'a> {
                 if outdated(&launch) {
                     if !updating {
                         updating = true;
-                        self.signed_in_status(updating_status(game));
+                        self.signed_in_status(updating_status(game), Step::Launch);
                     }
                     if io.now() - requested_at >= RELAUNCH_INTERVAL_MS {
                         launch = io.request_launch(game, &quiet)?;
                         requested_at = io.now();
                         self.check()?;
                     }
-                } else if !notified && io.now() - requested_at > 40_000 {
+                } else if !notified && !asked && !refused(&launch) && io.now() - requested_at > 40_000 {
                     notified = true;
-                    self.attention("The game is taking longer to open or is updating. Check the Riot Client");
+                    self.signed_in_status(SLOW_GAME, Step::Launch);
                 }
                 pause(io, request.cancel, 1000)?;
             }
             if !ready && outdated(&launch) {
                 return Err(RiotError::new("The game update did not finish in time. Open Riot Client to check the update"));
             }
+            if !ready && terms {
+                return Err(RiotError::new(TERMS_NOT_ACCEPTED));
+            }
         }
         if !ready {
             return Err(RiotError::new("The game did not open. Open the Riot Client to check updates or the installation"));
         }
         self.check()?;
+        self.signed_in_status("Game opened", Step::Done);
         self.keep_session()?;
         io.close_client_window()?;
         self.result.game_started = true;
-        self.signed_in_status("Game opened");
         Ok(())
     }
 
@@ -468,9 +544,9 @@ impl<'a> Flow<'a> {
 
         let background_restore = request.remember && request.has_saved_session && !signed_in;
         if !background_restore {
-            self.prepare_visible_login(games_open, signed_in)?;
+            self.prepare_visible_login(games_open, signed_in, Step::Prepare)?;
         } else {
-            self.status("Closing Riot Client in the background…", StatusDetails::default());
+            self.step_status("Closing Riot Client in the background…", Step::Prepare);
             let closed = io.close_everything(&self.quiet_log())?;
             self.check()?;
             (request.on_closed)(&closed)?;
@@ -490,7 +566,7 @@ impl<'a> Flow<'a> {
         }
 
         if restoring {
-            self.status("Signing in with the saved session…", StatusDetails::default());
+            self.step_status("Signing in with the saved session…", Step::SignIn);
             signed_in = wait(io, request.cancel, || Ok(io.is_authorized()?.then_some(())), 15_000, 500)?.is_some();
             if signed_in {
                 let identity = wait(io, request.cancel, || io.active_riot_id(), 8000, 500)?;
@@ -510,11 +586,11 @@ impl<'a> Flow<'a> {
             }
         }
         if background_restore && !signed_in {
-            self.prepare_visible_login(false, false)?;
+            self.prepare_visible_login(false, false, Step::SignIn)?;
         }
 
         if !signed_in {
-            self.status("Signing in in the background…", StatusDetails::default());
+            self.step_status("Signing in in the background…", Step::SignIn);
             let credentials = Credentials { username: &account.username, password: &account.password };
             let direct = io.authenticate(&credentials, request.cancel, request.remember)?;
             self.check()?;
@@ -522,7 +598,7 @@ impl<'a> Flow<'a> {
             if !direct.supported || direct.requires_native_form {
                 self.check()?;
                 self.native_form_used = true;
-                self.status("Signing in…", StatusDetails { needs_attention: false, native_client: true, signed_in: false });
+                self.status("Signing in…", StatusDetails { native_client: true, step: Step::SignIn, ..StatusDetails::default() });
                 let typed = TypeRequest { username: account.username.clone(), password: account.password.clone(), remember: request.remember };
                 let lines = io.type_credentials(&typed, request.cancel, &self.quiet_log())?;
                 self.automatic_check_until = io.now() + AUTOMATIC_CHECK_GRACE_MS;
@@ -564,7 +640,7 @@ impl<'a> Flow<'a> {
         self.native_authentication_complete = true;
         self.native_attention_pending = false;
         self.manual_attention = false;
-        self.signed_in_status("Signed in. Preparing the game…");
+        self.signed_in_status("Signed in. Preparing the game…", Step::Verify);
         self.result.riot_id = wait(io, request.cancel, || io.active_riot_id(), 8000, 500)?;
         let Some(riot_id) = self.result.riot_id.clone() else {
             return Err(RiotError::new("Could not verify the signed-in account"));
@@ -580,7 +656,7 @@ impl<'a> Flow<'a> {
             }
             io.reveal()?;
             self.result.client_opened = true;
-            self.signed_in_status("Riot Client opened");
+            self.signed_in_status("Riot Client opened", Step::Done);
             return Ok(());
         }
         self.launch_game()

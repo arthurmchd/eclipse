@@ -1,8 +1,9 @@
 use std::sync::{Arc, Mutex};
 
+use eclipse::integration::overlay::overlay_cover::CoverSteps;
 use eclipse::integration::overlay::overlay_toggle::toggle_rect;
 use eclipse::integration::overlay::riot_overlay::{
-    cards_left, cards_rect, corner_insets, corner_radius, cover_rect, overlay_bounds, overlay_shape, top_edge, OverlayHooks, OverlayObserver, OverlayWindow, Rect, RiotOverlay, ShapeOptions, Size, LAYOUT_MS,
+    cards_left, cards_rect, corner_insets, corner_radius, cover_rect, overlay_bounds, overlay_shape, top_edge, OverlayHooks, OverlayObserver, OverlayWindow, Rect, RiotOverlay, ShapeOptions, Size, CHECK_FRESH_MS, LAYOUT_MS, REST_AFTER_MS,
 };
 use eclipse::platform::windows::riot_window_observer::{Target, PANEL_POINT};
 use eclipse::riot::riot_app_controls::CloseMode;
@@ -21,6 +22,7 @@ struct Window {
     visible: Mutex<bool>,
     shows: Mutex<usize>,
     hides: Mutex<usize>,
+    steps: Mutex<Vec<CoverSteps>>,
 }
 
 impl Window {
@@ -82,6 +84,10 @@ impl OverlayWindow for Window {
         self.push("hide".into());
     }
 
+    fn set_resting(&self, resting: bool) {
+        self.push(format!("rest {resting}"));
+    }
+
     fn set_cover_visible(&self, visible: bool) {
         self.push(format!("cover {visible}"));
     }
@@ -90,8 +96,13 @@ impl OverlayWindow for Window {
         self.push(format!("toggle {visible}"));
     }
 
-    fn set_toggle_language(&self, language: &str) {
+    fn set_language(&self, language: &str) {
         self.push(format!("language {language}"));
+    }
+
+    fn set_cover_steps(&self, steps: &CoverSteps) {
+        self.push(format!("steps {} {}", steps.step, steps.game));
+        self.steps.lock().unwrap().push(steps.clone());
     }
 
     fn begin_drag(&self) {
@@ -260,7 +271,7 @@ fn cards_follow_the_riot_window_in_physical_pixels_keep_the_login_column_free_an
     assert_eq!(setup.window.region(), plain(setup.window.size()));
     setup.overlay.set_operation(&json!({ "status": "running" }));
     assert!(setup.window.visible());
-    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true }));
+    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true, "step": "done" }));
     assert!(!setup.window.visible());
     setup.overlay.set_operation(&json!({ "status": "failed", "signedIn": true }));
     assert!(setup.window.visible());
@@ -317,7 +328,7 @@ fn only_the_login_session_shows_cards_including_manual_login_logout_and_stale_re
     assert!(setup.window.visible());
     for managed in [false, true] {
         if managed {
-            setup.overlay.set_operation(&json!({ "status": "running" }));
+            setup.overlay.set_operation(&json!({ "status": "running", "needsAttention": true }));
         }
         setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Authenticated))));
         setup.tick();
@@ -367,7 +378,7 @@ fn only_the_login_session_shows_cards_including_manual_login_logout_and_stale_re
 }
 
 #[test]
-fn a_minimized_riot_hides_the_cards_keeps_the_session_and_shows_them_on_the_first_restored_sample() {
+fn a_minimized_riot_hides_the_cards_keeps_the_session_stops_the_login_reads_and_shows_them_again_right_on_restore() {
     let setup = Setup::started();
     let first = target("1", 0, 0, 1536, 864);
     setup.sample(Some(first.clone()));
@@ -376,31 +387,157 @@ fn a_minimized_riot_hides_the_cards_keeps_the_session_and_shows_them_on_the_firs
     let placed = setup.window.size();
     let checked = setup.riot.calls();
     *setup.window.shows.lock().unwrap() = 0;
-    setup.sample(Some(Target { x: -32000, y: -32000, minimized: true, ..first.clone() }));
+    let minimized = Target { x: -32000, y: -32000, minimized: true, ..first.clone() };
+    setup.sample(Some(minimized.clone()));
     assert!(!setup.window.visible());
-    assert_eq!(setup.riot.calls(), checked);
     for _ in 0..5 {
         setup.riot.advance(1000.0);
         setup.tick();
         setup.checks();
+        setup.overlay.open();
+        setup.checks();
     }
-    assert!(setup.riot.calls() > checked);
+    assert_eq!(setup.riot.calls(), checked);
     assert_eq!(*setup.window.shows.lock().unwrap(), 0);
     assert_eq!(setup.window.size(), placed);
-    let restored = setup.riot.calls();
     setup.sample(Some(first.clone()));
-    assert_eq!(setup.riot.calls(), restored);
     assert_eq!(*setup.window.shows.lock().unwrap(), 1);
     assert!(setup.window.visible());
+    setup.checks();
+    assert_eq!(setup.riot.calls(), checked + 1);
+    assert_eq!(*setup.window.shows.lock().unwrap(), 1);
+    assert!(setup.window.visible());
+    setup.sample(Some(minimized.clone()));
+    setup.riot.advance(1000.0);
+    setup.sample(Some(first.clone()));
+    assert_eq!(*setup.window.shows.lock().unwrap(), 2);
+    setup.checks();
+    assert_eq!(setup.riot.calls(), checked + 2);
+    assert!(!setup.window.events().iter().any(|event| event.starts_with("rest")));
     setup.sample(Some(Target { minimized: true, ..first.clone() }));
-    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true }));
+    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true, "step": "done" }));
     setup.overlay.set_operation(&json!(null));
     assert!(!setup.window.visible());
-    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true }));
+    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true, "step": "done" }));
     setup.sample(Some(first.clone()));
     assert!(!setup.window.visible());
     setup.overlay.set_operation(&json!(null));
     assert!(setup.window.visible());
+    setup.overlay.stop();
+}
+
+#[test]
+fn the_webviews_rest_while_riot_is_closed_signed_in_or_past_the_login_and_wake_right_before_the_cards_show() {
+    let flow = |setup: &Setup| -> Vec<String> { setup.window.events().into_iter().filter(|event| event == "hide" || event == "show" || event.starts_with("rest")).collect() };
+    let setup = Setup::started();
+    setup.tick();
+    assert_eq!(flow(&setup), ["rest true"]);
+    let first = target("1", 0, 0, 1536, 864);
+    setup.window.clear();
+    setup.sample(Some(first.clone()));
+    assert!(flow(&setup).is_empty());
+    setup.checks();
+    assert_eq!(flow(&setup), ["rest false", "show"]);
+    setup.window.clear();
+    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true, "step": "done" }));
+    assert_eq!(flow(&setup), ["hide", "rest true"]);
+    setup.window.clear();
+    setup.overlay.set_operation(&json!(null));
+    assert_eq!(flow(&setup), ["rest false", "show"]);
+    setup.window.clear();
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Authenticated))));
+    setup.tick();
+    setup.checks();
+    assert_eq!(flow(&setup), ["hide", "rest true"]);
+    setup.window.clear();
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Auth))));
+    setup.tick();
+    setup.checks();
+    assert_eq!(flow(&setup), ["rest false", "show"]);
+    setup.window.clear();
+    setup.riot.answer(Err(()));
+    setup.tick();
+    setup.checks();
+    assert_eq!(flow(&setup), ["hide"]);
+    setup.window.clear();
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Auth))));
+    setup.tick();
+    setup.checks();
+    assert_eq!(flow(&setup), ["show"]);
+    setup.window.clear();
+    setup.sample(Some(Target { minimized: true, ..first.clone() }));
+    setup.riot.advance(5000.0);
+    setup.tick();
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    setup.sample(Some(Target { dimmed: true, ..first.clone() }));
+    setup.sample(Some(first.clone()));
+    assert_eq!(flow(&setup), ["hide", "show", "hide", "show"]);
+    setup.window.clear();
+    setup.sample(None);
+    assert_eq!(flow(&setup), ["hide"]);
+    setup.riot.advance(REST_AFTER_MS - 1.0);
+    setup.tick();
+    assert_eq!(flow(&setup), ["hide"]);
+    setup.riot.advance(1.0);
+    setup.tick();
+    assert_eq!(flow(&setup), ["hide", "rest true"]);
+    setup.window.clear();
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    assert_eq!(flow(&setup), ["rest false", "show"]);
+    setup.overlay.stop();
+}
+
+#[test]
+fn losing_the_riot_window_for_a_moment_hides_the_cards_without_resting_so_an_open_dialog_survives() {
+    let rests = |setup: &Setup| setup.window.events().into_iter().filter(|event| event.starts_with("rest")).count();
+    let setup = Setup::started();
+    let first = target("1", 0, 0, 1536, 864);
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    assert!(setup.window.visible());
+    setup.window.clear();
+    for _ in 0..3 {
+        setup.sample(None);
+        assert!(!setup.window.visible());
+        setup.riot.advance(LAYOUT_MS as f64);
+        setup.tick();
+        setup.sample(Some(first.clone()));
+        setup.checks();
+        assert!(setup.window.visible());
+    }
+    assert_eq!(rests(&setup), 0);
+    setup.sample(None);
+    setup.riot.advance(REST_AFTER_MS / 2.0);
+    setup.tick();
+    setup.sample(None);
+    setup.riot.advance(REST_AFTER_MS / 2.0);
+    setup.tick();
+    assert_eq!(setup.window.events().iter().filter(|event| event.as_str() == "rest true").count(), 1);
+    setup.overlay.stop();
+}
+
+#[test]
+fn a_restore_after_a_long_minimize_shows_the_last_known_login_at_once_and_the_fresh_read_corrects_it() {
+    let setup = Setup::started();
+    let first = target("1", 0, 0, 1536, 864);
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    setup.sample(Some(Target { minimized: true, ..first.clone() }));
+    setup.riot.advance(CHECK_FRESH_MS * 4.0);
+    setup.tick();
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Authenticated))));
+    setup.sample(Some(first.clone()));
+    assert!(setup.window.visible());
+    setup.checks();
+    assert!(!setup.window.visible());
+    assert_eq!(setup.window.events().last().map(String::as_str), Some("rest true"));
+    setup.riot.answer(Err(()));
+    setup.sample(Some(Target { minimized: true, ..first.clone() }));
+    setup.riot.advance(CHECK_FRESH_MS * 4.0);
+    setup.sample(Some(first.clone()));
+    assert!(!setup.window.visible());
     setup.overlay.stop();
 }
 
@@ -575,7 +712,7 @@ fn while_a_sign_in_runs_the_login_column_is_covered_and_the_toggle_hidden_until_
     }));
     setup.overlay.set_hidden(false);
     assert_eq!(setup.window.region(), covered);
-    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true }));
+    setup.overlay.set_operation(&json!({ "status": "running", "signedIn": true, "step": "done" }));
     assert!(!setup.window.visible());
     setup.window.clear();
     for status in ["succeeded", "failed", "cancelled"] {
@@ -588,8 +725,8 @@ fn while_a_sign_in_runs_the_login_column_is_covered_and_the_toggle_hidden_until_
     let events = setup.window.events();
     let covers: Vec<&String> = events.iter().filter(|event| event.starts_with("cover")).collect();
     let toggles: Vec<&String> = events.iter().filter(|event| event.starts_with("toggle")).collect();
-    assert_eq!(covers, ["cover false", "cover true", "cover false", "cover true", "cover false"]);
-    assert_eq!(toggles, ["toggle true", "toggle false", "toggle true", "toggle false", "toggle true"]);
+    assert_eq!(covers, ["cover true", "cover false", "cover true", "cover false", "cover true", "cover false"]);
+    assert_eq!(toggles, ["toggle false", "toggle true", "toggle false", "toggle true", "toggle false", "toggle true"]);
     assert!(setup.window.visible());
     setup.overlay.stop();
 }
@@ -636,7 +773,7 @@ fn the_toggle_leaves_with_the_riot_sign_in_form_comes_back_with_it_and_with_the_
     setup.window.clear();
     setup.overlay.set_operation(&json!({ "status": "running" }));
     setup.sample(Some(gone.clone()));
-    assert_eq!(setup.window.events(), ["cover true", "toggle false", "shape", "shape"]);
+    assert_eq!(setup.window.events(), ["steps prepare lol", "cover true", "toggle false", "shape", "shape"]);
     assert_eq!(setup.window.region(), shape_of(&|options| {
         options.covered = true;
         options.toggle = false;
@@ -813,4 +950,126 @@ fn the_top_row_stays_with_the_riot_border_so_nothing_paints_past_it_on_any_side(
     for top in [-1, 864] {
         assert_eq!(shape(size, |options| options.top = top), plain(size));
     }
+}
+
+fn running(step: &str, signed_in: bool) -> serde_json::Value {
+    json!({ "status": "running", "step": step, "signedIn": signed_in, "game": "lol", "text": "Working…" })
+}
+
+fn steps_sent(setup: &Setup) -> Vec<String> {
+    setup.window.events().into_iter().filter(|event| event.starts_with("steps")).collect()
+}
+
+#[test]
+fn during_a_sign_in_the_eclipse_stays_over_the_signed_in_riot_with_the_column_sealed_until_the_game_opens() {
+    let setup = Setup::started();
+    let first = target("1", 0, 0, 1536, 864);
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    let size = setup.window.size();
+    setup.overlay.set_operation(&running("sign_in", false));
+    assert_eq!(setup.window.region(), shape(size, |options| options.covered = true));
+    setup.overlay.set_operation(&running("verify", true));
+    assert!(setup.window.visible());
+    let sealed = shape(size, |options| {
+        options.covered = true;
+        options.sealed = true;
+    });
+    assert_eq!(setup.window.region(), sealed);
+    let panel = ((1536.0 * PANEL_POINT.0).round() as i32, (864.0 * PANEL_POINT.1).round() as i32);
+    assert!(inside(&sealed, panel.0, panel.1));
+    assert_eq!(sealed[0], toggle_rect(size));
+    let column: Vec<Rect> = sealed[1..].iter().copied().filter(|part| part.x < cards_left(1536)).collect();
+    assert_eq!(area(&column), cards_left(1536) as i64 * 864);
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Authenticated))));
+    setup.tick();
+    setup.checks();
+    setup.riot.advance(CHECK_FRESH_MS * 4.0);
+    setup.tick();
+    assert!(setup.window.visible());
+    setup.sample(Some(Target { dimmed: true, ..first.clone() }));
+    assert!(setup.window.visible());
+    setup.overlay.set_operation(&running("launch", true));
+    assert!(setup.window.visible());
+    assert!(!setup.window.events().iter().any(|event| event.starts_with("rest")));
+    setup.window.clear();
+    setup.overlay.set_operation(&running("done", true));
+    assert!(!setup.window.visible());
+    let events = setup.window.events();
+    assert!(events.contains(&"cover false".to_string()));
+    assert!(events.contains(&"rest true".to_string()));
+    setup.overlay.stop();
+}
+
+#[test]
+fn before_the_account_signs_in_a_riot_notice_or_a_minimized_riot_still_takes_the_eclipse_away() {
+    let setup = Setup::started();
+    let first = target("1", 0, 0, 1536, 864);
+    setup.sample(Some(first.clone()));
+    setup.checks();
+    setup.overlay.set_operation(&running("prepare", false));
+    assert!(setup.window.visible());
+    setup.sample(Some(Target { dimmed: true, ..first.clone() }));
+    assert!(!setup.window.visible());
+    setup.sample(Some(first.clone()));
+    assert!(setup.window.visible());
+    setup.sample(Some(Target { minimized: true, ..first.clone() }));
+    assert!(!setup.window.visible());
+    setup.sample(Some(first.clone()));
+    assert!(setup.window.visible());
+    setup.overlay.set_operation(&json!({ "status": "running", "step": "sign_in", "needsAttention": true }));
+    assert!(setup.window.events().contains(&"cover false".to_string()));
+    setup.riot.answer(Ok(Some(AuthState::of(AuthKind::Multifactor))));
+    setup.tick();
+    setup.checks();
+    assert!(!setup.window.visible());
+    setup.overlay.set_operation(&json!({ "status": "running", "step": "verify", "signedIn": true, "needsAttention": true }));
+    assert!(!setup.window.visible());
+    setup.overlay.stop();
+}
+
+#[test]
+fn when_riot_closes_its_window_during_a_sign_in_the_eclipse_waits_where_it_was_and_follows_the_next_window() {
+    let setup = Setup::started();
+    setup.sample(Some(target("1", 0, 0, 1536, 864)));
+    setup.checks();
+    setup.overlay.set_operation(&running("prepare", false));
+    setup.window.clear();
+    setup.sample(None);
+    setup.riot.advance(REST_AFTER_MS * 3.0);
+    setup.tick();
+    assert!(setup.window.visible());
+    assert!(!setup.window.events().iter().any(|event| event == "hide" || event.starts_with("rest")));
+    assert_eq!(setup.window.size(), Size { width: 1536, height: 864 });
+    setup.sample(Some(target("2", 40, 30, 1280, 720)));
+    assert!(setup.window.visible());
+    assert_eq!(setup.window.size(), Size { width: 1280, height: 720 });
+    assert_eq!(setup.window.region(), shape(Size { width: 1280, height: 720 }, |options| options.covered = true));
+    setup.overlay.set_operation(&json!({ "status": "failed", "step": "sign_in" }));
+    assert!(!setup.window.visible());
+    setup.overlay.stop();
+
+    let fresh = Setup::started();
+    fresh.overlay.set_operation(&running("prepare", false));
+    fresh.tick();
+    assert!(!fresh.window.visible());
+    fresh.overlay.stop();
+}
+
+#[test]
+fn the_cover_receives_each_new_step_once_also_when_it_starts_late_and_nothing_once_the_sign_in_ends() {
+    let setup = Setup::new();
+    setup.overlay.set_operation(&running("prepare", false));
+    assert!(steps_sent(&setup).is_empty());
+    setup.overlay.start(setup.observer.clone());
+    assert_eq!(steps_sent(&setup), ["steps prepare lol"]);
+    setup.overlay.set_operation(&running("prepare", false));
+    setup.overlay.set_operation(&json!({ "status": "running", "step": "launch", "signedIn": true, "game": "tft", "text": "Starting Teamfight Tactics in the background…" }));
+    setup.overlay.set_operation(&json!({ "status": "running", "step": "warp", "game": "chess" }));
+    setup.overlay.set_operation(&json!({ "status": "succeeded", "step": "done", "game": "tft" }));
+    setup.overlay.set_operation(&json!(null));
+    assert_eq!(steps_sent(&setup), ["steps prepare lol", "steps launch tft", "steps prepare lol"]);
+    let delivered = setup.window.steps.lock().unwrap().clone();
+    assert_eq!(delivered[1], CoverSteps { step: "launch", game: "tft", signed_in: true, detail: "Starting Teamfight Tactics in the background…".into() });
+    setup.overlay.stop();
 }

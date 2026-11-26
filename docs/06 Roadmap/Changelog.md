@@ -7,9 +7,88 @@ tags: [changelog]
 
 Mudanças relevantes, da mais nova para a mais antiga.
 
+## 2026-11-26 · Eclipse 2.32.2: termos recusados logo depois do login são pedidos de novo
+
+- Relato do usuário: a conta entrou, o LoL não abriu e a interface do Eclipse sumiu, sem pedido de termos na Riot. O log mostrou HTTP 464 `eula_not_accepted` 2 s depois do login, e o Jogar seguinte, 38 s depois, foi aceito sem aceitar nada. Agora o pedido do jogo é repetido a cada 3 s por até 20 s antes de mostrar a Riot ([[signInFlow]], [[ADR-053 Etapas do login na tela até o jogo abrir]]).
+- Dois testes novos e dois ajustados. Não conferido na Riot real.
+- Na publicação, o clippy do CI recusou dois trechos do [[riotLogo]] (`map_or(true, …)` e o tipo da memória do logo); trocados por `is_none_or` e um apelido de tipo, sem mudança de comportamento, e o Setup gerado de novo.
+
+## 2026-11-26 · Eclipse 2.32.1: sessão guardada não some depois do jogo
+
+- Pedido do usuário: o primeiro login de cada conta deve ficar salvo e os seguintes entrarem direto. O `sign-in.log` real mostrou que isso parou em 2026-11-20: com a Riot 143, de 30 s a 2 min depois de o jogo abrir, o guardião via o arquivo sem login e a Riot "sem conta" e apagava a sessão como se a conta tivesse saído. Agora, com um jogo aberto, nada é apagado ([[sessionKeeper]], revisão na [[ADR-027 Saída da conta pela Riot apaga a sessão guardada]]).
+- Teste novo no guardião. Não conferido na Riot real; o próximo jogo e o Jogar seguinte mostram no log se a sessão continua valendo.
+
+## 2026-11-25 · Vault: segunda busca de gerenciadores no GitHub
+
+- 142 repositórios, 17 READMEs novos lidos; resultado em [[Estudo - Gerenciadores no GitHub]] (seção "Segunda busca"). Nenhum código mudou.
+
+## 2026-11-25 · Eclipse 2.32.0: cartões indisponíveis durante o login
+
+- Pedido do usuário: a área dos cartões indisponível enquanto o login roda. Entre cinco exemplos desenhados, ele escolheu o 3.
+- Os outros cartões ficam cinza e apagados e param de receber o ponteiro. O cartão da conta em login fica colorido, com borda vermelha e o selo "Entrando…" (em cima nos cartões, ao lado do nome na lista). O Cancelar continua no rodapé ([[cards]], [[ADR-053 Etapas do login na tela até o jogo abrir]]).
+- Teste novo no JS (`signingState`). Conferido na prévia, nos cartões e na lista, com contas fictícias.
+
+## 2026-11-25 · Eclipse 2.31.0: linha do tempo e logo da Riot na tela de carregamento
+
+- Pedido do usuário: entre seis layouts desenhados num canvas, usar a opção 2 (linha do tempo) e o logo da Riot Games "exatamente no mesmo lugar e tamanho" do Riot Client.
+- A [[overlayCover]] mostra as etapas numeradas, ligadas por uma linha, com um resumo nas feitas e o status na atual.
+- O logo vem do `app.asar` da instalação da Riot, só lido, conferido e guardado na memória ([[riotLogo]]), e aparece no ponto que o CSS da Riot dá a ele (64 px do topo, centralizado, 113 × 32). Nada da Riot entra no Setup ([[Segurança e privacidade]], [[Estudo - Visual da Riot]]).
+- Testes novos no Rust e no JS. Conferido num Edge sem janela com dados fictícios; não conferido sobre a Riot real.
+
+## 2026-11-25 · Eclipse 2.30.1: jogo recusado pela Riot mostra a Riot
+
+- Relato do usuário na 2.30.0: "meu lol nao abrir". O `sign-in.log` mostrou HTTP 464 `eula_not_accepted` no pedido do jogo: a Riot pedia o aceite dos termos do League, e o Eclipse cobria a janela dela até o prazo de 180 s acabar.
+- O [[signInFlow]] agora trata qualquer recusa do pedido do jogo como pedido de atenção: mostra a Riot (abre a janela se for preciso) e continua esperando o jogo, que abre quando o usuário aceita e clica em Jogar. Sem aceite, o erro diz para aceitar os termos ([[ADR-053 Etapas do login na tela até o jogo abrir]]).
+- Quatro testes novos no Rust. Não conferido na Riot real.
+
+## 2026-11-25 · Eclipse 2.30.0: etapas do login na tela até o jogo abrir
+
+- Pedido do usuário, depois de comparar com o Tariolle/LeagueAccounts: no lugar do anel, a coluna de login mostra a lista do que está acontecendo, e o Eclipse fica na tela até o jogo abrir ([[ADR-053 Etapas do login na tela até o jogo abrir]], [[Estudo - Gerenciadores no GitHub]]).
+- **Etapas.** O [[signInFlow]] marca cada status com `prepare`, `sign_in`, `verify`, `launch` ou `done`, e a operação do [[signInService]] leva o campo `step`. "Game opened" sai assim que a janela do jogo fica pronta. O aviso de jogo demorando deixou de pedir atenção ("The game is taking longer to open or is updating…").
+- **Lista.** A [[overlayCover]] mostra Preparar a Riot, Entrar na conta, Conferir a conta e Abrir o jogo, com o texto do status embaixo da etapa atual. A página ganhou `cover.js`, que só recebe dados, sem comando nem dado de conta ([[Segurança e privacidade]]).
+- **Na tela até o jogo.** O [[riotOverlay]] não esconde mais a janela quando a conta entra durante um login do Eclipse; fecha o furo do observador nessa fase, fica no lugar quando a janela da Riot fecha e segue a próxima. Pedidos de atenção, falha, cancelamento e a etapa `done` devolvem a regra antiga.
+- Testes novos no Rust e no JS. A lista conferida num Edge sem janela com etapas fictícias. Não conferido na Riot real: a sobreposição sem dono no login com sessão salva, o furo fechado sobre a tela inicial e a saída quando o jogo abre.
+
+## 2026-11-25 · Eclipse 2.29.2: correções do /code-review
+
+- Pedido do usuário: rodar o `/code-review` nas mudanças da 2.29.0 e 2.29.1 e corrigir os quatro achados.
+- **Diálogo fechado por uma piscada da Riot.** Desde a 2.29.0 as webviews descansavam no primeiro retrato sem a janela da Riot, e a página `hidden` fechava o cadastro com o que estava digitado. Agora só descansam depois de 2 s sem a Riot ([[riotOverlay]]).
+- **Volta da Riot minimizada.** Depois de mais de 2,5 s minimizada, os cartões esperavam uma leitura nova ao restaurar. Agora voltam na hora com a última leitura, e a leitura nova corrige ([[riotOverlay]]). A 2.29.0 já prometia a volta instantânea.
+- **Estandarte atrasado.** A cópia reduzida que fica pronta depois dos 15 s é liberada, e o temporizador é limpo pela mesma dependência que o criou ([[cards]], [[ADR-050 Estandarte reduzido nos cartões]]).
+- **Vault.** `banners.js`, `cardPatch.js` e seus testes entraram na nota [[cards]], e a linha que ainda falava de `loading="lazy"` no estandarte foi corrigida.
+- Na mesma conversa, sem mudança de código: varredura de segurança com roteiros do repositório Claude-BugHunter (fora do projeto, não instalado): segredos nos arquivos e no histórico, XSS e DOM nos cartões, CI e publicação. Nada encontrado além de um endereço falso de teste; as actions do CI usam versão por nome, não por hash.
+- Testes novos para cada correção. Não conferido na Riot real.
+
+## 2026-11-25 · Eclipse 2.29.1: estandarte de volta nos cartões
+
+- Relato do usuário: na 2.29.0 instalada os cartões do League mostravam só um retângulo vazio no lugar do estandarte. Na prévia do Chrome a redução funcionava, então a falha é do WebView2; a causa exata não foi vista na Riot real. A redução em `banners.js` deixava a promessa pendurada quando algo falhava dentro do `onload` (erro do `canvas`), e o cartão ficava sem `src` para sempre. Agora toda falha rejeita, a cópia `blob:` só vale se carregar, há limite de 15 s, e em qualquer desses casos o cartão mostra a original. O `img` sem `src` fica invisível até ter imagem ([[cards]], [[ADR-050 Estandarte reduzido nos cartões]]). Testes novos simulam cada falha. Conferido na prévia; não conferido na Riot real.
+
+## 2026-11-24 · Eclipse 2.29.0: menos processador com a Riot aberta e escondida
+
+- Pedido do usuário: aplicar as quatro primeiras otimizações do relatório de processador e memória ([[Medição de CPU e memória]]).
+- **API local.** O certificado da Riot fica guardado enquanto o `app.asar` não muda, e os `GET` reaproveitam a conexão; os pedidos que mudam a Riot continuam com conexão própria e sem repetição ([[ADR-051 Certificado guardado e conexão reaproveitada na API local]], [[riotTransport]], [[backend]], [[Segurança e privacidade]]). Conferido com um servidor TLS de teste fora do repositório: 5 `GET` numa conexão, uma conexão por `POST`, `PUT` e `DELETE`, raiz errada recusada.
+- **Observador.** Cada janela é conferida contra o caminho da Riot uma vez, não a cada 180 ms, e o caminho do executável é lido num buffer pequeno ([[riotWindowObserver]], [[win32]]).
+- **Sobreposição.** Nada de leitura do login com a Riot minimizada; na volta, uma leitura na hora ([[riotOverlay]]). Com a Riot fechada, a conta conectada ou o login fora da tela, as três webviews descansam, e a página dos cartões para de perguntar por eventos ([[manager-preload]], [[managerHost]]). Riot minimizada ou com aviso não põe as webviews para descansar, para a volta continuar instantânea.
+- **Menos processos de renderização.** A WebView2 recebe o limite de um processo, e a cobertura e a caixa deixaram o perfil anônimo. Ficaram dois processos em vez de três: os cartões num, a cobertura e a caixa no outro ([[ADR-052 Webviews da sobreposição num processo só]], [[overlayCover]], [[overlayToggle]]).
+- Medido na 2.29.0 instalada, com a Riot visível e os cartões à vista, em 60 s depois de alguns minutos aberto: `eclipse.exe` com 0,62% de um núcleo (a 2.28.4 tinha 1,4% a 1,7%) e 16,9 MB privados (19 MB); WebView2 com 258 MB em 8 processos (288 MB em 9); nenhuma conexão à API local em TIME_WAIT (eram ~317); o serviço da Riot com 0,73% de um núcleo (2,8%) ([[Medição de CPU e memória]]).
+- Testes novos para cada parte. Não conferido na Riot real: a volta dos cartões depois do descanso e depois de restaurar a Riot.
+
+## 2026-11-24 · Eclipse 2.28.4: só o cartão que mudou é redesenhado
+
+- Pedido do usuário: a lista inteira era recriada a cada atualização (passo do login, conta atualizada, letra da busca). Agora só os cartões cujo conteúdo mudou são recriados; os outros são mantidos ou só mudam de lugar, com as imagens já carregadas ([[cards]]). Conferido na prévia num Edge sem janela, contando os cartões mantidos em seleção, busca, atualização, troca de ordem pelo teclado, aba e layout. Não conferido na Riot real.
+
+## 2026-11-24 · Eclipse 2.28.3: estandarte reduzido
+
+- Pedido do usuário: procurar o que ainda carrega de um jeito que não deveria. O estandarte do League vinha em 580×1480 para aparecer em 140×357; agora os cartões guardam uma cópia de 280×714, de 3,3 MB para 0,8 MB por estandarte, com o mesmo tamanho na tela ([[ADR-050 Estandarte reduzido nos cartões]], [[cards]], [[Segurança e privacidade]]). Conferido na prévia a 200%, lado a lado com a versão antiga. Não medido na Riot real. Na mesma busca: processador parado em 0,5% de um núcleo, leituras de fundo em ritmo normal, sons carregados só ao tocar e o emblema grande do League sem uso; a lista inteira redesenhada a cada aviso ficou para quando houver muitas contas.
+
+## 2026-11-24 · Eclipse 2.28.2: menos memória
+
+- Relato do usuário: o Eclipse aparecia como "WebView2 Manager" no Gerenciador de Tarefas, ocupando bem mais que no começo. O outro grupo "WebView2 Manager" da captura era de outro programa. Com a sobreposição escondida, as três webviews pedem à WebView2 a meta de memória baixa ([[riotOverlay]]), e o fundo dos cartões do League usa a versão quadrada da arte, seis vezes menor ([[cards]]). Medido com a Riot fechada, 90 s depois de abrir: memória ativa de 538 MB para 178 MB; memória reservada de 264 para 234 MB. A arte menor não foi medida na Riot real, só conferida pelos testes.
+
 ## 2026-11-23 · Eclipse 2.28.1: ordem de tamanho fixo e hexágono menor
 
 - Pedido do usuário: a caixa de ordem mudava de largura a cada opção ("Jogada recente", "Maior elo" …) e mexia a barra. Agora ela tem a largura fixa da opção mais longa. O hexágono do cartão do TFT ficou um pouco menor ([[cards]]). Conferido na prévia em 900 e 636 px.
+- Publicado em 2026-11-23 a pedido do usuário: PR #9 no `main` e release `v2.28.1` com Setup, `.sig` e `latest.json`; o endereço da atualização responde com a 2.28.1 e o SHA-256 do Setup confere. Testes do CI verdes. Sem a conferência na Riot real do guia ([[Publicar no GitHub]]): o usuário escolheu publicar sem ela.
 
 ## 2026-11-23 · Eclipse 2.28.0: filtros num botão só
 

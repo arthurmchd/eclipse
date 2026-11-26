@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 use serde_json::Value;
 
+use super::overlay_cover::CoverSteps;
 use super::overlay_toggle::toggle_rect;
 use crate::application::timers::Timers;
 use crate::platform::windows::riot_window_observer::{RiotWindowObserver, Target, PANEL_POINT};
@@ -12,6 +13,7 @@ use crate::riot::Cancel;
 pub const PANEL_HOLE: i32 = 5;
 pub const LAYOUT_MS: u64 = 750;
 pub const CHECK_FRESH_MS: f64 = 2500.0;
+pub const REST_AFTER_MS: f64 = 2000.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
@@ -43,12 +45,13 @@ pub struct ShapeOptions {
     pub corner: f64,
     pub top: i32,
     pub covered: bool,
+    pub sealed: bool,
     pub toggle: bool,
 }
 
 impl Default for ShapeOptions {
     fn default() -> Self {
-        Self { hidden: false, corner: 0.0, top: 0, covered: false, toggle: true }
+        Self { hidden: false, corner: 0.0, top: 0, covered: false, sealed: false, toggle: true }
     }
 }
 
@@ -127,7 +130,7 @@ fn rounded_rows(insets: &[i32], x: i32, top: i32, bottom: i32, width: i32, from_
     (upper, lower)
 }
 
-pub fn cover_shape(size: Size, corner: f64, top: i32) -> Vec<Rect> {
+pub fn cover_shape(size: Size, corner: f64, top: i32, sealed: bool) -> Vec<Rect> {
     let area = cards_left(size.width);
     let inner = size.height - top;
     if area <= 0 {
@@ -136,7 +139,8 @@ pub fn cover_shape(size: Size, corner: f64, top: i32) -> Vec<Rect> {
     let insets = corner_insets(corner.min(area as f64 / 2.0).min(inner as f64 / 2.0));
     let rows = insets.len() as i32;
     let (upper, lower) = rounded_rows(&insets, 0, top, size.height, area, true);
-    let middle = without(Rect::new(0, top + rows, area, inner - rows * 2), panel_hole(size));
+    let column = Rect::new(0, top + rows, area, inner - rows * 2);
+    let middle = if sealed { vec![column] } else { without(column, panel_hole(size)) };
     upper.into_iter().chain(middle).chain(lower).filter(|part| part.width > 0 && part.height > 0).collect()
 }
 
@@ -148,7 +152,7 @@ pub fn overlay_shape(size: Size, options: ShapeOptions) -> Vec<Rect> {
         parts.push(toggle_rect(size));
     }
     if options.covered {
-        parts.extend(cover_shape(size, options.corner, edge));
+        parts.extend(cover_shape(size, options.corner, edge, options.sealed));
     }
     if options.hidden {
         return parts;
@@ -177,9 +181,11 @@ pub trait OverlayWindow: Send + Sync {
     fn set_region(&self, parts: &[Rect]);
     fn show_inactive(&self);
     fn hide(&self);
+    fn set_resting(&self, resting: bool);
     fn set_cover_visible(&self, visible: bool);
     fn set_toggle_visible(&self, visible: bool);
-    fn set_toggle_language(&self, language: &str);
+    fn set_language(&self, language: &str);
+    fn set_cover_steps(&self, steps: &CoverSteps);
     fn begin_drag(&self);
     fn close(&self);
 }
@@ -211,11 +217,15 @@ struct State {
     disposed: bool,
     loaded: bool,
     target: Option<Target>,
+    missing_since: Option<f64>,
     login_visible: bool,
+    outside: bool,
     checked_at: f64,
     pending: Option<Cancel>,
     generation: u64,
     signed_in: bool,
+    escort: bool,
+    steps: Option<CoverSteps>,
     hidden: bool,
     covered: bool,
     form_hidden: bool,
@@ -224,6 +234,7 @@ struct State {
     edge: i32,
     size: Option<Size>,
     visible: bool,
+    resting: bool,
     timer: Option<u64>,
     observer: Option<Arc<dyn OverlayObserver>>,
 }
@@ -237,13 +248,17 @@ struct Inner {
 
 impl Inner {
     fn options(state: &State) -> ShapeOptions {
-        ShapeOptions { hidden: state.hidden, corner: state.corner, top: state.edge, covered: state.covered, toggle: !state.form_hidden }
+        ShapeOptions { hidden: state.hidden, corner: state.corner, top: state.edge, covered: state.covered, sealed: state.signed_in, toggle: !state.form_hidden }
     }
 
-    fn hide(&self, state: &mut State) {
+    fn hide(&self, state: &mut State, rest: bool) {
         if state.visible {
             state.visible = false;
             self.window.hide();
+        }
+        if rest && !state.resting {
+            state.resting = true;
+            self.window.set_resting(true);
         }
     }
 
@@ -256,7 +271,7 @@ impl Inner {
         };
         let parts = overlay_shape(size, Self::options(state));
         if parts.is_empty() {
-            self.hide(state);
+            self.hide(state, false);
         } else {
             self.window.set_region(&parts);
         }
@@ -297,8 +312,29 @@ impl Inner {
     fn reset_session(state: &mut State) {
         state.generation += 1;
         state.login_visible = false;
+        state.outside = false;
         if let Some(pending) = state.pending.take() {
             pending.cancel();
+        }
+    }
+
+    fn reveal(&self, state: &mut State) {
+        if !state.visible {
+            state.visible = true;
+            if state.resting {
+                state.resting = false;
+                self.window.set_resting(false);
+            }
+            self.window.show_inactive();
+        }
+    }
+
+    fn escort(&self, state: &mut State) {
+        match state.target.clone() {
+            None if state.size.is_some() => self.reveal(state),
+            None => self.hide(state, false),
+            Some(target) if target.minimized || (target.dimmed && !state.signed_in) => self.hide(state, false),
+            Some(target) => self.place(state, &target),
         }
     }
 
@@ -306,17 +342,28 @@ impl Inner {
         if state.disposed {
             return;
         }
-        let fresh = (self.hooks.now)() - state.checked_at <= CHECK_FRESH_MS;
+        if state.loaded && state.escort {
+            self.escort(state);
+            return;
+        }
+        let now = (self.hooks.now)();
+        let fresh = now - state.checked_at <= CHECK_FRESH_MS;
         let Some(target) = state.target.clone().filter(|target| state.loaded && !target.minimized && !target.dimmed && state.login_visible && !state.signed_in && fresh) else {
-            self.hide(state);
+            let gone = state.target.is_none() && state.missing_since.is_none_or(|since| now - since >= REST_AFTER_MS);
+            let rest = gone || state.signed_in || state.outside;
+            self.hide(state, rest);
             return;
         };
-        let bounds = overlay_bounds(&target);
+        self.place(state, &target);
+    }
+
+    fn place(&self, state: &mut State, target: &Target) {
+        let bounds = overlay_bounds(target);
         let size = Size { width: bounds.width, height: bounds.height };
-        let radius = corner_radius(&target);
-        let border = top_edge(&target);
+        let radius = corner_radius(target);
+        let border = top_edge(target);
         if overlay_shape(size, Self::options(state)).is_empty() {
-            self.hide(state);
+            self.hide(state, false);
             return;
         }
         let resized = state.size != Some(size);
@@ -329,16 +376,13 @@ impl Inner {
             state.edge = border;
             self.window.set_region(&overlay_shape(size, Self::options(state)));
         }
-        if !state.visible {
-            state.visible = true;
-            self.window.show_inactive();
-        }
+        self.reveal(state);
     }
 
     fn check_session(self: &Arc<Self>) {
         let (cancel, version) = {
             let mut state = self.state.lock().unwrap();
-            if state.disposed || state.target.is_none() || state.pending.is_some() {
+            if state.disposed || state.target.as_ref().is_none_or(|target| target.minimized) || state.pending.is_some() {
                 return;
             }
             let cancel = Cancel::new();
@@ -354,6 +398,7 @@ impl Inner {
             let mut state = inner.state.lock().unwrap();
             if !state.disposed && version == state.generation {
                 state.login_visible = login_visible(&answer);
+                state.outside = answer.is_ok() && !state.login_visible;
                 if answer.is_ok() {
                     state.checked_at = (inner.hooks.now)();
                 }
@@ -405,11 +450,15 @@ impl RiotOverlay {
             disposed: false,
             loaded: false,
             target: None,
+            missing_since: None,
             login_visible: false,
+            outside: false,
             checked_at: 0.0,
             pending: None,
             generation: 0,
             signed_in: false,
+            escort: false,
+            steps: None,
             hidden: false,
             covered: false,
             form_hidden: false,
@@ -418,6 +467,7 @@ impl RiotOverlay {
             edge: 0,
             size: None,
             visible: false,
+            resting: false,
             timer: None,
             observer: None,
         };
@@ -432,7 +482,10 @@ impl RiotOverlay {
             }
             state.loaded = true;
             state.observer = Some(observer);
-            self.inner.window.set_toggle_language(state.language);
+            self.inner.window.set_language(state.language);
+            if let Some(steps) = &state.steps {
+                self.inner.window.set_cover_steps(steps);
+            }
             self.inner.window.set_cover_visible(state.covered);
             self.inner.window.set_toggle_visible(!state.covered && !state.form_hidden);
         }
@@ -440,7 +493,7 @@ impl RiotOverlay {
     }
 
     pub fn on_state(&self, value: Option<Target>) {
-        let changed = {
+        let check = {
             let mut state = self.inner.state.lock().unwrap();
             if state.disposed {
                 return;
@@ -449,13 +502,23 @@ impl RiotOverlay {
             if changed {
                 Inner::reset_session(&mut state);
             }
+            let restored = !changed && state.target.as_ref().is_some_and(|target| target.minimized) && value.as_ref().is_some_and(|target| !target.minimized);
             let form_hidden = value.as_ref().is_some_and(|target| target.form_hidden);
+            let now = (self.inner.hooks.now)();
+            if value.is_some() {
+                state.missing_since = None;
+            } else if state.target.is_some() {
+                state.missing_since = Some(now);
+            }
+            if restored {
+                state.checked_at = now;
+            }
             state.target = value;
             self.inner.set_form_hidden(&mut state, form_hidden);
             self.inner.layout(&mut state);
-            changed && state.target.is_some()
+            (changed || restored) && state.target.is_some()
         };
-        if changed {
+        if check {
             self.inner.check_session();
         }
     }
@@ -470,7 +533,7 @@ impl RiotOverlay {
         let mut state = self.inner.state.lock().unwrap();
         state.language = if value == "en" { "en" } else { "pt" };
         if state.loaded && !state.disposed {
-            self.inner.window.set_toggle_language(state.language);
+            self.inner.window.set_language(state.language);
         }
     }
 
@@ -487,15 +550,31 @@ impl RiotOverlay {
     }
 
     pub fn set_operation(&self, operation: &Value) {
-        let running = operation.get("status").and_then(Value::as_str) == Some("running");
+        let steps = CoverSteps::from_operation(operation);
+        let running = steps.is_some();
         let signed_in = running && operation.get("signedIn") == Some(&Value::Bool(true));
         let attention = operation.get("needsAttention") == Some(&Value::Bool(true));
+        let escort = steps.as_ref().is_some_and(|steps| !attention && steps.step != "done");
         let mut state = self.inner.state.lock().unwrap();
         if state.disposed {
             return;
         }
+        if let Some(steps) = steps.filter(|steps| state.steps.as_ref() != Some(steps)) {
+            if state.loaded {
+                self.inner.window.set_cover_steps(&steps);
+            }
+            state.steps = Some(steps);
+        }
+        let sealing = state.signed_in != signed_in;
         state.signed_in = signed_in;
-        self.inner.set_covered(&mut state, running && !attention);
+        state.escort = escort;
+        if state.covered == escort {
+            if sealing && state.covered {
+                self.inner.reshape(&mut state);
+            }
+        } else {
+            self.inner.set_covered(&mut state, escort);
+        }
         self.inner.layout(&mut state);
     }
 

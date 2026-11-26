@@ -27,6 +27,7 @@ Os cartões ficam sobre a janela oficial da Riot e não dependem de uma versão 
 | Estados da sessão do jogador | `NON_BLOCKING_SESSION_STATES` em [[riotAuthentication]] | Estado automático novo fica bloqueado até entrar na lista. Compare com a enumeração `PlayerSessionStateType` em `C:\Riot Games\Riot Client\RiotGamesApi.dll` (só leitura) |
 | Rotas da API local | constantes no topo de [[riotAuthentication]] e [[riotInterface]] | Rota nova ou removida muda o login e a abertura da interface |
 | Certificado da API local | `dist/main/root.pem` dentro do `app.asar` oficial, lido por [[backend]] com [[asar]] | Sem ele, o HTTPS para a API local é recusado |
+| Logo da Riot na cobertura | Variável `riotLogo` em `dist/renderer/renderer.js` do `app.asar` ([[riotLogo]]) e a posição `143.5u`, `64u`, `113u × 32u` em `cover.css` ([[overlayCover]]) | Sem a variável, a cobertura fica sem logo; com o CSS da Riot mudado, o logo sai do lugar |
 | Lockfile | `%LOCALAPPDATA%\Riot Games\Riot Client\Config\lockfile` ([[backend]]) | Porta e senha da API local |
 | Elo pelo jogo | Rotas e campos em [[gameRanks]]: `/lol-summoner/v1/current-summoner`, `/lol-ranked/v1/current-ranked-stats`, `/chat/v1/session`, `/chat/v4/presences`, e o `lockfile` na pasta do LoL | Sem eles, o elo sem chave para de atualizar; o `data.log` mostra "could not read the ranks" |
 

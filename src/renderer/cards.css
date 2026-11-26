@@ -42,6 +42,7 @@ h2 { font-size: 19px; }
 .plate { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; overflow: hidden; padding: 0 12px 12px; text-align: center; }
 .hero { position: relative; display: flex; flex: none; align-items: center; justify-content: center; align-self: stretch; height: 180px; margin: 0 -12px 4px; }
 .hero .banner { position: absolute; bottom: -6px; left: 50%; width: 140px; height: 357px; transform: translateX(-50%); pointer-events: none; }
+.hero .banner:not([src]) { visibility: hidden; }
 .hero .avatar { z-index: 1; margin-top: -6px; }
 .hero-banner .avatar:not(.has-border) .portrait { width: 66px; height: 66px; }
 .plate:has(.hero-art) { justify-content: flex-end; }
@@ -384,3 +385,13 @@ body[data-theme=riot] .plate .tier { color: #141414; }
 @media(prefers-reduced-motion:reduce) { .account.enter, dialog[open], #notice:not([hidden]), .status:not([hidden]) { animation: none; } .plate-card:hover, button:not(:disabled):active, #play:not(:disabled):active { transform: none; } }
 .plate-card:has(.hero-art) .pin, .plate-card:has(.hero-art) .edit { z-index: 2; color: #fff; opacity: 1; text-shadow: 0 1px 3px #000, 0 0 8px #000a; }
 .plate-card:has(.hero-art) .pin[aria-pressed=true] { color: #f4d58d; }
+#cards.is-signing .account { pointer-events: none; }
+#cards.is-signing .account:not(.is-playing) { filter: grayscale(1); opacity: .45; transition: filter var(--slow) var(--ease), opacity var(--slow) var(--ease); }
+#cards.is-signing .account.is-playing { z-index: 2; }
+#cards.is-signing .plate-card.is-playing { border-color: #d53235; box-shadow: 0 0 0 3px #d53235, 0 16px 40px rgba(213, 50, 53, .25); transform: none; }
+#cards.is-signing .list-card.is-playing { box-shadow: inset 0 0 0 2px #d53235; }
+.signing { position: absolute; z-index: 4; top: -13px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 14px; box-sizing: border-box; border-radius: 15px; background: #d53235; color: #ffffff; font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 6px 16px rgba(213, 50, 53, .3); }
+.who-line .signing { position: static; transform: none; flex-shrink: 0; height: 22px; padding: 0 9px; gap: 6px; font-size: 11.5px; box-shadow: none; }
+.who-line .signing-ring { width: 10px; height: 10px; }
+.signing-ring { width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .35); border-top-color: #ffffff; animation: spin 1s linear infinite; }
+@media(prefers-reduced-motion:reduce) { .signing-ring { animation: none; } #cards.is-signing .account:not(.is-playing) { transition: none; } }

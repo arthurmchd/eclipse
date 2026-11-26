@@ -1,4 +1,4 @@
-use eclipse::platform::windows::observer_thread::{box_state, client_windows, command_code, corner_size, format_target, parse_request, same_path, shade, Request, CLR_INVALID, DRAG_MESSAGE, POLL_MS};
+use eclipse::platform::windows::observer_thread::{box_state, client_windows, command_code, corner_size, format_target, parse_request, same_path, shade, Request, Verdicts, CLR_INVALID, DRAG_MESSAGE, POLL_MS};
 use windows_sys::Win32::Foundation::RECT;
 
 #[test]
@@ -99,3 +99,27 @@ fn the_riot_window_is_recognized_whatever_slashes_riot_wrote_in_its_installs_fil
     assert_eq!(client_windows(""), None);
 }
 
+#[test]
+fn each_window_is_checked_against_the_riot_path_once_and_again_when_its_process_changes_or_it_leaves() {
+    let mut verdicts = Verdicts::default();
+    let mut reads = Vec::new();
+    let mut check = |verdicts: &mut Verdicts, window: isize, pid: u32, answer: Option<bool>| verdicts.check(window, pid, |pid| {
+        reads.push(pid);
+        answer
+    });
+    assert!(check(&mut verdicts, 100, 7, Some(true)));
+    assert!(check(&mut verdicts, 100, 7, Some(false)));
+    assert!(!check(&mut verdicts, 200, 8, Some(false)));
+    assert!(!check(&mut verdicts, 200, 8, Some(true)));
+    assert!(!check(&mut verdicts, 100, 9, Some(false)));
+    assert!(!check(&mut verdicts, 300, 10, None));
+    assert!(check(&mut verdicts, 300, 10, Some(true)));
+    assert_eq!(verdicts.len(), 3);
+    verdicts.keep(&[300]);
+    assert_eq!(verdicts.len(), 1);
+    assert!(check(&mut verdicts, 100, 9, Some(true)));
+    assert!(!check(&mut verdicts, 400, 11, None));
+    assert_eq!(verdicts.len(), 2);
+    drop(check);
+    assert_eq!(reads, [7, 8, 9, 10, 10, 9, 11]);
+}

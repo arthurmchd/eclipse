@@ -46,6 +46,12 @@ A análise sugeria apoiar isso num serviço único de estado da Riot (item 4). O
 - **Se a detecção falhar,** o comportamento é o anterior: uma recusa e um reinício no próximo Jogar. Isso acontece com a Riot fechada menos de 1 s depois da saída, com o Eclipse fechado durante a saída ou com a Riot respondendo "desconhecido" até fechar.
 - **Uma saída falsa custa um login visível,** com senha e talvez 2FA. Por isso a regra exige o arquivo e a API juntos.
 
+## Revisão de 2026-11-26: jogo aberto
+
+- **O que o log real mostrou.** Desde 2026-11-20, com a Riot 143, todo jogo terminava com "forgot the saved session…" de 30 s a 2 min depois de abrir, sem o usuário sair da conta. A Riot passou a limpar o arquivo e responder "sem conta" com o jogo aberto, o mesmo par de sinais desta regra. Resultado: cada conta voltava à senha (16 pedidos de código no log).
+- **O que mudou (2.32.1).** Com um jogo aberto, o [[sessionKeeper]] não apaga a sessão e solta a anotação. A regra continua valendo com a Riot aberta sem jogo.
+- **Ainda aberto.** Não foi medido se a Riot encerra essa sessão no servidor. O próximo Jogar responde: entra pela sessão, ou a acha recusada e cai no login visível depois de uns 15 s.
+
 ## Relacionado
 
 - [[sessionKeeper]]

@@ -5,7 +5,7 @@ use serde_json::{json, Map, Value};
 use super::store::{account_riot_id, client_path, now_iso, stay_signed_in, ServiceStore};
 use super::timers::Timers;
 use crate::riot::riot_client::RiotClient;
-use crate::riot::sign_in_flow::{Account, Closed, SignInOutcome, SignInRequest, StatusDetails, GAMES};
+use crate::riot::sign_in_flow::{Account, Closed, SignInOutcome, SignInRequest, StatusDetails, Step, GAMES};
 use crate::riot::{Cancel, RiotError, RiotResult, CANCELLED};
 
 pub const ALREADY_RUNNING: &str = "A sign-in is already in progress";
@@ -60,6 +60,7 @@ struct Operation {
     needs_attention: bool,
     native_client: bool,
     signed_in: bool,
+    step: &'static str,
     started_at: String,
     finished_at: Option<String>,
     error: Option<String>,
@@ -189,6 +190,7 @@ impl SignInService {
             needs_attention: false,
             native_client: false,
             signed_in: false,
+            step: Step::Prepare.code(),
             started_at: now_iso(),
             finished_at: None,
             error: None,
@@ -231,6 +233,7 @@ impl Inner {
             "needsAttention": operation.needs_attention,
             "nativeClient": operation.native_client,
             "signedIn": operation.signed_in,
+            "step": operation.step,
             "startedAt": operation.started_at,
         });
         let map = value.as_object_mut().unwrap();
@@ -264,6 +267,7 @@ impl Inner {
         operation.needs_attention = details.needs_attention;
         operation.native_client = details.native_client;
         operation.signed_in = operation.signed_in || details.signed_in;
+        operation.step = details.step.code();
         let snapshot = operation.clone();
         drop(state);
         (self.observers.log)(&public);
@@ -357,6 +361,7 @@ impl Inner {
                 launched = Some(result);
                 Box::new(move |operation: &mut Operation| {
                     operation.status = "succeeded";
+                    operation.step = Step::Done.code();
                     operation.text = text.into();
                 })
             }

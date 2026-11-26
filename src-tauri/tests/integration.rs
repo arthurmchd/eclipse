@@ -8,12 +8,18 @@ mod asset_protocol;
 mod backend;
 #[path = "integration/manager/manager_host.rs"]
 mod manager_host;
+#[path = "integration/overlay/overlay_cover.rs"]
+mod overlay_cover;
 #[path = "integration/overlay/overlay_drag.rs"]
 mod overlay_drag;
 #[path = "integration/overlay/overlay_toggle.rs"]
 mod overlay_toggle;
+#[path = "integration/overlay/overlay_window.rs"]
+mod overlay_window;
 #[path = "integration/overlay/riot_overlay.rs"]
 mod riot_overlay;
+#[path = "integration/riot_logo.rs"]
+mod riot_logo;
 #[path = "support/bundle.rs"]
 mod bundle;
 #[path = "support/manual_timers.rs"]

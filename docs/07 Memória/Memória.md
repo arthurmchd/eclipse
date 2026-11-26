@@ -23,3 +23,6 @@ A memória do Claude Code neste projeto. O resto do vault guarda o porquê do c�
 - [[Escolhas técnicas pelo agente]]: o usuário conta com a recomendação do agente em escolhas de tecnologia e de design
 - [[Laboratório de velocidade do login]]: medição de 2026-11-21 na Riot real; onde o login perde tempo, digitação aplicada na 2.18.0, troca de conta por logout descartada (ADR-020)
 - [[Preparação para muitos usuários]]: as cinco etapas feitas e publicadas na 2.19.1; falta a cópia da chave
+- [[Respostas em português]]: sempre responder em português, mesmo depois de ler fontes em inglês
+- [[Limpeza de disco no fim do projeto]]: em 2026-11-25 o cache de debug (85 GB) saiu; o cache do release, os Setups 2.29.x e `.client-integration/` ficam até o fim do projeto
+- [[Medição de CPU e memória]]: números de 2026-11-24 antes (2.28.4) e depois (2.29.0) das quatro primeiras otimizações, e o que ficou de fora e por quê

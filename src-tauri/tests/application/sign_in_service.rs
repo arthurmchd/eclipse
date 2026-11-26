@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use eclipse::application::language::localize;
 use eclipse::application::sign_in_service::{SignInObservers, SignInRunner, SignInService, KEEP_LEAVING_FAILED};
 use eclipse::application::timers::{ThreadTimers, Timers};
-use eclipse::riot::sign_in_flow::{Closed, SignInOutcome, SignInRequest, StatusDetails};
+use eclipse::riot::sign_in_flow::{Closed, SignInOutcome, SignInRequest, StatusDetails, Step};
 use eclipse::riot::{RiotError, RiotId, RiotResult};
 use serde_json::{json, Value};
 
@@ -375,7 +375,7 @@ fn native_verification_context_is_published_for_manual_handoff_and_cleared_by_la
     f.behave(move |runner, request| {
         let service = runner.service();
         assert_eq!(service.get_state()["nativeClient"], false);
-        (request.status)("Complete the security check in Riot", StatusDetails { needs_attention: true, native_client: true, signed_in: false });
+        (request.status)("Complete the security check in Riot", StatusDetails { needs_attention: true, native_client: true, ..StatusDetails::default() });
         assert_eq!(service.get_state()["nativeClient"], true);
         assert_eq!(service.get_state()["needsAttention"], true);
         assert_eq!(statuses.lock().unwrap().last().unwrap(), &json!({ "id": "test-account", "text": "Complete the security check in Riot", "needsAttention": true, "nativeClient": true }));
@@ -392,7 +392,7 @@ fn native_verification_context_is_published_for_manual_handoff_and_cleared_by_la
 fn failed_native_verification_retains_recovery_metadata_without_keeping_the_launch_busy() {
     let f = fixture();
     f.behave(|_, request| {
-        (request.status)("Complete verification", StatusDetails { needs_attention: true, native_client: true, signed_in: false });
+        (request.status)("Complete verification", StatusDetails { needs_attention: true, native_client: true, ..StatusDetails::default() });
         Err(error_with("Verification timed out", |error| {
             error.needs_attention = true;
             error.native_client = true;
@@ -415,7 +415,7 @@ fn ordinary_errors_and_cancellation_do_not_retain_stale_verification_notices() {
     for cancel in [false, true] {
         let f = fixture();
         f.behave(move |runner, request| {
-            (request.status)("Needs attention", StatusDetails { needs_attention: true, native_client: true, signed_in: false });
+            (request.status)("Needs attention", StatusDetails { needs_attention: true, native_client: true, ..StatusDetails::default() });
             if cancel {
                 runner.service().cancel();
                 return Err(error_with("Stopped", |error| {
@@ -627,4 +627,27 @@ fn with_real_timers_the_sign_in_runs_on_another_thread_and_frees_the_service_at_
         std::thread::sleep(Duration::from_millis(10));
     }
     assert_eq!(f.service.get_state()["status"], "succeeded");
+}
+
+#[test]
+fn the_operation_carries_the_step_of_each_status_ends_on_done_and_a_failure_keeps_where_it_stopped() {
+    let f = fixture();
+    f.behave(|runner, request| {
+        (request.status)("Signing in in the background…", StatusDetails { step: Step::SignIn, ..StatusDetails::default() });
+        (request.status)("Signed in. Preparing the game…", StatusDetails { signed_in: true, step: Step::Verify, ..StatusDetails::default() });
+        (request.status)("Starting League of Legends in the background…", StatusDetails { signed_in: true, step: Step::Launch, ..StatusDetails::default() });
+        Ok(runner.result())
+    });
+    let finished = f.play("lol");
+    let steps: Vec<Value> = f.operations.lock().unwrap().iter().map(|operation| operation["step"].clone()).collect();
+    assert_eq!(steps, [json!("prepare"), json!("sign_in"), json!("verify"), json!("launch"), json!("done")]);
+    assert_eq!(finished["step"], "done");
+    assert_eq!(f.service.get_state()["step"], "done");
+    f.behave(|_, request| {
+        (request.status)("Signed in. Preparing the game…", StatusDetails { signed_in: true, step: Step::Verify, ..StatusDetails::default() });
+        Err(RiotError::new("Could not verify the signed-in account"))
+    });
+    let failed = f.play("lol");
+    assert_eq!(failed["status"], "failed");
+    assert_eq!(failed["step"], "verify");
 }

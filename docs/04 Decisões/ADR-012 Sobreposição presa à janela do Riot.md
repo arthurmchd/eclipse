@@ -7,6 +7,8 @@ tags: [adr, arquitetura, interface, janelas]
 
 # ADR-012 Sobreposição presa à janela do Riot
 
+Revisada em 2026-11-25 por [[ADR-053 Etapas do login na tela até o jogo abrir]]: durante um login pelo Eclipse, se a janela da Riot fecha, a sobreposição fica na última posição, sem dono, até uma janela da Riot voltar ou o login terminar.
+
 ## Contexto
 
 Pela [[ADR-009 Sobreposição no cliente oficial]], a sobreposição era uma janela sempre no topo que só aparecia com o Riot em primeiro plano, e o [[riotWindowObserver]] lia a posição a cada 180 ms. O usuário relatou dois problemas em 2026-11-04:

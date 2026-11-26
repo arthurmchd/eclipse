@@ -2,9 +2,21 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; font-src 'self'; img-src 'self'">
+<link rel="stylesheet" href="../../../node_modules/@fontsource/inter/400.css">
+<link rel="stylesheet" href="../../../node_modules/@fontsource/inter/600.css">
+<link rel="stylesheet" href="../../../node_modules/@fontsource/inter/700.css">
 <link rel="stylesheet" href="cover.css">
 <title>Eclipse</title>
 </head>
-<body><div class="spinner"></div></body>
+<body>
+<img id="riot-logo" src="../../../riot/logo.svg" alt="">
+<div class="spinner" id="waiting"></div>
+<main id="steps" hidden>
+<p id="game"></p>
+<h1 id="title"></h1>
+<ol id="list"></ol>
+</main>
+<script type="module" src="cover.js"></script>
+</body>
 </html>

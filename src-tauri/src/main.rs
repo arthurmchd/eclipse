@@ -27,7 +27,9 @@ use eclipse::application::store::{client_path, ServiceStore, Store};
 use eclipse::application::timers::ThreadTimers;
 use eclipse::application::updates::{checks_enabled, InstallOutcome, UpdateHooks, Updates, UPDATE_CHECKS};
 use eclipse::integration::app_updater::AppUpdater;
-use eclipse::integration::asset_protocol::{is_page, resolve, SCHEME, TOGGLE_PAGE};
+use eclipse::integration::asset_protocol::{is_page, is_riot_logo, resolve, SCHEME, TOGGLE_PAGE};
+use eclipse::integration::backend::archive_stamp;
+use eclipse::integration::riot_logo::{read_logo, LogoCache};
 use eclipse::integration::manager::manager_host::{Caller, ManagerHost, FAILED};
 use eclipse::integration::overlay::overlay_window::{create, TOGGLE_LABEL};
 use eclipse::integration::overlay::riot_overlay::{OverlayHooks, RiotOverlay};
@@ -193,8 +195,20 @@ async fn overlay_toggle(webview: Webview, eclipse: State<'_, Arc<Eclipse>>, hidd
     }
 }
 
+static LOGO_CLIENT: OnceLock<String> = OnceLock::new();
+
+fn riot_logo() -> Option<Vec<u8>> {
+    static CACHE: OnceLock<LogoCache> = OnceLock::new();
+    let client = LOGO_CLIENT.get()?;
+    CACHE.get_or_init(|| LogoCache::new(Box::new(archive_stamp), Box::new(read_logo))).get(std::path::Path::new(client))
+}
+
 fn serve(uri: &str) -> Response<Vec<u8>> {
-    let found = resolve(&project_root(), uri).and_then(|(file, kind)| fs::read(file).ok().map(|body| (body, kind)));
+    let found = if is_riot_logo(uri) {
+        riot_logo().map(|body| (body, "image/svg+xml"))
+    } else {
+        resolve(&project_root(), uri).and_then(|(file, kind)| fs::read(file).ok().map(|body| (body, kind)))
+    };
     match found {
         Some((body, kind)) => Response::builder().header(header::CONTENT_TYPE, kind).header("X-Content-Type-Options", "nosniff").body(body),
         None => Response::builder().status(StatusCode::NOT_FOUND).body(Vec::new()),
@@ -208,6 +222,7 @@ fn start(app: &AppHandle) -> Result<(), String> {
     let store = Arc::new(Mutex::new(Store::open(&dir, Arc::new(SafeStorage::new(&dir, Box::new(Dpapi))))));
     let saved_path = client_path(&*store);
     let client = detect_client_path(&saved_path).ok_or(NO_CLIENT)?;
+    let _ = LOGO_CLIENT.set(client.clone());
     let timers = Arc::new(ThreadTimers::new());
     let events = Arc::new(ManagerEvents::default());
     let riot = Arc::new(RiotClient::new());

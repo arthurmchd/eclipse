@@ -22,7 +22,7 @@ Valida cada chamada do comando `manager`: só a webview `cards`, no endereço ex
 | `invoke(quem, método, args)` | método | Confere quem chamou e o comando e devolve o resultado ou um erro genérico |
 | `open_external(url)` | método | Manda um link `https:` ao serviço como `openExternal` |
 | `trusted(quem)` | função | Só a webview `cards` (`CARDS_LABEL`) no endereço exato dos cartões |
-| `bridge_script()` | função | O [[manager-preload]] embutido, ligado ao `invoke` do Tauri |
+| `bridge_script()` | função | O [[manager-preload]] embutido, ligado ao `invoke` do Tauri e, desde a 2.29.0, à visibilidade da página |
 | `COMMAND`, `METHODS`, `WINDOW_ACTIONS` | constantes | `manager`, os métodos e `minimize`/`close`/`drag` |
 | `MAX_ARGS`, `MAX_BYTES` | constantes | 4 argumentos e 32 KB |
 | `UNTRUSTED`, `INVALID`, `FAILED` | constantes | As mensagens fixas de recusa e de falha |

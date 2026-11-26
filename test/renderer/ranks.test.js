@@ -100,7 +100,9 @@ test('the VALORANT border is the chosen one or the one of the account level, wit
 test('the profile splash and the TFT companion only become CommunityDragon images from safe saved names', async () => {
   const { lolSplash, tftCompanion } = await load('ranks.js');
   const base = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets';
-  assert.equal(lolSplash('characters/ahri/skins/skin01/images/ahri_splash_centered_1.jpg'), `${base}/characters/ahri/skins/skin01/images/ahri_splash_centered_1.jpg`);
+  assert.equal(lolSplash('characters/ahri/skins/skin01/images/ahri_splash_centered_1.jpg'), `${base}/characters/ahri/skins/skin01/images/ahri_splash_tile_1.jpg`);
+  assert.equal(lolSplash('characters/jinx/skins/base/images/jinx_splash_centered_0.jpg'), `${base}/characters/jinx/skins/base/images/jinx_splash_tile_0.jpg`);
+  assert.equal(lolSplash('characters/ahri/skins/base/images/ahri_splash_uncentered_0.jpg'), `${base}/characters/ahri/skins/base/images/ahri_splash_uncentered_0.jpg`);
   for (const odd of [undefined, 5, '', 'characters/ahri/../x.jpg', 'https://evil.example/x.jpg', 'characters/Ahri/skins/base/images/a.jpg', 'characters/ahri/skins/base/images/a.png']) assert.equal(lolSplash(odd), null);
   assert.equal(tftCompanion('tooltip_chibiahri_base_classic_tier1'), `${base}/loadouts/companions/tooltip_chibiahri_base_classic_tier1.png`);
   for (const odd of [undefined, null, '', '../x', 'Tooltip_A', 'a/b']) assert.equal(tftCompanion(odd), null);

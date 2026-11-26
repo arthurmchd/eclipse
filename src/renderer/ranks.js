@@ -88,7 +88,7 @@ export const valLargeArt = (card) => `${PLAYER_CARDS}/${cardId(card)}/largeart.p
 const GAME_DATA = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets';
 const BANNERS = `${GAME_DATA}/regalia/bannerskins`;
 
-export const lolSplash = (path) => typeof path === 'string' && /^characters\/[a-z0-9_]{1,40}\/skins\/[a-z0-9_]{1,40}\/images\/[a-z0-9_]{1,80}\.jpg$/.test(path) ? `${GAME_DATA}/${path}` : null;
+export const lolSplash = (path) => typeof path === 'string' && /^characters\/[a-z0-9_]{1,40}\/skins\/[a-z0-9_]{1,40}\/images\/[a-z0-9_]{1,80}\.jpg$/.test(path) ? `${GAME_DATA}/${path.replace(/_splash_centered_(\d+)\.jpg$/, '_splash_tile_$1.jpg')}` : null;
 export const tftCompanion = (name) => typeof name === 'string' && /^[a-z0-9_]{1,120}$/.test(name) ? `${GAME_DATA}/loadouts/companions/${name}.png` : null;
 
 export function lolBanner(saved) {
