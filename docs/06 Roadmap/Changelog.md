@@ -12,6 +12,7 @@ Mudanças relevantes, da mais nova para a mais antiga.
 - Relato do usuário: a conta entrou, o LoL não abriu e a interface do Eclipse sumiu, sem pedido de termos na Riot. O log mostrou HTTP 464 `eula_not_accepted` 2 s depois do login, e o Jogar seguinte, 38 s depois, foi aceito sem aceitar nada. Agora o pedido do jogo é repetido a cada 3 s por até 20 s antes de mostrar a Riot ([[signInFlow]], [[ADR-053 Etapas do login na tela até o jogo abrir]]).
 - Dois testes novos e dois ajustados. Não conferido na Riot real.
 - Na publicação, o clippy do CI recusou dois trechos do [[riotLogo]] (`map_or(true, …)` e o tipo da memória do logo); trocados por `is_none_or` e um apelido de tipo, sem mudança de comportamento, e o Setup gerado de novo.
+- Publicado em 2026-11-26 a pedido do usuário: PR #10 no `main` (versões 2.28.2 a 2.32.2) e release `v2.32.2` com Setup, `.sig` e `latest.json`; o endereço da atualização responde com a 2.32.2 e o SHA-256 do Setup confere. Testes do CI verdes. Sem a conferência na Riot real do guia ([[Publicar no GitHub]]).
 
 ## 2026-11-26 · Eclipse 2.32.1: sessão guardada não some depois do jogo
 
